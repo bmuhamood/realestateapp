@@ -1,5 +1,7 @@
 /**
- * Chatbot.tsx — Enhanced AI Property Assistant with Responsive Design
+ * Chatbot.tsx — Enhanced AI Property Assistant with Multi-Agent Support
+ * Now supports: Property Search, Price Analysis, Investment Advice, 
+ * Location Info, Legal Help, Mortgage Calculator, Construction Advice
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -35,7 +37,22 @@ interface Message {
   quickReplies?: string[];
   intent?: string;
   confidence?: number;
+  agent_used?: string;  // Track which agent handled the query
+  collaboration_note?: string; // Multi-agent collaboration message
 }
+
+// Agent colors and icons
+const AGENT_STYLES: Record<string, { icon: string; color: string; bg: string }> = {
+  'Property Finder': { icon: '🏠', color: '#e63946', bg: 'rgba(230,57,70,0.1)' },
+  'Price Analyst': { icon: '💰', color: '#2ecc71', bg: 'rgba(46,204,113,0.1)' },
+  'Investment Advisor': { icon: '📈', color: '#f39c12', bg: 'rgba(243,156,18,0.1)' },
+  'Location Expert': { icon: '📍', color: '#3498db', bg: 'rgba(52,152,219,0.1)' },
+  'Booking Specialist': { icon: '📅', color: '#9b59b6', bg: 'rgba(155,89,182,0.1)' },
+  'Mortgage Expert': { icon: '🏦', color: '#1abc9c', bg: 'rgba(26,188,156,0.1)' },
+  'Legal Advisor': { icon: '⚖️', color: '#e74c3c', bg: 'rgba(231,76,60,0.1)' },
+  'Construction Expert': { icon: '🏗️', color: '#34495e', bg: 'rgba(52,73,94,0.1)' },
+  'Orchestrator': { icon: '🎯', color: '#95a5a6', bg: 'rgba(149,165,166,0.1)' },
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmtTime = (d: Date) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -103,6 +120,26 @@ const RichText: React.FC<{ text: string; onLink: (url: string) => void }> = ({ t
     return parts.length > 0 ? parts : [<span key="0">{line}</span>];
   };
 
+  // Parse bold text
+  const parseBold = (line: string, idx: number) => {
+    const parts: React.ReactNode[] = [];
+    let last = 0;
+    const boldRegex = /\*\*([^*]+)\*\*/g;
+    let match: RegExpExecArray | null;
+    
+    while ((match = boldRegex.exec(line)) !== null) {
+      if (match.index > last) {
+        parts.push(<span key={`t${last}`}>{line.slice(last, match.index)}</span>);
+      }
+      parts.push(<strong key={`b${match.index}`}>{match[1]}</strong>);
+      last = match.index + match[0].length;
+    }
+    if (last < line.length) {
+      parts.push(<span key={`t${last}`}>{line.slice(last)}</span>);
+    }
+    return parts.length > 0 ? parts : parseLine(line, idx);
+  };
+
   const lines = text.split('\n');
   return (
     <>
@@ -114,7 +151,7 @@ const RichText: React.FC<{ text: string; onLink: (url: string) => void }> = ({ t
           return (
             <div key={i} style={rt.bulletRow}>
               <span style={rt.bullet}>•</span>
-              <span>{parseLine(content, i)}</span>
+              <span>{parseBold(content, i)}</span>
             </div>
           );
         }
@@ -124,16 +161,14 @@ const RichText: React.FC<{ text: string; onLink: (url: string) => void }> = ({ t
           return (
             <div key={i} style={rt.bulletRow}>
               <span style={{ ...rt.bullet, fontWeight: 700, minWidth: 18 }}>{numMatch[1]}.</span>
-              <span>{parseLine(numMatch[2], i)}</span>
+              <span>{parseBold(numMatch[2], i)}</span>
             </div>
           );
         }
 
-        const boldParsed = parseLine(line.replace(/\*\*([^*]+)\*\*/g, '$1'), i);
-
         return (
           <React.Fragment key={i}>
-            {boldParsed}
+            {parseBold(line, i)}
             {i < lines.length - 1 && <br />}
           </React.Fragment>
         );
@@ -152,6 +187,35 @@ const rt: Record<string, React.CSSProperties> = {
   },
   bulletRow: { display: 'flex', alignItems: 'flex-start', gap: 8, margin: '3px 0' },
   bullet: { color: RED, flexShrink: 0, fontWeight: 700 },
+};
+
+// ─── Agent Badge Component ────────────────────────────────────────────────────
+const AgentBadge: React.FC<{ agentName?: string }> = ({ agentName }) => {
+  if (!agentName) return null;
+  const style = AGENT_STYLES[agentName] || AGENT_STYLES['Orchestrator'];
+  
+  return (
+    <div style={agentBadge.container}>
+      <span style={agentBadge.icon}>{style.icon}</span>
+      <span style={agentBadge.name}>{agentName}</span>
+    </div>
+  );
+};
+
+const agentBadge = {
+  container: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 4,
+    padding: '2px 8px',
+    borderRadius: 12,
+    fontSize: 9,
+    fontWeight: 600,
+    marginBottom: 6,
+    backgroundColor: '#f0f0f0',
+  },
+  icon: { fontSize: 10 },
+  name: { color: '#666' },
 };
 
 // ─── Property Mini-Card (Single) ──────────────────────────────────────────────
@@ -331,7 +395,7 @@ const Chatbot: React.FC = () => {
     adjustTextareaHeight();
   }, [input, adjustTextareaHeight]);
 
-  // Init greeting
+  // Init greeting with agent info
   useEffect(() => {
     if (authLoading || initialized) return;
     setInitialized(true);
@@ -341,13 +405,32 @@ const Chatbot: React.FC = () => {
     setMessages([{
       id: '1',
       text: isAuthenticated && user
-        ? `👋 Welcome back, **${name}!**\n\nI'm your AI property assistant. I can help you:\n• 🏠 Find the right property\n• 💰 Search within your budget\n• 📅 Book viewings\n• 🔧 Discover property services\n\nWhat are you looking for today?`
-        : `👋 Hi there! I'm **PropertyGPT**, your AI property assistant.\n\n🔍 I can help you find properties across Uganda — even without an account.\n\n[🔑 Login](/login) or [📝 Create an account](/register) for the best experience.\n\nWhat would you like to search for?`,
+        ? `👋 Welcome back, **${name}!**\n\nI'm your AI property assistant with a team of specialized experts:\n\n` +
+          `🏠 **Property Finder** - Find your dream home\n` +
+          `💰 **Price Analyst** - Market prices & budgets\n` +
+          `📈 **Investment Advisor** - ROI & wealth building\n` +
+          `📍 **Location Expert** - Neighborhood insights\n` +
+          `📅 **Booking Specialist** - Viewing appointments\n` +
+          `🏦 **Mortgage Expert** - Home loans & financing\n` +
+          `⚖️ **Legal Advisor** - Property law & compliance\n` +
+          `🏗️ **Construction Expert** - Building & renovation\n\n` +
+          `What would you like help with today?`
+        : `👋 Hi there! I'm **PropertyGPT** - your AI property assistant with a team of experts.\n\n` +
+          `🔍 I can help you find properties, check prices, get investment advice, and more — even without an account.\n\n` +
+          `[🔑 Login](/login) or [📝 Create an account](/register) for the best experience.\n\n` +
+          `Try asking:\n` +
+          `• "Find 3 bedroom houses in Kololo"\n` +
+          `• "What's the average price in Kira?"\n` +
+          `• "Is Nansana good for investment?"\n` +
+          `• "Calculate mortgage for 500M property"\n` +
+          `• "What documents do I need to buy land?"\n` +
+          `• "Cost to build 200 sqm house"`,
       sender: 'bot',
       timestamp: new Date(),
       quickReplies: isAuthenticated
-        ? ['🏠 Houses in Kampala', '💰 Under UGX 500K', '📅 Book a viewing', '🔧 Property services']
-        : ['Find properties', 'Houses for sale', 'Apartments for rent', 'Login'],
+        ? ['🏠 Find properties', '💰 Price check', '📈 Investment', '🏦 Mortgage', '⚖️ Legal', '🏗️ Construction']
+        : ['Find properties', 'Price check', 'Investment advice', 'Login'],
+      agent_used: 'Orchestrator',
     }]);
   }, [authLoading, initialized, isAuthenticated, user]);
 
@@ -435,8 +518,16 @@ const Chatbot: React.FC = () => {
 
     setMessages(prev => [...prev, userMsg, typingMsg]);
 
+    // Simulate "thinking deeply" after 3 seconds
+    const longThinkingTimeout = setTimeout(() => setIsTypingLong(true), 3000);
+
     try {
-      const res = await api.post('/chatbot/message/', { message: msg });
+      const res = await api.post('/chatbot/message/', { 
+        message: msg,
+        session_id: localStorage.getItem('chat_session_id') || Date.now().toString()
+      });
+      
+      clearTimeout(longThinkingTimeout);
       
       const messageData: Message = {
         id: (Date.now() + 1).toString(),
@@ -446,20 +537,34 @@ const Chatbot: React.FC = () => {
         suggestions: res.data.suggestions,
         property: res.data.property,
         properties: res.data.properties,
+        quickReplies: res.data.quick_replies,
         intent: res.data.intent,
+        agent_used: res.data.agent_used,
+        collaboration_note: res.data.collaboration_note,
       };
       
       setMessages(prev => [...prev.filter(m => m.id !== typingId), messageData]);
       if (!open) setUnread(u => Math.min(u + 1, 99));
-    } catch {
+    } catch (error: any) {
+      console.error('Chatbot error:', error);
+      clearTimeout(longThinkingTimeout);
+      
+      let errorText = "I'm having trouble connecting right now. Please try again in a moment.";
+      
+      if (error.response?.data?.detail) {
+        errorText = error.response.data.detail;
+      } else if (error.message) {
+        errorText = `Connection error: ${error.message}`;
+      }
+      
       setMessages(prev => [
         ...prev.filter(m => m.id !== typingId),
         {
           id: (Date.now() + 1).toString(),
-          text: "I'm having trouble connecting right now. Please try again in a moment.",
+          text: errorText,
           sender: 'bot',
           timestamp: new Date(),
-          quickReplies: ['Try again', 'Browse properties', 'Contact support'],
+          quickReplies: ['Try again 🔄', 'Browse properties 🏠', 'Contact support 📧'],
         },
       ]);
     } finally {
@@ -600,7 +705,7 @@ const Chatbot: React.FC = () => {
               <div style={panel.headerName}>PropertyGPT</div>
               <div style={panel.headerStatus}>
                 <span style={panel.onlineDot} />
-                Online · AI-powered
+                8 AI Experts Online
               </div>
             </div>
           </div>
@@ -626,7 +731,7 @@ const Chatbot: React.FC = () => {
         {/* Powered-by strip */}
         <div style={panel.poweredBy}>
           <span style={panel.poweredByDot}>✦</span>
-          Uganda's first AI property search assistant
+          Uganda's first multi-agent AI property assistant
         </div>
 
         {/* Messages Container */}
@@ -640,7 +745,7 @@ const Chatbot: React.FC = () => {
                     <TypingDots />
                     {isTypingLong && (
                       <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 4 }}>
-                        Thinking deeply...
+                        Consulting experts...
                       </div>
                     )}
                   </div>
@@ -654,9 +759,21 @@ const Chatbot: React.FC = () => {
                       ...bub.bubble,
                       ...(msg.sender === 'user' ? bub.userBubble : bub.botBubble),
                     }}>
+                      {/* Agent badge */}
+                      {msg.agent_used && msg.sender === 'bot' && (
+                        <AgentBadge agentName={msg.agent_used} />
+                      )}
+                      
                       <div style={{ fontSize: responsive.isMobile ? 12 : 13, lineHeight: 1.55 }}>
                         <RichText text={msg.text} onLink={handleLink} />
                       </div>
+
+                      {/* Collaboration note */}
+                      {msg.collaboration_note && msg.sender === 'bot' && (
+                        <div style={bub.collabNote}>
+                          <span>💡</span> {msg.collaboration_note}
+                        </div>
+                      )}
 
                       {/* Multiple properties */}
                       {msg.properties && msg.properties.length > 0 && (
@@ -708,7 +825,7 @@ const Chatbot: React.FC = () => {
         </div>
 
         {/* Quick replies */}
-        {lastMsg?.quickReplies && lastMsg.quickReplies.length > 0 && (
+        {lastMsg?.quickReplies && lastMsg.quickReplies.length > 0 && !loading && (
           <div style={panel.quickRow}>
             <span style={panel.quickLabel}>Suggested replies:</span>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
@@ -725,7 +842,7 @@ const Chatbot: React.FC = () => {
         <div style={panel.inputRow}>
           <textarea
             ref={inputRef}
-            placeholder="Ask me anything about properties…"
+            placeholder="Ask me anything... (Try: 'Find houses in Kololo', 'Mortgage for 500M', 'Investment in Kira')"
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -752,7 +869,7 @@ const Chatbot: React.FC = () => {
         </div>
         
         <div style={panel.footer}>
-          🤖 Powered by AI · PropertyHub.ug
+          🤖 8 AI Experts · PropertyHub.ug
         </div>
       </div>
     </>
@@ -1037,6 +1154,16 @@ const bub: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     fontFamily: 'inherit',
     transition: 'all 0.2s',
+  },
+  collabNote: {
+    marginTop: 10,
+    paddingTop: 8,
+    borderTop: '1px dashed #e2e8f0',
+    fontSize: 11,
+    color: '#64748b',
+    display: 'flex',
+    gap: 6,
+    alignItems: 'center',
   },
 };
 

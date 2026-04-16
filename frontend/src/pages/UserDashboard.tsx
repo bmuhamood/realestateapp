@@ -286,7 +286,7 @@ const UserDashboard: React.FC = () => {
   const [activeTab, setActiveTab]         = useState(0);
   const [bookings, setBookings]           = useState<Booking[]>([]);
   const [svcBookings, setSvcBookings]     = useState<ServiceBooking[]>([]);
-  const [favorites, setFavorites]         = useState<Favorite[]>([]);
+  const [favorites, setFavorites]         = useState<any[]>([]); // ✅ CHANGED: Store properties directly
   const [payments, setPayments]           = useState<Payment[]>([]);
   const [reviews, setReviews]             = useState<Review[]>([]);
   const [loading, setLoading]             = useState(true);
@@ -339,13 +339,17 @@ const UserDashboard: React.FC = () => {
       const [bRes, sbRes, fRes, pRes, rRes] = await Promise.all([
         api.get('/bookings/my/'),
         api.get('/services/bookings/'),
-        api.get('/favorites/'),
+        api.get('/properties/favorites/'), // ✅ FIXED: Correct endpoint
         api.get('/payments/'),
         api.get('/reviews/'),
       ]);
       setBookings(bRes.data.results ?? bRes.data);
       setSvcBookings(sbRes.data.results ?? sbRes.data);
-      setFavorites(fRes.data.results ?? fRes.data);
+      
+      // ✅ FIXED: Store properties directly (not wrapped in Favorite object)
+      const favoriteProperties = fRes.data.results ?? fRes.data;
+      setFavorites(favoriteProperties);
+      
       setPayments(pRes.data.results ?? pRes.data);
       setReviews(rRes.data.results ?? rRes.data);
     } catch { /* silent */ }
@@ -385,12 +389,15 @@ const UserDashboard: React.FC = () => {
     finally { setCancelLoading(false); }
   };
 
-  const handleRemoveFav = async (propId: number) => {
+  // ✅ FIXED: Updated to use POST to like endpoint
+  const handleRemoveFav = async (propertyId: number) => {
     try {
-      await api.delete(`/favorites/${propId}/`);
+      await api.post(`/properties/${propertyId}/like/`);
       await fetchAll();
       showToast('✅ Removed from favorites.');
-    } catch { showToast('❌ Failed to remove.'); }
+    } catch { 
+      showToast('❌ Failed to remove.'); 
+    }
   };
 
   const handleReview = async () => {
@@ -659,7 +666,7 @@ const UserDashboard: React.FC = () => {
               </div>
             )}
 
-            {/* ── 2: Favorites ── */}
+            {/* ── 2: Favorites - ✅ COMPLETELY FIXED ── */}
             {activeTab === 2 && (
               <div style={pg.tabPane}>
                 <div style={pg.tabHead}>
@@ -670,28 +677,29 @@ const UserDashboard: React.FC = () => {
                   <EmptyState icon="❤️" title="No saved properties" desc="Save properties you love for quick access." btnLabel="Browse Properties" onClick={() => navigate('/')} />
                 ) : (
                   <div style={pg.favGrid}>
-                    {favorites.map(fav => (
-                      <div key={fav.id} style={pg.favCard}>
-                        {fav.property.images?.[0]?.image && (
+                    {/* ✅ FIXED: Direct property access, not fav.property */}
+                    {favorites.map((property) => (
+                      <div key={property.id} style={pg.favCard}>
+                        {property.images?.[0]?.image && (
                           <div style={{ height: 140, overflow: 'hidden', borderRadius: '12px 12px 0 0', flexShrink: 0 }}>
-                            <img src={fav.property.images[0].image} alt={fav.property.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            <img src={property.images[0].image} alt={property.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                           </div>
                         )}
                         <div style={{ padding: '14px' }}>
                           <div style={{ fontSize: 18, fontWeight: 900, color: RED, fontFamily: "'Sora', sans-serif", marginBottom: 4 }}>
-                            {fmt(fav.property.price)}
+                            {fmt(property.price)}
                           </div>
                           <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, marginBottom: 6, lineHeight: 1.35 }}>
-                            {fav.property.title}
+                            {property.title}
                           </div>
                           <div style={{ fontSize: 11, color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 12 }}>
-                            📍 {fav.property.district}, {fav.property.city}
+                            📍 {property.district}, {property.city}
                           </div>
                           <div style={{ display: 'flex', gap: 8 }}>
-                            <button onClick={() => navigate(`/property/${fav.property.id}`)} style={{ ...pg.viewBtn, flex: 1 }}>
+                            <button onClick={() => navigate(`/property/${property.id}`)} style={{ ...pg.viewBtn, flex: 1 }}>
                               View →
                             </button>
-                            <button onClick={() => handleRemoveFav(fav.property.id)} style={{ ...pg.dangerBtn, flex: 1 }}>
+                            <button onClick={() => handleRemoveFav(property.id)} style={{ ...pg.dangerBtn, flex: 1 }}>
                               Remove
                             </button>
                           </div>

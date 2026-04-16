@@ -9,6 +9,7 @@ class User(AbstractUser):
     is_verified = models.BooleanField(default=False)
     verification_document = models.FileField(upload_to='verifications/', null=True, blank=True)
     profile_picture = models.ImageField(upload_to='profiles/', null=True, blank=True)
+    cover_photo = models.ImageField(upload_to='covers/', null=True, blank=True)  # Add this
     bio = models.TextField(max_length=500, blank=True)
     location = models.CharField(max_length=255, blank=True)
     district = models.CharField(max_length=100, blank=True)

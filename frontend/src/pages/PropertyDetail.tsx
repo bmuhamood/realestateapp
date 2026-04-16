@@ -1,17 +1,15 @@
 /**
- * PropertyDetail.tsx — Bayut-inspired property detail page
- *
- * Design language: Clean white, Bayut red (#e63946) accents,
- * Sora display font, editorial layout with sticky agent card,
- * immersive image gallery with lightbox, smooth animations.
+ * PropertyDetail.tsx — Fully upgraded property detail page with video, neighborhood, schools, amenities, security
  *
  * Sections:
- *  1. Sticky breadcrumb + action bar
- *  2. Image gallery (main + thumbnails + lightbox)
- *  3. Two-column: left = details, right = sticky agent card
- *     Left: price/title/location, features grid, description,
- *           property details table, map placeholder, reviews
- *  4. Similar properties (PropertyRecommendations)
+ *  1. Video tour section
+ *  2. Neighborhood information
+ *  3. Schools & education
+ *  4. Transportation & roads
+ *  5. Amenities & features
+ *  6. Security features
+ *  7. Utilities & outdoor features
+ *  8. Legal information
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -22,12 +20,13 @@ import { useAuth } from '../contexts/AuthContext';
 import PropertyRecommendations from '../components/Recommendations/PropertyRecommendations';
 
 // ─── Brand ────────────────────────────────────────────────────────────────────
-const RED      = '#e63946';
+const RED = '#e63946';
 const RED_DARK = '#c1121f';
-const RED_BG   = 'rgba(230,57,70,0.07)';
-const NAVY     = '#0d1b2e';
-const TEAL     = '#25a882';
-const SLATE    = '#475569';
+const RED_BG = 'rgba(230,57,70,0.07)';
+const NAVY = '#0d1b2e';
+const TEAL = '#25a882';
+const SLATE = '#475569';
+const GOLD = '#f59e0b';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const formatPrice = (price: number) =>
@@ -48,10 +47,10 @@ const getInitials = (first?: string, last?: string, username?: string) => {
 // ─── Star Rating ──────────────────────────────────────────────────────────────
 const Stars: React.FC<{ rating: number; size?: number }> = ({ rating, size = 14 }) => (
   <span style={{ display: 'inline-flex', gap: 2 }}>
-    {[1,2,3,4,5].map(i => (
+    {[1, 2, 3, 4, 5].map(i => (
       <svg key={i} width={size} height={size} viewBox="0 0 24 24"
-        fill={i <= Math.round(rating) ? '#f59e0b' : 'none'}
-        stroke={i <= Math.round(rating) ? '#f59e0b' : '#d1d5db'} strokeWidth="1.5">
+        fill={i <= Math.round(rating) ? GOLD : 'none'}
+        stroke={i <= Math.round(rating) ? GOLD : '#d1d5db'} strokeWidth="1.5">
         <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z" />
       </svg>
     ))}
@@ -66,11 +65,24 @@ const FeatureBox: React.FC<{ icon: string; value: string | number; label: string
     <div style={feat.label}>{label}</div>
   </div>
 );
+
 const feat: Record<string, React.CSSProperties> = {
-  box:   { textAlign: 'center', padding: '18px 12px', borderRadius: 14, backgroundColor: '#f8faff', border: '1px solid #eef2f7', flex: 1, minWidth: 80 },
-  icon:  { fontSize: 28, marginBottom: 8 },
+  box: { textAlign: 'center', padding: '18px 12px', borderRadius: 14, backgroundColor: '#f8faff', border: '1px solid #eef2f7', flex: 1, minWidth: 80 },
+  icon: { fontSize: 28, marginBottom: 8 },
   value: { fontSize: 22, fontWeight: 800, color: NAVY, fontFamily: "'Sora', sans-serif", lineHeight: 1 },
   label: { fontSize: 11, color: '#94a3b8', fontWeight: 600, marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.06em' },
+};
+
+// ─── Amenity Chip ─────────────────────────────────────────────────────────────
+const AmenityChip: React.FC<{ icon: string; label: string }> = ({ icon, label }) => (
+  <div style={ac.chip}>
+    <span style={{ fontSize: 16 }}>{icon}</span>
+    <span style={{ fontSize: 12, fontWeight: 500 }}>{label}</span>
+  </div>
+);
+
+const ac: Record<string, React.CSSProperties> = {
+  chip: { display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', backgroundColor: '#f8faff', border: '1px solid #eef2f7', borderRadius: 30, fontSize: 12 },
 };
 
 // ─── Detail Row ───────────────────────────────────────────────────────────────
@@ -80,8 +92,9 @@ const DetailRow: React.FC<{ label: string; value: React.ReactNode }> = ({ label,
     <span style={dr.value}>{value}</span>
   </div>
 );
+
 const dr: Record<string, React.CSSProperties> = {
-  row:   { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #f1f5f9' },
+  row: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #f1f5f9' },
   label: { fontSize: 13, color: '#64748b', fontWeight: 500 },
   value: { fontSize: 13, color: NAVY, fontWeight: 700, textAlign: 'right' },
 };
@@ -102,13 +115,379 @@ const ReviewCard: React.FC<{ review: Review }> = ({ review }) => (
     <p style={rv.comment}>{review.comment}</p>
   </div>
 );
+
 const rv: Record<string, React.CSSProperties> = {
-  card:    { padding: '16px', borderRadius: 14, backgroundColor: '#f8faff', border: '1px solid #eef2f7', marginBottom: 12 },
-  top:     { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 },
-  avatar:  { width: 38, height: 38, borderRadius: '50%', backgroundColor: RED_BG, border: `2px solid ${RED}`, color: RED, fontSize: 13, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  name:    { fontSize: 13, fontWeight: 700, color: NAVY },
-  date:    { marginLeft: 'auto', fontSize: 11, color: '#94a3b8' },
+  card: { padding: '16px', borderRadius: 14, backgroundColor: '#f8faff', border: '1px solid #eef2f7', marginBottom: 12 },
+  top: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 },
+  avatar: { width: 38, height: 38, borderRadius: '50%', backgroundColor: RED_BG, border: `2px solid ${RED}`, color: RED, fontSize: 13, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  name: { fontSize: 13, fontWeight: 700, color: NAVY },
+  date: { marginLeft: 'auto', fontSize: 11, color: '#94a3b8' },
   comment: { margin: 0, fontSize: 13, color: SLATE, lineHeight: 1.6 },
+};
+
+// ─── Video Player Component ──────────────────────────────────────────────────
+const VideoPlayer: React.FC<{ property: Property }> = ({ property }) => {
+  const [showVideo, setShowVideo] = useState(false);
+  const hasVideo = property.has_video || property.video_url || property.video_file;
+
+  if (!hasVideo) return null;
+
+  // Convert null to undefined and ensure it's a string
+  const videoUrl = property.video_url || property.video_file || undefined;
+
+  return (
+    <div style={vp.container}>
+      <h2 style={pg.sectionTitle}>🎬 Property Video Tour</h2>
+      <div style={vp.videoWrapper}>
+        {!showVideo ? (
+          <div style={vp.thumbnailWrapper} onClick={() => setShowVideo(true)}>
+            {property.video_thumbnail ? (
+              <img src={property.video_thumbnail} alt="Video thumbnail" style={vp.thumbnail} />
+            ) : (
+              <div style={vp.thumbnailPlaceholder}>
+                <span style={{ fontSize: 48 }}>🎥</span>
+                <span style={{ marginTop: 12, fontSize: 14, fontWeight: 600 }}>Watch Video Tour</span>
+              </div>
+            )}
+            <div style={vp.playButton}>▶</div>
+          </div>
+        ) : (
+          <video controls autoPlay style={vp.video}>
+            <source src={videoUrl} type="video/mp4" />
+            Your browser does not support the video tag.
+          </video>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const vp: Record<string, React.CSSProperties> = {
+  container: { marginBottom: 24 },
+  videoWrapper: { position: 'relative', borderRadius: 16, overflow: 'hidden', backgroundColor: '#000', aspectRatio: '16/9' },
+  thumbnailWrapper: { position: 'relative', cursor: 'pointer', height: '100%' },
+  thumbnail: { width: '100%', height: '100%', objectFit: 'cover' },
+  thumbnailPlaceholder: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', backgroundColor: '#1e293b', color: '#fff' },
+  playButton: { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 70, height: 70, borderRadius: '50%', backgroundColor: 'rgba(230,57,70,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, color: '#fff', cursor: 'pointer', transition: 'transform 0.2s' },
+  video: { width: '100%', height: '100%', outline: 'none' },
+};
+
+// ─── Neighborhood Section ────────────────────────────────────────────────────
+const NeighborhoodSection: React.FC<{ property: Property }> = ({ property }) => {
+  const hasNeighborhoodInfo = property.neighborhood_name || property.neighborhood_description ||
+    property.distance_to_city_center || property.distance_to_airport || property.distance_to_highway;
+
+  if (!hasNeighborhoodInfo) return null;
+
+  return (
+    <div style={pg.section}>
+      <h2 style={pg.sectionTitle}>🏘️ Neighborhood</h2>
+      {property.neighborhood_name && (
+        <div style={{ marginBottom: 12 }}>
+          <strong style={{ color: NAVY }}>{property.neighborhood_name}</strong>
+        </div>
+      )}
+      {property.neighborhood_description && (
+        <p style={pg.description}>{property.neighborhood_description}</p>
+      )}
+      <div style={ns.grid}>
+        {property.distance_to_city_center && (
+          <div style={ns.card}>
+            <span style={{ fontSize: 24 }}>🏙️</span>
+            <div style={ns.value}>{property.distance_to_city_center} km</div>
+            <div style={ns.label}>To City Center</div>
+          </div>
+        )}
+        {property.distance_to_airport && (
+          <div style={ns.card}>
+            <span style={{ fontSize: 24 }}>✈️</span>
+            <div style={ns.value}>{property.distance_to_airport} km</div>
+            <div style={ns.label}>To Airport</div>
+          </div>
+        )}
+        {property.distance_to_highway && (
+          <div style={ns.card}>
+            <span style={{ fontSize: 24 }}>🛣️</span>
+            <div style={ns.value}>{property.distance_to_highway} km</div>
+            <div style={ns.label}>To Highway</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const ns: Record<string, React.CSSProperties> = {
+  grid: { display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 16 },
+  card: { flex: 1, minWidth: 100, textAlign: 'center', padding: '16px', backgroundColor: '#f8faff', borderRadius: 12, border: '1px solid #eef2f7' },
+  value: { fontSize: 18, fontWeight: 800, color: NAVY, marginTop: 8 },
+  label: { fontSize: 11, color: '#94a3b8', marginTop: 4 },
+};
+
+// ─── Schools Section ─────────────────────────────────────────────────────────
+const SchoolsSection: React.FC<{ property: Property }> = ({ property }) => {
+  const schools = property.nearby_schools_list || [];
+  const hasSchoolsInfo = schools.length > 0 || property.distance_to_nearest_school || property.school_rating;
+
+  if (!hasSchoolsInfo) return null;
+
+  return (
+    <div style={pg.section}>
+      <h2 style={pg.sectionTitle}>🎓 Nearby Schools</h2>
+      {property.school_rating && (
+        <div style={ss.ratingRow}>
+          <span style={{ fontWeight: 600 }}>Area School Rating:</span>
+          <Stars rating={property.school_rating} size={14} />
+          <span style={{ color: SLATE }}>({property.school_rating})</span>
+        </div>
+      )}
+      {property.distance_to_nearest_school && (
+        <DetailRow label="Nearest School" value={`${property.distance_to_nearest_school} km away`} />
+      )}
+      {schools.length > 0 && (
+        <div style={{ marginTop: 12 }}>
+          <strong style={{ fontSize: 13, color: NAVY }}>Nearby Schools:</strong>
+          <div style={ss.schoolsList}>
+            {schools.map((school, idx) => (
+              <div key={idx} style={ss.schoolChip}>
+                <span>🏫</span> {school}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const ss: Record<string, React.CSSProperties> = {
+  ratingRow: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, padding: '8px 12px', backgroundColor: 'rgba(245,158,11,0.08)', borderRadius: 10 },
+  schoolsList: { display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 },
+  schoolChip: { display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', backgroundColor: '#f8faff', border: '1px solid #eef2f7', borderRadius: 20, fontSize: 12 },
+};
+
+// ─── Transportation Section ───────────────────────────────────────────────────
+const TransportationSection: React.FC<{ property: Property }> = ({ property }) => {
+  const roads = property.nearby_roads_list || [];
+  const hasTransportInfo = roads.length > 0 || property.nearest_road || property.public_transport;
+
+  if (!hasTransportInfo) return null;
+
+  return (
+    <div style={pg.section}>
+      <h2 style={pg.sectionTitle}>🚗 Transportation</h2>
+      {property.nearest_road && (
+        <DetailRow label="Nearest Main Road" value={property.nearest_road} />
+      )}
+      {property.public_transport && (
+        <div style={ts.transportBadge}>
+          <span>🚌</span> Public transport available nearby
+        </div>
+      )}
+      {property.nearest_bus_stop && (
+        <DetailRow label="Nearest Bus Stop" value={property.nearest_bus_stop} />
+      )}
+      {roads.length > 0 && (
+        <div style={{ marginTop: 12 }}>
+          <strong style={{ fontSize: 13, color: NAVY }}>Nearby Roads:</strong>
+          <div style={ts.roadsList}>
+            {roads.map((road, idx) => (
+              <div key={idx} style={ts.roadChip}>🛣️ {road}</div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const ts: Record<string, React.CSSProperties> = {
+  transportBadge: { display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', backgroundColor: 'rgba(37,168,130,0.08)', borderRadius: 10, marginBottom: 16 },
+  roadsList: { display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 },
+  roadChip: { padding: '6px 12px', backgroundColor: '#f8faff', border: '1px solid #eef2f7', borderRadius: 20, fontSize: 12 },
+};
+
+// ─── Amenities Grid ──────────────────────────────────────────────────────────
+const AmenitiesGrid: React.FC<{ property: Property }> = ({ property }) => {
+  const amenities = property.amenities_list || [];
+  if (amenities.length === 0) return null;
+
+  const amenityIcons: Record<string, string> = {
+    'swimming pool': '🏊',
+    'gym': '💪',
+    'security': '🔒',
+    'parking': '🅿️',
+    'garden': '🌿',
+    'balcony': '🏡',
+    'air conditioning': '❄️',
+    'internet': '📶',
+    'cctv': '📹',
+    'solar': '☀️',
+    'generator': '⚡',
+    'water tank': '💧',
+  };
+
+  return (
+    <div style={pg.section}>
+      <h2 style={pg.sectionTitle}>✨ Amenities & Features</h2>
+      <div style={ag.grid}>
+        {amenities.map((amenity, idx) => (
+          <AmenityChip key={idx} icon={amenityIcons[amenity.toLowerCase()] || '✓'} label={amenity} />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const ag: Record<string, React.CSSProperties> = {
+  grid: { display: 'flex', flexWrap: 'wrap', gap: 10 },
+};
+
+// ─── Security Features Section ───────────────────────────────────────────────
+const SecurityFeatures: React.FC<{ property: Property }> = ({ property }) => {
+  const securityFeatures = [
+    { key: 'has_security', label: 'Security', icon: '🔒' },
+    { key: 'has_cctv', label: 'CCTV', icon: '📹' },
+    { key: 'has_electric_fence', label: 'Electric Fence', icon: '⚡' },
+    { key: 'has_security_lights', label: 'Security Lights', icon: '💡' },
+    { key: 'has_security_guards', label: 'Security Guards', icon: '👮' },
+    { key: 'has_gated_community', label: 'Gated Community', icon: '🏘️' },
+  ].filter(f => property[f.key as keyof Property]);
+
+  if (securityFeatures.length === 0) return null;
+
+  return (
+    <div style={pg.section}>
+      <h2 style={pg.sectionTitle}>🔒 Security Features</h2>
+      <div style={sf.grid}>
+        {securityFeatures.map((feature, idx) => (
+          <div key={idx} style={sf.featureChip}>
+            <span>{feature.icon}</span> {feature.label}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const sf: Record<string, React.CSSProperties> = {
+  grid: { display: 'flex', flexWrap: 'wrap', gap: 10 },
+  featureChip: { display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', backgroundColor: 'rgba(76,175,80,0.08)', border: '1px solid rgba(76,175,80,0.2)', borderRadius: 20, fontSize: 12, fontWeight: 500 },
+};
+
+// ─── Utilities Section ───────────────────────────────────────────────────────
+const UtilitiesSection: React.FC<{ property: Property }> = ({ property }) => {
+  const utilities = [
+    { key: 'has_solar', label: 'Solar Power', icon: '☀️' },
+    { key: 'has_backup_generator', label: 'Backup Generator', icon: '⚡' },
+    { key: 'has_water_tank', label: 'Water Tank', icon: '💧' },
+    { key: 'has_borehole', label: 'Borehole', icon: '🚰' },
+    { key: 'has_internet', label: 'High-speed Internet', icon: '📶' },
+    { key: 'has_cable_tv', label: 'Cable TV', icon: '📺' },
+  ].filter(f => property[f.key as keyof Property]);
+
+  if (utilities.length === 0) return null;
+
+  return (
+    <div style={pg.section}>
+      <h2 style={pg.sectionTitle}>💡 Utilities</h2>
+      <div style={ut.grid}>
+        {utilities.map((util, idx) => (
+          <div key={idx} style={ut.utilChip}>
+            <span>{util.icon}</span> {util.label}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const ut: Record<string, React.CSSProperties> = {
+  grid: { display: 'flex', flexWrap: 'wrap', gap: 10 },
+  utilChip: { display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', backgroundColor: 'rgba(13,27,46,0.05)', borderRadius: 20, fontSize: 12 },
+};
+
+// ─── Outdoor Features Section ────────────────────────────────────────────────
+const OutdoorFeatures: React.FC<{ property: Property }> = ({ property }) => {
+  const outdoor = [
+    { key: 'has_garden', label: 'Garden', icon: '🌿' },
+    { key: 'has_balcony', label: 'Balcony', icon: '🏡' },
+    { key: 'has_terrace', label: 'Terrace', icon: '🍃' },
+    { key: 'has_swimming_pool', label: 'Swimming Pool', icon: '🏊' },
+    { key: 'has_playground', label: 'Playground', icon: '🎠' },
+    { key: 'has_bbq_area', label: 'BBQ Area', icon: '🍖' },
+  ].filter(f => property[f.key as keyof Property]);
+
+  if (outdoor.length === 0) return null;
+
+  return (
+    <div style={pg.section}>
+      <h2 style={pg.sectionTitle}>🌳 Outdoor Features</h2>
+      <div style={od.grid}>
+        {outdoor.map((feature, idx) => (
+          <div key={idx} style={od.featureChip}>
+            <span>{feature.icon}</span> {feature.label}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const od: Record<string, React.CSSProperties> = {
+  grid: { display: 'flex', flexWrap: 'wrap', gap: 10 },
+  featureChip: { display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', backgroundColor: 'rgba(37,168,130,0.08)', borderRadius: 20, fontSize: 12 },
+};
+
+// ─── Interior Features Section ───────────────────────────────────────────────
+const InteriorFeatures: React.FC<{ property: Property }> = ({ property }) => {
+  const interior = [
+    { key: 'has_air_conditioning', label: 'Air Conditioning', icon: '❄️' },
+    { key: 'has_heating', label: 'Heating', icon: '🔥' },
+    { key: 'has_fireplace', label: 'Fireplace', icon: '🪵' },
+    { key: 'has_modern_kitchen', label: 'Modern Kitchen', icon: '🍳' },
+    { key: 'has_walk_in_closet', label: 'Walk-in Closet', icon: '👔' },
+    { key: 'has_study_room', label: 'Study Room', icon: '📚' },
+  ].filter(f => property[f.key as keyof Property]);
+
+  if (interior.length === 0) return null;
+
+  return (
+    <div style={pg.section}>
+      <h2 style={pg.sectionTitle}>🏠 Interior Features</h2>
+      <div style={interiorStyles.grid}>
+        {interior.map((feature, idx) => (
+            <div key={idx} style={interiorStyles.featureChip}>
+              <span>{feature.icon}</span> {feature.label}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const interiorStyles: Record<string, React.CSSProperties> = {
+  grid: { display: 'flex', flexWrap: 'wrap', gap: 10 },
+  featureChip: { display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', backgroundColor: 'rgba(230,57,70,0.08)', borderRadius: 20, fontSize: 12 },
+};
+
+// ─── Legal Section ───────────────────────────────────────────────────────────
+const LegalSection: React.FC<{ property: Property }> = ({ property }) => {
+  const hasLegalInfo = property.has_title_deed || property.title_deed_number || property.land_registration_number;
+
+  if (!hasLegalInfo) return null;
+
+  return (
+    <div style={pg.section}>
+      <h2 style={pg.sectionTitle}>📄 Legal Information</h2>
+      {property.has_title_deed && (
+        <DetailRow label="Title Deed" value={property.title_deed_number ? `Yes (${property.title_deed_number})` : 'Available'} />
+      )}
+      {property.land_registration_number && (
+        <DetailRow label="Land Registration" value={property.land_registration_number} />
+      )}
+    </div>
+  );
 };
 
 // ─── Booking Modal ────────────────────────────────────────────────────────────
@@ -121,7 +500,7 @@ const BookingModal: React.FC<{
 }> = ({ property, onClose, onConfirm, loading, success }) => {
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
-  const [msg, setMsg]   = useState('');
+  const [msg, setMsg] = useState('');
 
   return (
     <>
@@ -148,7 +527,6 @@ const BookingModal: React.FC<{
             </div>
           ) : (
             <>
-              {/* Fee notice */}
               <div style={bm.feeNotice}>
                 <span style={{ fontSize: 18 }}>ℹ️</span>
                 <span>Viewing fee: <strong>UGX 10,000</strong> payable at the property</span>
@@ -164,7 +542,7 @@ const BookingModal: React.FC<{
                   <label style={bm.formLabel}>Preferred Time *</label>
                   <select value={time} onChange={e => setTime(e.target.value)} style={bm.input}>
                     <option value="">Select time</option>
-                    {['09:00','10:00','11:00','14:00','15:00','16:00','17:00'].map(t => (
+                    {['09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00'].map(t => (
                       <option key={t} value={t}>
                         {new Date(`2000-01-01T${t}`).toLocaleTimeString('en-UG', { hour: 'numeric', minute: '2-digit', hour12: true })}
                       </option>
@@ -203,21 +581,21 @@ const BookingModal: React.FC<{
 };
 
 const bm: Record<string, React.CSSProperties> = {
-  backdrop:   { position: 'fixed', inset: 0, backgroundColor: 'rgba(13,27,46,0.55)', backdropFilter: 'blur(4px)', zIndex: 1000 },
-  modal:      { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: '100%', maxWidth: 500, maxHeight: '90vh', overflowY: 'auto', backgroundColor: '#fff', borderRadius: 20, boxShadow: '0 24px 64px rgba(0,0,0,0.22)', zIndex: 1001, animation: 'pdModalIn 0.22s ease-out' },
-  header:     { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '22px 24px 0', gap: 12 },
-  title:      { margin: '0 0 4px', fontSize: 20, fontWeight: 800, color: NAVY, fontFamily: "'Sora', sans-serif" },
-  subtitle:   { margin: 0, fontSize: 13, color: SLATE },
-  closeBtn:   { background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 4, display: 'flex', borderRadius: 8 },
-  body:       { padding: '18px 24px' },
+  backdrop: { position: 'fixed', inset: 0, backgroundColor: 'rgba(13,27,46,0.55)', backdropFilter: 'blur(4px)', zIndex: 1000 },
+  modal: { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: '100%', maxWidth: 500, maxHeight: '90vh', overflowY: 'auto', backgroundColor: '#fff', borderRadius: 20, boxShadow: '0 24px 64px rgba(0,0,0,0.22)', zIndex: 1001, animation: 'pdModalIn 0.22s ease-out' },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '22px 24px 0', gap: 12 },
+  title: { margin: '0 0 4px', fontSize: 20, fontWeight: 800, color: NAVY, fontFamily: "'Sora', sans-serif" },
+  subtitle: { margin: 0, fontSize: 13, color: SLATE },
+  closeBtn: { background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 4, display: 'flex', borderRadius: 8 },
+  body: { padding: '18px 24px' },
   successBox: { textAlign: 'center', padding: '24px 0' },
-  feeNotice:  { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, backgroundColor: 'rgba(37,168,130,0.08)', border: '1px solid rgba(37,168,130,0.2)', fontSize: 13, color: '#1d8f6e', marginBottom: 18 },
-  formGrid:   { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 },
-  formGroup:  { display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 },
-  formLabel:  { fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.07em' },
-  input:      { padding: '10px 13px', borderRadius: 10, border: '1.5px solid #eef2f7', fontSize: 14, color: NAVY, fontFamily: 'inherit', outline: 'none' },
-  footer:     { display: 'flex', gap: 10, padding: '0 24px 24px' },
-  cancelBtn:  { flex: 1, padding: '12px', borderRadius: 10, border: '1.5px solid #eef2f7', backgroundColor: '#fff', color: SLATE, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' },
+  feeNotice: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, backgroundColor: 'rgba(37,168,130,0.08)', border: '1px solid rgba(37,168,130,0.2)', fontSize: 13, color: '#1d8f6e', marginBottom: 18 },
+  formGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 },
+  formGroup: { display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 },
+  formLabel: { fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.07em' },
+  input: { padding: '10px 13px', borderRadius: 10, border: '1.5px solid #eef2f7', fontSize: 14, color: NAVY, fontFamily: 'inherit', outline: 'none' },
+  footer: { display: 'flex', gap: 10, padding: '0 24px 24px' },
+  cancelBtn: { flex: 1, padding: '12px', borderRadius: 10, border: '1.5px solid #eef2f7', backgroundColor: '#fff', color: SLATE, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' },
   confirmBtn: { flex: 2, padding: '12px', borderRadius: 10, border: 'none', backgroundColor: RED, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 4px 14px rgba(230,57,70,0.32)' },
 };
 
@@ -276,7 +654,6 @@ const Lightbox: React.FC<{
 
       <div style={lb.counter}>{index + 1} / {images.length}</div>
 
-      {/* Thumbnail strip */}
       <div style={lb.thumbStrip}>
         {images.map((img, i) => (
           <img
@@ -297,35 +674,365 @@ const Lightbox: React.FC<{
 };
 
 const lb: Record<string, React.CSSProperties> = {
-  root:      { position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.96)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', animation: 'pdFadeIn 0.2s ease-out' },
-  closeBtn:  { position: 'absolute', top: 20, right: 20, background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: '50%', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', cursor: 'pointer', zIndex: 10 },
-  navBtn:    { position: 'absolute', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: '50%', width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', cursor: 'pointer', zIndex: 10, transition: 'background-color 0.15s' },
-  img:       { maxWidth: 'calc(100vw - 140px)', maxHeight: 'calc(100vh - 160px)', objectFit: 'contain', borderRadius: 8, boxShadow: '0 24px 64px rgba(0,0,0,0.4)' },
-  counter:   { position: 'absolute', top: 20, left: '50%', transform: 'translateX(-50%)', color: '#fff', fontSize: 13, fontWeight: 600, backgroundColor: 'rgba(0,0,0,0.5)', padding: '5px 14px', borderRadius: 30 },
-  thumbStrip:{ position: 'absolute', bottom: 16, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: 8, padding: '0 20px' },
-  thumb:     { width: 52, height: 40, objectFit: 'cover', borderRadius: 6, cursor: 'pointer', transition: 'all 0.15s', flexShrink: 0 },
+  root: { position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.96)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', animation: 'pdFadeIn 0.2s ease-out' },
+  closeBtn: { position: 'absolute', top: 20, right: 20, background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: '50%', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', cursor: 'pointer', zIndex: 10 },
+  navBtn: { position: 'absolute', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: '50%', width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', cursor: 'pointer', zIndex: 10, transition: 'background-color 0.15s' },
+  img: { maxWidth: 'calc(100vw - 140px)', maxHeight: 'calc(100vh - 160px)', objectFit: 'contain', borderRadius: 8, boxShadow: '0 24px 64px rgba(0,0,0,0.4)' },
+  counter: { position: 'absolute', top: 20, left: '50%', transform: 'translateX(-50%)', color: '#fff', fontSize: 13, fontWeight: 600, backgroundColor: 'rgba(0,0,0,0.5)', padding: '5px 14px', borderRadius: 30 },
+  thumbStrip: { position: 'absolute', bottom: 16, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: 8, padding: '0 20px' },
+  thumb: { width: 52, height: 40, objectFit: 'cover', borderRadius: 6, cursor: 'pointer', transition: 'all 0.15s', flexShrink: 0 },
 };
+
+// ─── Sticky Action Bar ───────────────────────────────────────────────────────
+const StickyActionBar: React.FC<{
+  scrolled: boolean;
+  property: Property;
+  liked: boolean;
+  copied: boolean;
+  onLike: () => void;
+  onCopy: () => void;
+  onBook: () => void;
+}> = ({ scrolled, property, liked, copied, onLike, onCopy, onBook }) => (
+  <div style={{ ...pg.stickyBar, opacity: scrolled ? 1 : 0, pointerEvents: scrolled ? 'all' : 'none', transform: scrolled ? 'translateY(0)' : 'translateY(-100%)' }}>
+    <div style={pg.stickyInner}>
+      <div>
+        <div style={pg.stickyPrice}>{formatPrice(property.price)}</div>
+        <div style={pg.stickyTitle}>{property.title}</div>
+      </div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button onClick={onLike} style={{ ...pg.iconBtn, color: liked ? '#ef4444' : SLATE }}>
+          {liked ? '❤️' : '🤍'}
+        </button>
+        <button onClick={onCopy} style={pg.iconBtn}>
+          {copied ? '✅' : '🔗'}
+        </button>
+        <button onClick={onBook} style={pg.stickyBookBtn}>
+          📅 Schedule Viewing
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
+// ─── Breadcrumb ──────────────────────────────────────────────────────────────
+const Breadcrumb: React.FC<{ property: Property; navigate: (path: string) => void }> = ({ property, navigate }) => (
+  <div style={pg.breadcrumb}>
+    <button onClick={() => navigate('/')} style={pg.bcBtn}>Home</button>
+    <span style={pg.bcSep}>›</span>
+    <button onClick={() => navigate('/properties')} style={pg.bcBtn}>Properties</button>
+    <span style={pg.bcSep}>›</span>
+    <span style={pg.bcCurrent}>{property.title}</span>
+  </div>
+);
+
+// ─── Price Title Location ────────────────────────────────────────────────────
+const PriceTitleLocation: React.FC<{ property: Property }> = ({ property }) => (
+  <div style={pg.priceCard}>
+    <div style={pg.priceRow}>
+      <div style={pg.price}>
+        {formatPrice(property.price)}
+        {property.transaction_type === 'rent' && <span style={pg.perMonth}>/month</span>}
+      </div>
+      <div style={pg.txBadge}>
+        {property.transaction_type === 'sale' ? 'For Sale' : property.transaction_type === 'rent' ? 'For Rent' : 'Shortlet'}
+      </div>
+    </div>
+    <h1 style={pg.title}>{property.title}</h1>
+    <div style={pg.location}>
+      <span style={{ fontSize: 16 }}>📍</span>
+      <span>{property.full_address || `${property.address}, ${property.district}, ${property.city}`}</span>
+    </div>
+    {property.is_verified && (
+      <div style={pg.verifiedBanner}>
+        <span>✓</span>
+        <span>Verified listing — checked by our team</span>
+      </div>
+    )}
+  </div>
+);
+
+// ─── Feature Stats ───────────────────────────────────────────────────────────
+const FeatureStats: React.FC<{ property: Property }> = ({ property }) => (
+  <div style={pg.section}>
+    <h2 style={pg.sectionTitle}>Property Overview</h2>
+    <div style={pg.featGrid}>
+      {property.property_type !== 'land' && (
+        <>
+          <FeatureBox icon="🛏" value={property.bedrooms} label="Bedrooms" />
+          <FeatureBox icon="🚿" value={property.bathrooms} label="Bathrooms" />
+        </>
+      )}
+      <FeatureBox icon="📐" value={`${property.square_meters}m²`} label="Area" />
+      <FeatureBox icon="🏠" value={property.property_type} label="Type" />
+      <FeatureBox icon="👁" value={property.views_count?.toLocaleString() || 0} label="Views" />
+      <FeatureBox icon="❤️" value={property.likes_count || 0} label="Saves" />
+      {property.parking_spaces !== undefined && property.parking_spaces > 0 && (
+        <FeatureBox icon="🅿️" value={property.parking_spaces} label="Parking" />
+      )}
+      {property.furnishing_status && property.furnishing_status !== 'unfurnished' && (
+        <FeatureBox icon="🛋️" value={property.furnishing_status.replace('_', ' ')} label="Furnishing" />
+      )}
+    </div>
+  </div>
+);
+
+// ─── Description Section ─────────────────────────────────────────────────────
+const DescriptionSection: React.FC<{ property: Property }> = ({ property }) => (
+  <div style={pg.section}>
+    <h2 style={pg.sectionTitle}>About This Property</h2>
+    <p style={pg.description}>{property.description || 'No description provided.'}</p>
+  </div>
+);
+
+// ─── Property Details Table ──────────────────────────────────────────────────
+const PropertyDetailsTable: React.FC<{ property: Property }> = ({ property }) => (
+  <div style={pg.section}>
+    <h2 style={pg.sectionTitle}>Property Details</h2>
+    <div style={pg.detailsTable}>
+      <DetailRow label="Property Type" value={<span style={{ textTransform: 'capitalize' }}>{property.property_type}</span>} />
+      <DetailRow label="Transaction" value={property.transaction_type === 'sale' ? 'For Sale' : property.transaction_type === 'rent' ? 'For Rent' : 'Shortlet'} />
+      <DetailRow label="Location" value={`${property.district}, ${property.city}`} />
+      {property.property_type !== 'land' && (
+        <>
+          <DetailRow label="Bedrooms" value={property.bedrooms} />
+          <DetailRow label="Bathrooms" value={property.bathrooms} />
+        </>
+      )}
+      <DetailRow label="Area" value={`${property.square_meters} m²`} />
+      {property.year_built && <DetailRow label="Year Built" value={property.year_built} />}
+      <DetailRow label="Status" value={
+        <span style={{ color: property.is_available ? TEAL : '#ef4444', fontWeight: 700 }}>
+          {property.is_available ? 'Available' : 'Not Available'}
+        </span>
+      } />
+      <DetailRow label="Listed" value={fmtDate(property.created_at)} />
+      <DetailRow label="Reference ID" value={`#${property.id}`} />
+    </div>
+  </div>
+);
+
+// ─── Location Map ────────────────────────────────────────────────────────────
+const LocationMap: React.FC<{ property: Property }> = ({ property }) => (
+  <div style={pg.section}>
+    <h2 style={pg.sectionTitle}>Location</h2>
+    <div style={pg.mapPlaceholder}>
+      <div style={pg.mapInner}>
+        <span style={{ fontSize: 40 }}>🗺️</span>
+        <div style={{ fontSize: 15, fontWeight: 700, color: NAVY, marginTop: 10 }}>
+          {property.district}, {property.city}
+        </div>
+        <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>{property.address}</div>
+        <a
+          href={`https://www.google.com/maps?q=${property.latitude},${property.longitude}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={pg.mapLink}
+          onClick={e => e.stopPropagation()}
+        >
+          Open in Google Maps →
+        </a>
+      </div>
+    </div>
+  </div>
+);
+
+// ─── Reviews Section ─────────────────────────────────────────────────────────
+const ReviewsSection: React.FC<{
+  reviews: Review[];
+  avgRating: number;
+  showAllReviews: boolean;
+  setShowAll: (show: boolean) => void;
+}> = ({ reviews, avgRating, showAllReviews, setShowAll }) => (
+  <div style={pg.section}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+      <h2 style={{ ...pg.sectionTitle, margin: 0 }}>Agent Reviews</h2>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Stars rating={avgRating} size={16} />
+        <span style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>{avgRating.toFixed(1)}</span>
+        <span style={{ fontSize: 13, color: '#94a3b8' }}>({reviews.length})</span>
+      </div>
+    </div>
+
+    {reviews.length === 0 ? (
+      <div style={{ textAlign: 'center', padding: '32px 0', color: '#94a3b8' }}>
+        <div style={{ fontSize: 40, marginBottom: 8 }}>💬</div>
+        <p style={{ margin: 0, fontSize: 14 }}>No reviews yet for this agent.</p>
+      </div>
+    ) : (
+      <>
+        {(showAllReviews ? reviews : reviews.slice(0, 3)).map(r => (
+          <ReviewCard key={r.id} review={r} />
+        ))}
+        {reviews.length > 3 && (
+          <button onClick={() => setShowAll(!showAllReviews)} style={pg.showMoreBtn}>
+            {showAllReviews ? 'Show less ↑' : `Show all ${reviews.length} reviews ↓`}
+          </button>
+        )}
+      </>
+    )}
+  </div>
+);
+
+// ─── Agent Card ──────────────────────────────────────────────────────────────
+const AgentCard: React.FC<{
+  property: Property;
+  ownerName: string;
+  avgRating: number;
+  reviewsCount: number;
+  onBook: () => void;
+  onCopy: () => void;
+  copied: boolean;
+}> = ({ property, ownerName, avgRating, reviewsCount, onBook, onCopy, copied }) => (
+  <div style={pg.agentCard}>
+    <div style={pg.agentHeader}>
+      <div style={pg.agentAvatar}>
+        {property.owner?.profile_picture
+          ? <img src={property.owner.profile_picture} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+          : getInitials(property.owner?.first_name, property.owner?.last_name, property.owner?.username)
+        }
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={pg.agentName}>{ownerName}</div>
+        <div style={pg.agentMeta}>
+          {property.owner?.is_verified && (
+            <span style={pg.agentVerified}>✓ Verified Agent</span>
+          )}
+        </div>
+        {reviewsCount > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4 }}>
+            <Stars rating={avgRating} size={11} />
+            <span style={{ fontSize: 11, color: '#64748b' }}>{avgRating.toFixed(1)} ({reviewsCount})</span>
+          </div>
+        )}
+      </div>
+    </div>
+
+    {property.owner?.bio && (
+      <p style={pg.agentBio}>{property.owner.bio}</p>
+    )}
+
+    <div style={pg.agentPriceBox}>
+      <div style={pg.agentPrice}>{formatPrice(property.price)}</div>
+      {property.transaction_type === 'rent' && <span style={{ fontSize: 12, color: '#64748b' }}>/month</span>}
+    </div>
+
+    <div style={pg.agentBtns}>
+      {property.owner?.phone && (
+        <>
+          <a href={`tel:${property.owner.phone}`} style={pg.callBtn}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.37 2 2 0 0 1 3.61 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.37a16 16 0 0 0 6.72 6.72l.62-.62a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
+            </svg>
+            Call Agent
+          </a>
+          <a
+            href={`https://wa.me/${property.owner.phone.replace(/\D/g, '')}?text=Hi, I'm interested in: ${encodeURIComponent(property.title)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={pg.whatsappBtn}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/>
+            </svg>
+            WhatsApp
+          </a>
+        </>
+      )}
+
+      <button onClick={onBook} style={pg.bookingBtn}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+          <line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" />
+          <line x1="3" y1="10" x2="21" y2="10" />
+        </svg>
+        Schedule Viewing
+      </button>
+    </div>
+
+    <div style={pg.shareRow}>
+      <span style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600 }}>Share:</span>
+      <button onClick={onCopy} style={pg.shareBtn} title="Copy link">
+        {copied ? '✅' : '🔗'} {copied ? 'Copied!' : 'Copy Link'}
+      </button>
+      <a
+        href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(property.title)}&url=${encodeURIComponent(window.location.href)}`}
+        target="_blank" rel="noopener noreferrer"
+        style={pg.shareBtn}
+      >🐦 Tweet</a>
+    </div>
+
+    <div style={pg.quickStats}>
+      <div style={pg.quickStat}>
+        <span style={{ fontSize: 18 }}>👁</span>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: NAVY }}>{property.views_count?.toLocaleString() || 0}</div>
+          <div style={{ fontSize: 10, color: '#94a3b8' }}>Views</div>
+        </div>
+      </div>
+      <div style={pg.quickStat}>
+        <span style={{ fontSize: 18 }}>❤️</span>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: NAVY }}>{property.likes_count || 0}</div>
+          <div style={{ fontSize: 10, color: '#94a3b8' }}>Saves</div>
+        </div>
+      </div>
+      <div style={pg.quickStat}>
+        <span style={{ fontSize: 18 }}>📅</span>
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: NAVY }}>{fmtDate(property.created_at)}</div>
+          <div style={{ fontSize: 10, color: '#94a3b8' }}>Listed</div>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+// ─── Loading Skeleton ────────────────────────────────────────────────────────
+const LoadingSkeleton: React.FC = () => (
+  <div style={{ marginTop: 64, minHeight: '100vh', backgroundColor: '#f4f7fb', fontFamily: "'DM Sans', sans-serif" }}>
+    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '32px 20px' }}>
+      <div style={{ height: 500, backgroundColor: '#e2e8f0', borderRadius: 18, marginBottom: 24, animation: 'pdShimmer 1.5s ease-in-out infinite' }} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 24 }}>
+        <div style={{ height: 400, backgroundColor: '#e2e8f0', borderRadius: 18, animation: 'pdShimmer 1.5s ease-in-out infinite 0.15s' }} />
+        <div style={{ height: 400, backgroundColor: '#e2e8f0', borderRadius: 18, animation: 'pdShimmer 1.5s ease-in-out infinite 0.3s' }} />
+      </div>
+    </div>
+  </div>
+);
+
+// ─── Not Found Page ──────────────────────────────────────────────────────────
+const NotFoundPage: React.FC<{ navigate: (path: string) => void }> = ({ navigate }) => (
+  <div style={{ marginTop: 64, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f4f7fb' }}>
+    <div style={{ textAlign: 'center', padding: 48, backgroundColor: '#fff', borderRadius: 20, border: '1px solid #eef2f7', maxWidth: 420 }}>
+      <div style={{ fontSize: 56, marginBottom: 16 }}>🏚️</div>
+      <h2 style={{ margin: '0 0 8px', color: NAVY, fontFamily: "'Sora', sans-serif" }}>Property Not Found</h2>
+      <p style={{ color: SLATE, fontSize: 14, margin: '0 0 24px' }}>This property doesn't exist or has been removed.</p>
+      <button onClick={() => navigate('/properties')} style={{ padding: '12px 28px', borderRadius: 10, border: 'none', backgroundColor: RED, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+        Browse Properties
+      </button>
+    </div>
+  </div>
+);
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 const PropertyDetail: React.FC = () => {
-  const { id }   = useParams<{ id: string }>();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const [property, setProperty]         = useState<Property | null>(null);
-  const [reviews, setReviews]           = useState<Review[]>([]);
-  const [loading, setLoading]           = useState(true);
-  const [liked, setLiked]               = useState(false);
-  const [copied, setCopied]             = useState(false);
-  const [currentImg, setCurrentImg]     = useState(0);
+  const [property, setProperty] = useState<Property | null>(null);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [liked, setLiked] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [currentImg, setCurrentImg] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [bookingOpen, setBookingOpen]   = useState(false);
-  const [bookingLoading, setBookingLoad]= useState(false);
-  const [bookingSuccess, setBookingOk]  = useState(false);
-  const [showAllReviews, setShowAll]    = useState(false);
-  const [scrolled, setScrolled]         = useState(false);
+  const [bookingOpen, setBookingOpen] = useState(false);
+  const [bookingLoading, setBookingLoad] = useState(false);
+  const [bookingSuccess, setBookingOk] = useState(false);
+  const [showAllReviews, setShowAll] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
 
-  // Sticky header on scroll
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 500);
     window.addEventListener('scroll', handler, { passive: true });
@@ -387,97 +1094,36 @@ const PropertyDetail: React.FC = () => {
     ? `${property.owner.first_name || ''} ${property.owner.last_name || ''}`.trim() || property.owner.username || 'Agent'
     : 'Agent';
 
-  // ── Loading ──
-  if (loading) return (
-    <div style={{ marginTop: 64, minHeight: '100vh', backgroundColor: '#f4f7fb', fontFamily: "'DM Sans', sans-serif" }}>
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '32px 20px' }}>
-        {/* Skeleton shimmer */}
-        <div style={{ height: 500, backgroundColor: '#e2e8f0', borderRadius: 18, marginBottom: 24, animation: 'pdShimmer 1.5s ease-in-out infinite' }} />
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 24 }}>
-          <div style={{ height: 400, backgroundColor: '#e2e8f0', borderRadius: 18, animation: 'pdShimmer 1.5s ease-in-out infinite 0.15s' }} />
-          <div style={{ height: 400, backgroundColor: '#e2e8f0', borderRadius: 18, animation: 'pdShimmer 1.5s ease-in-out infinite 0.3s' }} />
-        </div>
-      </div>
-    </div>
-  );
-
-  // ── Not found ──
-  if (!property) return (
-    <div style={{ marginTop: 64, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f4f7fb' }}>
-      <div style={{ textAlign: 'center', padding: 48, backgroundColor: '#fff', borderRadius: 20, border: '1px solid #eef2f7', maxWidth: 420 }}>
-        <div style={{ fontSize: 56, marginBottom: 16 }}>🏚️</div>
-        <h2 style={{ margin: '0 0 8px', color: NAVY, fontFamily: "'Sora', sans-serif" }}>Property Not Found</h2>
-        <p style={{ color: SLATE, fontSize: 14, margin: '0 0 24px' }}>This property doesn't exist or has been removed.</p>
-        <button onClick={() => navigate('/properties')} style={{ padding: '12px 28px', borderRadius: 10, border: 'none', backgroundColor: RED, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-          Browse Properties
-        </button>
-      </div>
-    </div>
-  );
+  if (loading) return <LoadingSkeleton />;
+  if (!property) return <NotFoundPage navigate={navigate} />;
 
   return (
     <div style={pg.page}>
-
-      {/* ══ STICKY ACTION BAR ══════════════════════════════════════════════ */}
-      <div style={{ ...pg.stickyBar, opacity: scrolled ? 1 : 0, pointerEvents: scrolled ? 'all' : 'none', transform: scrolled ? 'translateY(0)' : 'translateY(-100%)' }}>
-        <div style={pg.stickyInner}>
-          <div>
-            <div style={pg.stickyPrice}>{formatPrice(property.price)}</div>
-            <div style={pg.stickyTitle}>{property.title}</div>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={handleLike} style={{ ...pg.iconBtn, color: liked ? '#ef4444' : SLATE }}>
-              {liked ? '❤️' : '🤍'}
-            </button>
-            <button onClick={handleCopy} style={pg.iconBtn}>
-              {copied ? '✅' : '🔗'}
-            </button>
-            <button onClick={() => setBookingOpen(true)} style={pg.stickyBookBtn}>
-              📅 Schedule Viewing
-            </button>
-          </div>
-        </div>
-      </div>
+      <StickyActionBar
+        scrolled={scrolled}
+        property={property}
+        liked={liked}
+        copied={copied}
+        onLike={handleLike}
+        onCopy={handleCopy}
+        onBook={() => setBookingOpen(true)}
+      />
 
       <div style={pg.container}>
+        <Breadcrumb property={property} navigate={navigate} />
 
-        {/* ── Breadcrumb ── */}
-        <div style={pg.breadcrumb}>
-          <button onClick={() => navigate('/')} style={pg.bcBtn}>Home</button>
-          <span style={pg.bcSep}>›</span>
-          <button onClick={() => navigate('/properties')} style={pg.bcBtn}>Properties</button>
-          <span style={pg.bcSep}>›</span>
-          <span style={pg.bcCurrent}>{property.title}</span>
-        </div>
-
-        {/* ══ IMAGE GALLERY ══════════════════════════════════════════════════ */}
+        {/* Image Gallery */}
         <div style={pg.gallery}>
-          {/* Main image */}
           <div style={pg.mainImgWrap} onClick={() => setLightboxOpen(true)}>
-            <img
-              src={images[currentImg]?.image}
-              alt={property.title}
-              style={pg.mainImg}
-            />
-            {/* Overlay actions */}
+            <img src={images[currentImg]?.image} alt={property.title} style={pg.mainImg} />
             <div style={pg.imgActions}>
-              <button
-                onClick={e => { e.stopPropagation(); handleLike(); }}
-                style={{ ...pg.imgBtn, color: liked ? '#ef4444' : '#fff' }}
-                title={liked ? 'Remove from favorites' : 'Save'}
-              >
+              <button onClick={e => { e.stopPropagation(); handleLike(); }} style={{ ...pg.imgBtn, color: liked ? '#ef4444' : '#fff' }}>
                 {liked ? '❤️' : '🤍'}
               </button>
-              <button
-                onClick={e => { e.stopPropagation(); handleCopy(); }}
-                style={pg.imgBtn}
-                title="Copy link"
-              >
+              <button onClick={e => { e.stopPropagation(); handleCopy(); }} style={pg.imgBtn}>
                 {copied ? '✅' : '🔗'}
               </button>
             </div>
-
-            {/* Badges */}
             <div style={pg.imgBadges}>
               {!property.is_available && <span style={pg.badgeSold}>Sold</span>}
               {property.is_verified && <span style={pg.badgeVerified}>✓ Verified</span>}
@@ -485,48 +1131,21 @@ const PropertyDetail: React.FC = () => {
                 {property.transaction_type === 'sale' ? 'For Sale' : property.transaction_type === 'rent' ? 'For Rent' : 'Shortlet'}
               </span>
             </div>
-
-            {/* Nav arrows */}
             {images.length > 1 && (
               <>
-                <button
-                  style={{ ...pg.galleryArrow, left: 14 }}
-                  onClick={e => { e.stopPropagation(); if (currentImg > 0) setCurrentImg(i => i - 1); }}
-                  disabled={currentImg === 0}
-                >
-                  ‹
-                </button>
-                <button
-                  style={{ ...pg.galleryArrow, right: 14 }}
-                  onClick={e => { e.stopPropagation(); if (currentImg < images.length - 1) setCurrentImg(i => i + 1); }}
-                  disabled={currentImg === images.length - 1}
-                >
-                  ›
-                </button>
+                <button style={{ ...pg.galleryArrow, left: 14 }} onClick={e => { e.stopPropagation(); if (currentImg > 0) setCurrentImg(i => i - 1); }} disabled={currentImg === 0}>‹</button>
+                <button style={{ ...pg.galleryArrow, right: 14 }} onClick={e => { e.stopPropagation(); if (currentImg < images.length - 1) setCurrentImg(i => i + 1); }} disabled={currentImg === images.length - 1}>›</button>
               </>
             )}
-
-            {/* Counter + expand */}
             <div style={pg.imgCounter}>
               <span>📷 {currentImg + 1} / {images.length}</span>
               <span style={{ marginLeft: 8, opacity: 0.8, fontSize: 11 }}>Click to expand</span>
             </div>
           </div>
-
-          {/* Thumbnail strip */}
           {images.length > 1 && (
             <div style={pg.thumbStrip}>
               {images.map((img, i) => (
-                <div
-                  key={img.id}
-                  onClick={() => setCurrentImg(i)}
-                  style={{
-                    ...pg.thumb,
-                    outline: i === currentImg ? `2.5px solid ${RED}` : '2px solid transparent',
-                    opacity: i === currentImg ? 1 : 0.65,
-                    transform: i === currentImg ? 'scale(1)' : 'scale(0.97)',
-                  }}
-                >
+                <div key={img.id} onClick={() => setCurrentImg(i)} style={{ ...pg.thumb, outline: i === currentImg ? `2.5px solid ${RED}` : '2px solid transparent', opacity: i === currentImg ? 1 : 0.65 }}>
                   <img src={img.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 </div>
               ))}
@@ -534,256 +1153,49 @@ const PropertyDetail: React.FC = () => {
           )}
         </div>
 
-        {/* ══ TWO-COLUMN CONTENT ═════════════════════════════════════════════ */}
+        {/* Two-Column Layout */}
         <div style={pg.twoCol}>
-
-          {/* ── LEFT: Details ── */}
+          {/* LEFT COLUMN */}
           <div style={pg.leftCol}>
-
-            {/* Price + Title + Location */}
-            <div style={pg.priceCard}>
-              <div style={pg.priceRow}>
-                <div style={pg.price}>
-                  {formatPrice(property.price)}
-                  {property.transaction_type === 'rent' && <span style={pg.perMonth}>/month</span>}
-                </div>
-                <div style={pg.txBadge}>
-                  {property.transaction_type === 'sale' ? 'For Sale' : property.transaction_type === 'rent' ? 'For Rent' : 'Shortlet'}
-                </div>
-              </div>
-              <h1 style={pg.title}>{property.title}</h1>
-              <div style={pg.location}>
-                <span style={{ fontSize: 16 }}>📍</span>
-                <span>{property.address}, {property.district}, {property.city}</span>
-              </div>
-              {property.is_verified && (
-                <div style={pg.verifiedBanner}>
-                  <span>✓</span>
-                  <span>Verified listing — checked by our team</span>
-                </div>
-              )}
-            </div>
-
-            {/* Feature stats */}
-            <div style={pg.section}>
-              <h2 style={pg.sectionTitle}>Property Overview</h2>
-              <div style={pg.featGrid}>
-                {property.property_type !== 'land' && (
-                  <>
-                    <FeatureBox icon="🛏" value={property.bedrooms} label="Bedrooms" />
-                    <FeatureBox icon="🚿" value={property.bathrooms} label="Bathrooms" />
-                  </>
-                )}
-                <FeatureBox icon="📐" value={`${property.square_meters}m²`} label="Area" />
-                <FeatureBox icon="🏠" value={property.property_type} label="Type" />
-                <FeatureBox icon="👁" value={property.views_count.toLocaleString()} label="Views" />
-                <FeatureBox icon="❤️" value={property.likes_count} label="Saves" />
-              </div>
-            </div>
-
-            {/* Description */}
-            <div style={pg.section}>
-              <h2 style={pg.sectionTitle}>About This Property</h2>
-              <p style={pg.description}>{property.description || 'No description provided.'}</p>
-            </div>
-
-            {/* Details table */}
-            <div style={pg.section}>
-              <h2 style={pg.sectionTitle}>Property Details</h2>
-              <div style={pg.detailsTable}>
-                <DetailRow label="Property Type"    value={<span style={{ textTransform: 'capitalize' }}>{property.property_type}</span>} />
-                <DetailRow label="Transaction"      value={property.transaction_type === 'sale' ? 'For Sale' : property.transaction_type === 'rent' ? 'For Rent' : 'Shortlet'} />
-                <DetailRow label="Location"         value={`${property.district}, ${property.city}`} />
-                {property.property_type !== 'land' && (
-                  <>
-                    <DetailRow label="Bedrooms"  value={property.bedrooms} />
-                    <DetailRow label="Bathrooms" value={property.bathrooms} />
-                  </>
-                )}
-                <DetailRow label="Area"          value={`${property.square_meters} m²`} />
-                <DetailRow label="Status"        value={
-                  <span style={{ color: property.is_available ? TEAL : '#ef4444', fontWeight: 700 }}>
-                    {property.is_available ? 'Available' : 'Not Available'}
-                  </span>
-                } />
-                <DetailRow label="Listed"        value={fmtDate(property.created_at)} />
-                <DetailRow label="Reference ID"  value={`#${property.id}`} />
-              </div>
-            </div>
-
-            {/* Map placeholder */}
-            <div style={pg.section}>
-              <h2 style={pg.sectionTitle}>Location</h2>
-              <div style={pg.mapPlaceholder}>
-                <div style={pg.mapInner}>
-                  <span style={{ fontSize: 40 }}>🗺️</span>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: NAVY, marginTop: 10 }}>
-                    {property.district}, {property.city}
-                  </div>
-                  <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>{property.address}</div>
-                  <a
-                    href={`https://www.google.com/maps?q=${property.latitude},${property.longitude}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={pg.mapLink}
-                    onClick={e => e.stopPropagation()}
-                  >
-                    Open in Google Maps →
-                  </a>
-                </div>
-              </div>
-            </div>
-
-            {/* Reviews */}
-            <div style={pg.section}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-                <h2 style={{ ...pg.sectionTitle, margin: 0 }}>Agent Reviews</h2>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Stars rating={avgRating} size={16} />
-                  <span style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>{avgRating.toFixed(1)}</span>
-                  <span style={{ fontSize: 13, color: '#94a3b8' }}>({reviews.length})</span>
-                </div>
-              </div>
-
-              {reviews.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '32px 0', color: '#94a3b8' }}>
-                  <div style={{ fontSize: 40, marginBottom: 8 }}>💬</div>
-                  <p style={{ margin: 0, fontSize: 14 }}>No reviews yet for this agent.</p>
-                </div>
-              ) : (
-                <>
-                  {(showAllReviews ? reviews : reviews.slice(0, 3)).map(r => (
-                    <ReviewCard key={r.id} review={r} />
-                  ))}
-                  {reviews.length > 3 && (
-                    <button onClick={() => setShowAll(a => !a)} style={pg.showMoreBtn}>
-                      {showAllReviews ? 'Show less ↑' : `Show all ${reviews.length} reviews ↓`}
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
+            <PriceTitleLocation property={property} />
+            <FeatureStats property={property} />
+            <DescriptionSection property={property} />
+            <VideoPlayer property={property} />
+            <NeighborhoodSection property={property} />
+            <SchoolsSection property={property} />
+            <TransportationSection property={property} />
+            <AmenitiesGrid property={property} />
+            <SecurityFeatures property={property} />
+            <UtilitiesSection property={property} />
+            <OutdoorFeatures property={property} />
+            <InteriorFeatures property={property} />
+            <LegalSection property={property} />
+            <PropertyDetailsTable property={property} />
+            <LocationMap property={property} />
+            <ReviewsSection reviews={reviews} avgRating={avgRating} showAllReviews={showAllReviews} setShowAll={setShowAll} />
           </div>
 
-          {/* ── RIGHT: Agent sticky card ── */}
+          {/* RIGHT COLUMN */}
           <div style={pg.rightCol}>
-            <div style={pg.agentCard}>
-              {/* Agent header */}
-              <div style={pg.agentHeader}>
-                <div style={pg.agentAvatar}>
-                  {property.owner?.profile_picture
-                    ? <img src={property.owner.profile_picture} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                    : getInitials(property.owner?.first_name, property.owner?.last_name, property.owner?.username)
-                  }
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={pg.agentName}>{ownerName}</div>
-                  <div style={pg.agentMeta}>
-                    {property.owner?.is_verified && (
-                      <span style={pg.agentVerified}>✓ Verified Agent</span>
-                    )}
-                  </div>
-                  {reviews.length > 0 && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4 }}>
-                      <Stars rating={avgRating} size={11} />
-                      <span style={{ fontSize: 11, color: '#64748b' }}>{avgRating.toFixed(1)} ({reviews.length})</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {property.owner?.bio && (
-                <p style={pg.agentBio}>{property.owner.bio}</p>
-              )}
-
-              {/* Price highlight */}
-              <div style={pg.agentPriceBox}>
-                <div style={pg.agentPrice}>{formatPrice(property.price)}</div>
-                {property.transaction_type === 'rent' && <span style={{ fontSize: 12, color: '#64748b' }}>/month</span>}
-              </div>
-
-              {/* CTA buttons */}
-              <div style={pg.agentBtns}>
-                {property.owner?.phone && (
-                  <>
-                    <a href={`tel:${property.owner.phone}`} style={pg.callBtn}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.37 2 2 0 0 1 3.61 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.37a16 16 0 0 0 6.72 6.72l.62-.62a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
-                      </svg>
-                      Call Agent
-                    </a>
-                    <a
-                      href={`https://wa.me/${property.owner.phone.replace(/\D/g, '')}?text=Hi, I'm interested in: ${encodeURIComponent(property.title)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={pg.whatsappBtn}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/>
-                      </svg>
-                      WhatsApp
-                    </a>
-                  </>
-                )}
-
-                <button onClick={() => setBookingOpen(true)} style={pg.bookingBtn}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                    <line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" />
-                    <line x1="3" y1="10" x2="21" y2="10" />
-                  </svg>
-                  Schedule Viewing
-                </button>
-              </div>
-
-              {/* Share row */}
-              <div style={pg.shareRow}>
-                <span style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600 }}>Share:</span>
-                <button onClick={handleCopy} style={pg.shareBtn} title="Copy link">
-                  {copied ? '✅' : '🔗'} {copied ? 'Copied!' : 'Copy Link'}
-                </button>
-                <a
-                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(property.title)}&url=${encodeURIComponent(window.location.href)}`}
-                  target="_blank" rel="noopener noreferrer"
-                  style={pg.shareBtn}
-                >🐦 Tweet</a>
-              </div>
-
-              {/* Property quick stats */}
-              <div style={pg.quickStats}>
-                <div style={pg.quickStat}>
-                  <span style={{ fontSize: 18 }}>👁</span>
-                  <div>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: NAVY }}>{property.views_count.toLocaleString()}</div>
-                    <div style={{ fontSize: 10, color: '#94a3b8' }}>Views</div>
-                  </div>
-                </div>
-                <div style={pg.quickStat}>
-                  <span style={{ fontSize: 18 }}>❤️</span>
-                  <div>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: NAVY }}>{property.likes_count}</div>
-                    <div style={{ fontSize: 10, color: '#94a3b8' }}>Saves</div>
-                  </div>
-                </div>
-                <div style={pg.quickStat}>
-                  <span style={{ fontSize: 18 }}>📅</span>
-                  <div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: NAVY }}>{fmtDate(property.created_at)}</div>
-                    <div style={{ fontSize: 10, color: '#94a3b8' }}>Listed</div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <AgentCard
+              property={property}
+              ownerName={ownerName}
+              avgRating={avgRating}
+              reviewsCount={reviews.length}
+              onBook={() => setBookingOpen(true)}
+              onCopy={handleCopy}
+              copied={copied}
+            />
           </div>
         </div>
 
-        {/* ══ RECOMMENDATIONS ════════════════════════════════════════════════ */}
+        {/* Recommendations */}
         <div style={{ marginTop: 48 }}>
           <PropertyRecommendations propertyId={property.id} limit={3} />
         </div>
       </div>
 
-      {/* ══ LIGHTBOX ══ */}
+      {/* Modals */}
       {lightboxOpen && (
         <Lightbox
           images={images}
@@ -793,8 +1205,6 @@ const PropertyDetail: React.FC = () => {
           onNext={() => setCurrentImg(i => Math.min(images.length - 1, i + 1))}
         />
       )}
-
-      {/* ══ BOOKING MODAL ══ */}
       {bookingOpen && (
         <BookingModal
           property={property}
@@ -810,116 +1220,68 @@ const PropertyDetail: React.FC = () => {
 
 // ─── Page styles ──────────────────────────────────────────────────────────────
 const pg: Record<string, React.CSSProperties> = {
-  page:        { minHeight: '100vh', backgroundColor: '#f4f7fb', fontFamily: "'DM Sans', 'Sora', system-ui, sans-serif", marginTop: 64, paddingBottom: 60 },
-  container:   { maxWidth: 1200, margin: '0 auto', padding: '0 20px' },
-
-  // Sticky bar
-  stickyBar:   { position: 'fixed', top: 64, left: 0, right: 0, zIndex: 900, backgroundColor: '#fff', borderBottom: '1px solid #eef2f7', boxShadow: '0 4px 16px rgba(0,0,0,0.08)', transition: 'all 0.3s ease' },
+  page: { minHeight: '100vh', backgroundColor: '#f4f7fb', fontFamily: "'DM Sans', 'Sora', system-ui, sans-serif", marginTop: 64, paddingBottom: 60 },
+  container: { maxWidth: 1200, margin: '0 auto', padding: '0 20px' },
+  stickyBar: { position: 'fixed', top: 64, left: 0, right: 0, zIndex: 900, backgroundColor: '#fff', borderBottom: '1px solid #eef2f7', boxShadow: '0 4px 16px rgba(0,0,0,0.08)', transition: 'all 0.3s ease' },
   stickyInner: { maxWidth: 1200, margin: '0 auto', padding: '10px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   stickyPrice: { fontSize: 18, fontWeight: 800, color: RED, fontFamily: "'Sora', sans-serif" },
   stickyTitle: { fontSize: 13, color: SLATE, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 400 },
-  iconBtn:     { background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', padding: '6px 8px', borderRadius: 8 },
+  iconBtn: { background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', padding: '6px 8px', borderRadius: 8 },
   stickyBookBtn: { padding: '9px 18px', borderRadius: 10, border: 'none', backgroundColor: RED, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 },
-
-  // Breadcrumb
-  breadcrumb:  { display: 'flex', alignItems: 'center', gap: 6, padding: '20px 0 16px', fontSize: 13 },
-  bcBtn:       { background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 13, fontFamily: 'inherit', padding: 0, transition: 'color 0.15s' },
-  bcSep:       { color: '#cbd5e1', fontSize: 16 },
-  bcCurrent:   { color: NAVY, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 300 },
-
-  // Gallery
-  gallery:     { marginBottom: 28 },
-  mainImgWrap: {
-    position: 'relative', borderRadius: 18, overflow: 'hidden',
-    height: 500, cursor: 'pointer',
-    boxShadow: '0 4px 24px rgba(0,0,0,0.12)',
-    backgroundColor: '#1e293b',
-  },
-  mainImg:     { width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.4s ease', display: 'block' },
-  imgActions:  { position: 'absolute', top: 16, right: 16, display: 'flex', gap: 8, zIndex: 5 },
-  imgBtn:      { background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(4px)', border: 'none', borderRadius: '50%', width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 18, boxShadow: '0 2px 8px rgba(0,0,0,0.15)', transition: 'transform 0.15s' },
-  imgBadges:   { position: 'absolute', top: 16, left: 16, display: 'flex', gap: 8, zIndex: 5 },
-  badgeSold:   { backgroundColor: '#ef4444', color: '#fff', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20 },
-  badgeVerified:{ backgroundColor: '#16a34a', color: '#fff', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20 },
-  badgeTx:     { backgroundColor: 'rgba(13,27,46,0.75)', backdropFilter: 'blur(4px)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20 },
-  galleryArrow:{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', border: 'none', borderRadius: '50%', width: 44, height: 44, color: '#fff', fontSize: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 5, transition: 'background-color 0.15s', lineHeight: 1 },
-  imgCounter:  { position: 'absolute', bottom: 16, left: 16, backgroundColor: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 30, display: 'flex', alignItems: 'center', gap: 4, zIndex: 5 },
-  thumbStrip:  { display: 'flex', gap: 8, marginTop: 10, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' },
-  thumb:       { width: 88, height: 64, borderRadius: 10, overflow: 'hidden', cursor: 'pointer', flexShrink: 0, transition: 'all 0.2s' },
-
-  // Two-column
-  twoCol:      { display: 'grid', gridTemplateColumns: '1fr 340px', gap: 24, alignItems: 'start' },
-  leftCol:     { minWidth: 0 },
-  rightCol:    { position: 'sticky', top: 100 },
-
-  // Sections
-  section:     { backgroundColor: '#fff', borderRadius: 18, padding: '24px 22px', marginBottom: 18, border: '1px solid #eef2f7', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', animation: 'pdFadeUp 0.4s ease-out both' },
-  sectionTitle:{ fontFamily: "'Sora', sans-serif", fontSize: 18, fontWeight: 800, color: NAVY, margin: '0 0 18px', letterSpacing: '-0.02em' },
-
-  // Price card
-  priceCard:   { backgroundColor: '#fff', borderRadius: 18, padding: '24px 22px', marginBottom: 18, border: '1px solid #eef2f7', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', animation: 'pdFadeUp 0.4s ease-out both' },
-  priceRow:    { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  price:       { fontSize: 'clamp(1.6rem, 3vw, 2.2rem)', fontWeight: 900, color: RED, fontFamily: "'Sora', sans-serif", lineHeight: 1 },
-  perMonth:    { fontSize: 14, color: '#64748b', fontWeight: 400, marginLeft: 4 },
-  txBadge:     { backgroundColor: RED_BG, color: RED, fontSize: 12, fontWeight: 700, padding: '5px 14px', borderRadius: 20, border: `1px solid rgba(230,57,70,0.2)` },
-  title:       { fontFamily: "'Sora', sans-serif", fontSize: 'clamp(1.2rem, 2.5vw, 1.6rem)', fontWeight: 800, color: NAVY, margin: '0 0 12px', letterSpacing: '-0.02em', lineHeight: 1.25 },
-  location:    { display: 'flex', alignItems: 'center', gap: 7, fontSize: 14, color: SLATE, marginBottom: 12 },
+  breadcrumb: { display: 'flex', alignItems: 'center', gap: 6, padding: '20px 0 16px', fontSize: 13 },
+  bcBtn: { background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 13, fontFamily: 'inherit', padding: 0 },
+  bcSep: { color: '#cbd5e1', fontSize: 16 },
+  bcCurrent: { color: NAVY, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 300 },
+  gallery: { marginBottom: 28 },
+  mainImgWrap: { position: 'relative', borderRadius: 18, overflow: 'hidden', height: 500, cursor: 'pointer', boxShadow: '0 4px 24px rgba(0,0,0,0.12)', backgroundColor: '#1e293b' },
+  mainImg: { width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.4s ease', display: 'block' },
+  imgActions: { position: 'absolute', top: 16, right: 16, display: 'flex', gap: 8, zIndex: 5 },
+  imgBtn: { background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(4px)', border: 'none', borderRadius: '50%', width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 18, boxShadow: '0 2px 8px rgba(0,0,0,0.15)' },
+  imgBadges: { position: 'absolute', top: 16, left: 16, display: 'flex', gap: 8, zIndex: 5 },
+  badgeSold: { backgroundColor: '#ef4444', color: '#fff', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20 },
+  badgeVerified: { backgroundColor: '#16a34a', color: '#fff', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20 },
+  badgeTx: { backgroundColor: 'rgba(13,27,46,0.75)', backdropFilter: 'blur(4px)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20 },
+  galleryArrow: { position: 'absolute', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', border: 'none', borderRadius: '50%', width: 44, height: 44, color: '#fff', fontSize: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 5 },
+  imgCounter: { position: 'absolute', bottom: 16, left: 16, backgroundColor: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 30, display: 'flex', alignItems: 'center', gap: 4, zIndex: 5 },
+  thumbStrip: { display: 'flex', gap: 8, marginTop: 10, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' },
+  thumb: { width: 88, height: 64, borderRadius: 10, overflow: 'hidden', cursor: 'pointer', flexShrink: 0, transition: 'all 0.2s' },
+  twoCol: { display: 'grid', gridTemplateColumns: '1fr 340px', gap: 24, alignItems: 'start' },
+  leftCol: { minWidth: 0 },
+  rightCol: { position: 'sticky', top: 100 },
+  section: { backgroundColor: '#fff', borderRadius: 18, padding: '24px 22px', marginBottom: 18, border: '1px solid #eef2f7', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' },
+  sectionTitle: { fontFamily: "'Sora', sans-serif", fontSize: 18, fontWeight: 800, color: NAVY, margin: '0 0 18px', letterSpacing: '-0.02em' },
+  priceCard: { backgroundColor: '#fff', borderRadius: 18, padding: '24px 22px', marginBottom: 18, border: '1px solid #eef2f7', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' },
+  priceRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  price: { fontSize: 'clamp(1.6rem, 3vw, 2.2rem)', fontWeight: 900, color: RED, fontFamily: "'Sora', sans-serif", lineHeight: 1 },
+  perMonth: { fontSize: 14, color: '#64748b', fontWeight: 400, marginLeft: 4 },
+  txBadge: { backgroundColor: RED_BG, color: RED, fontSize: 12, fontWeight: 700, padding: '5px 14px', borderRadius: 20, border: `1px solid rgba(230,57,70,0.2)` },
+  title: { fontFamily: "'Sora', sans-serif", fontSize: 'clamp(1.2rem, 2.5vw, 1.6rem)', fontWeight: 800, color: NAVY, margin: '0 0 12px', letterSpacing: '-0.02em', lineHeight: 1.25 },
+  location: { display: 'flex', alignItems: 'center', gap: 7, fontSize: 14, color: SLATE, marginBottom: 12 },
   verifiedBanner: { display: 'flex', alignItems: 'center', gap: 8, backgroundColor: 'rgba(37,168,130,0.08)', border: '1px solid rgba(37,168,130,0.2)', color: '#1d8f6e', fontSize: 13, fontWeight: 600, padding: '8px 14px', borderRadius: 10 },
-
-  // Feature grid
-  featGrid:    { display: 'flex', gap: 10, flexWrap: 'wrap' },
-
-  // Details table
-  detailsTable:{ borderRadius: 12, overflow: 'hidden' },
-
-  // Map
+  featGrid: { display: 'flex', gap: 10, flexWrap: 'wrap' },
+  detailsTable: { borderRadius: 12, overflow: 'hidden' },
   mapPlaceholder: { borderRadius: 14, backgroundColor: '#f4f7fb', border: '1px solid #eef2f7', overflow: 'hidden', height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  mapInner:    { textAlign: 'center' },
-  mapLink:     { display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 12, color: RED, fontSize: 13, fontWeight: 700, textDecoration: 'none', padding: '6px 14px', borderRadius: 20, backgroundColor: RED_BG, border: `1px solid rgba(230,57,70,0.2)` },
-
-  // Show more
+  mapInner: { textAlign: 'center' },
+  mapLink: { display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 12, color: RED, fontSize: 13, fontWeight: 700, textDecoration: 'none', padding: '6px 14px', borderRadius: 20, backgroundColor: RED_BG, border: `1px solid rgba(230,57,70,0.2)` },
   showMoreBtn: { width: '100%', padding: '12px', borderRadius: 10, border: '1.5px solid #eef2f7', backgroundColor: '#fafcff', color: RED, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginTop: 4 },
-
-  // Description
   description: { fontSize: 14, color: SLATE, lineHeight: 1.8, margin: 0 },
-
-  // Agent card
-  agentCard:   { backgroundColor: '#fff', borderRadius: 18, padding: '22px', border: '1px solid #eef2f7', boxShadow: '0 4px 20px rgba(0,0,0,0.07)', animation: 'pdFadeUp 0.4s ease-out 0.15s both' },
+  agentCard: { backgroundColor: '#fff', borderRadius: 18, padding: '22px', border: '1px solid #eef2f7', boxShadow: '0 4px 20px rgba(0,0,0,0.07)' },
   agentHeader: { display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14, paddingBottom: 14, borderBottom: '1px solid #f1f5f9' },
   agentAvatar: { width: 52, height: 52, borderRadius: '50%', backgroundColor: RED_BG, border: `2px solid ${RED}`, color: RED, fontSize: 18, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' },
-  agentName:   { fontSize: 15, fontWeight: 800, color: NAVY, fontFamily: "'Sora', sans-serif" },
-  agentMeta:   { marginTop: 3 },
-  agentVerified:{ display: 'inline-block', fontSize: 10, fontWeight: 700, color: TEAL, backgroundColor: 'rgba(37,168,130,0.08)', padding: '2px 8px', borderRadius: 20 },
-  agentBio:    { fontSize: 12, color: SLATE, lineHeight: 1.6, margin: '0 0 14px', paddingBottom: 14, borderBottom: '1px solid #f1f5f9' },
+  agentName: { fontSize: 15, fontWeight: 800, color: NAVY, fontFamily: "'Sora', sans-serif" },
+  agentMeta: { marginTop: 3 },
+  agentVerified: { display: 'inline-block', fontSize: 10, fontWeight: 700, color: TEAL, backgroundColor: 'rgba(37,168,130,0.08)', padding: '2px 8px', borderRadius: 20 },
+  agentBio: { fontSize: 12, color: SLATE, lineHeight: 1.6, margin: '0 0 14px', paddingBottom: 14, borderBottom: '1px solid #f1f5f9' },
   agentPriceBox: { textAlign: 'center', padding: '14px', backgroundColor: '#f8faff', borderRadius: 12, marginBottom: 16 },
-  agentPrice:  { fontSize: 22, fontWeight: 900, color: RED, fontFamily: "'Sora', sans-serif" },
-  agentBtns:   { display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 },
-  callBtn: {
-    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-    padding: '13px', borderRadius: 12, textDecoration: 'none',
-    backgroundColor: '#25D366', color: '#fff',
-    fontSize: 14, fontWeight: 700, transition: 'all 0.15s',
-    boxShadow: '0 3px 10px rgba(37,211,102,0.3)',
-  },
-  whatsappBtn: {
-    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-    padding: '13px', borderRadius: 12, textDecoration: 'none',
-    backgroundColor: '#128C7E', color: '#fff',
-    fontSize: 14, fontWeight: 700, transition: 'all 0.15s',
-    boxShadow: '0 3px 10px rgba(18,140,126,0.3)',
-  },
-  bookingBtn: {
-    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-    padding: '13px', borderRadius: 12, border: 'none',
-    backgroundColor: RED, color: '#fff',
-    fontSize: 14, fontWeight: 700, cursor: 'pointer',
-    fontFamily: 'inherit', transition: 'all 0.15s',
-    boxShadow: '0 3px 10px rgba(230,57,70,0.3)',
-  },
-  shareRow:    { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', paddingTop: 14, borderTop: '1px solid #f1f5f9', marginBottom: 14 },
-  shareBtn:    { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 20, border: '1px solid #eef2f7', backgroundColor: '#f8faff', color: NAVY, fontSize: 11, fontWeight: 600, cursor: 'pointer', textDecoration: 'none', fontFamily: 'inherit', transition: 'all 0.15s' },
-  quickStats:  { display: 'flex', gap: 0, borderTop: '1px solid #f1f5f9', paddingTop: 14 },
-  quickStat:   { flex: 1, display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center', textAlign: 'center' },
+  agentPrice: { fontSize: 22, fontWeight: 900, color: RED, fontFamily: "'Sora', sans-serif" },
+  agentBtns: { display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 },
+  callBtn: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '13px', borderRadius: 12, textDecoration: 'none', backgroundColor: '#25D366', color: '#fff', fontSize: 14, fontWeight: 700, boxShadow: '0 3px 10px rgba(37,211,102,0.3)' },
+  whatsappBtn: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '13px', borderRadius: 12, textDecoration: 'none', backgroundColor: '#128C7E', color: '#fff', fontSize: 14, fontWeight: 700, boxShadow: '0 3px 10px rgba(18,140,126,0.3)' },
+  bookingBtn: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '13px', borderRadius: 12, border: 'none', backgroundColor: RED, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 3px 10px rgba(230,57,70,0.3)' },
+  shareRow: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', paddingTop: 14, borderTop: '1px solid #f1f5f9', marginBottom: 14 },
+  shareBtn: { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 20, border: '1px solid #eef2f7', backgroundColor: '#f8faff', color: NAVY, fontSize: 11, fontWeight: 600, cursor: 'pointer', textDecoration: 'none', fontFamily: 'inherit' },
+  quickStats: { display: 'flex', gap: 0, borderTop: '1px solid #f1f5f9', paddingTop: 14 },
+  quickStat: { flex: 1, display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center', textAlign: 'center' },
 };
 
 // ─── Keyframes ────────────────────────────────────────────────────────────────
@@ -930,52 +1292,26 @@ if (typeof document !== 'undefined') {
     el.id = id;
     el.textContent = `
       @import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500;600;700;800&display=swap');
-
-      @keyframes pdFadeIn  { from { opacity:0; } to { opacity:1; } }
-      @keyframes pdFadeUp  { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
-      @keyframes pdSpin    { to { transform:rotate(360deg); } }
+      @keyframes pdFadeIn { from { opacity:0; } to { opacity:1; } }
+      @keyframes pdFadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+      @keyframes pdSpin { to { transform:rotate(360deg); } }
       @keyframes pdModalIn { from { opacity:0; transform:translate(-50%,-46%); } to { opacity:1; transform:translate(-50%,-50%); } }
-      @keyframes pdShimmer {
-        0%   { background-color: #e2e8f0; }
-        50%  { background-color: #f1f5f9; }
-        100% { background-color: #e2e8f0; }
-      }
-
-      /* Main image zoom on hover */
+      @keyframes pdShimmer { 0% { background-color: #e2e8f0; } 50% { background-color: #f1f5f9; } 100% { background-color: #e2e8f0; } }
       [style*="height: 500px"]:hover img { transform: scale(1.03); }
-
-      /* Thumb hover */
       div[style*="88px"]:hover { opacity: 1 !important; transform: scale(1) !important; }
-
-      /* Gallery arrow hover */
       button[style*="rgba(0,0,0,0.5)"]:hover { background-color: rgba(0,0,0,0.75) !important; }
-
-      /* Lightbox nav hover */
       button[style*="rgba(255,255,255,0.12)"]:not(:disabled):hover { background-color: rgba(255,255,255,0.2) !important; }
-
-      /* Agent buttons hover */
-      a[style*="#25D366"]:hover  { background-color: #20b858 !important; }
-      a[style*="#128C7E"]:hover  { background-color: #0e7368 !important; }
+      a[style*="#25D366"]:hover { background-color: #20b858 !important; }
+      a[style*="#128C7E"]:hover { background-color: #0e7368 !important; }
       button[style*="bookingBtn"]:hover { background-color: ${RED_DARK} !important; }
       button[style*="showMoreBtn"]:hover { background-color: ${RED_BG} !important; }
-
-      /* Scrollbar */
       ::-webkit-scrollbar { width: 4px; height: 4px; }
       ::-webkit-scrollbar-track { background: transparent; }
       ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-
-      /* Thumb strip hide scrollbar */
       div[style*="scrollbarWidth"]::-webkit-scrollbar { display: none; }
-
-      /* Booking input focus */
       input:focus, textarea:focus, select:focus { border-color: ${RED} !important; outline: none; }
-
-      /* Breadcrumb btn hover */
       button[style*="color: rgb(100, 116, 139)"]:hover { color: ${RED} !important; }
-
-      @media (max-width: 900px) {
-        /* Stack to single column */
-      }
+      @media (max-width: 900px) { .two-col { grid-template-columns: 1fr !important; } }
     `;
     document.head.appendChild(el);
   }

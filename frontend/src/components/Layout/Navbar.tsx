@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
 // ─── Brand ────────────────────────────────────────────────────────────────────
@@ -64,6 +64,11 @@ const Icon = {
       <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
     </svg>
   ),
+  Heart: () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+    </svg>
+  ),
 };
 
 // ─── Nav config ───────────────────────────────────────────────────────────────
@@ -74,6 +79,8 @@ const BASE_NAV_LINKS: NavLink[] = [
   { label: 'Home',           path: '/',           icon: <Icon.Home /> },
   { label: 'All Properties', path: '/properties', icon: <Icon.Grid /> },
   { label: 'Services',       path: '/services',   icon: <Icon.Wrench /> },
+  { label: 'Agents',         path: '/agents',     icon: <Icon.User /> },
+  // { label: 'Service Providers', path: '/service-providers', icon: <Icon.Wrench /> },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

@@ -75,6 +75,15 @@ class Service(models.Model):
     provider = models.CharField(max_length=200, blank=True)
     provider_phone = models.CharField(max_length=20, blank=True)
     provider_email = models.EmailField(blank=True)
+    
+    provider_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        related_name='services',
+        null=True, 
+        blank=True
+    )
+    
     is_featured = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     rating = models.FloatField(default=0)

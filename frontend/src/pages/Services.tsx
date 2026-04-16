@@ -81,7 +81,7 @@ const Stars: React.FC<{ rating: number; size?: number }> = ({ rating, size = 13 
   </span>
 );
 
-// ─── Service Card with View Details button ────────────────────────────────────
+// ─── Service Card - Entire card is clickable ─────────────────────────────────
 const ServiceCard: React.FC<{
   service: Service;
   onBook: (s: Service) => void;
@@ -89,6 +89,15 @@ const ServiceCard: React.FC<{
   index: number;
 }> = ({ service, onBook, onViewDetails, index }) => {
   const [hovered, setHovered] = useState(false);
+
+  const handleCardClick = () => {
+    onViewDetails(service);
+  };
+
+  const handleBookClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevents card click from firing
+    onBook(service);
+  };
 
   return (
     <div
@@ -100,9 +109,11 @@ const ServiceCard: React.FC<{
           ? '0 16px 40px rgba(0,0,0,0.12)'
           : '0 1px 4px rgba(0,0,0,0.06)',
         animationDelay: `${index * 0.04}s`,
+        cursor: 'pointer',
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onClick={handleCardClick}
     >
       {/* Image */}
       <div style={c.cardImgWrap}>
@@ -166,26 +177,18 @@ const ServiceCard: React.FC<{
               </div>
             )}
             <button
-              style={c.viewDetailsBtn}
-              onClick={e => { e.stopPropagation(); onViewDetails(service); }}
+              style={c.bookBtn}
+              onClick={handleBookClick}
               onMouseEnter={(e) => {
                 const btn = e.currentTarget;
-                btn.style.backgroundColor = TEAL_BG;
-                btn.style.borderColor = TEAL_DARK;
-                btn.style.color = TEAL_DARK;
+                btn.style.backgroundColor = '#1d8f6e';
+                btn.style.transform = 'scale(1.02)';
               }}
               onMouseLeave={(e) => {
                 const btn = e.currentTarget;
-                btn.style.backgroundColor = 'transparent';
-                btn.style.borderColor = TEAL;
-                btn.style.color = TEAL;
+                btn.style.backgroundColor = TEAL;
+                btn.style.transform = 'scale(1)';
               }}
-            >
-              View Details →
-            </button>
-            <button
-              style={c.bookBtn}
-              onClick={e => { e.stopPropagation(); onBook(service); }}
             >
               Book Now
             </button>
@@ -705,26 +708,13 @@ const c: Record<string, React.CSSProperties> = {
     color: '#64748b', fontSize: 11, fontWeight: 500,
     whiteSpace: 'nowrap',
   },
-  viewDetailsBtn: {
-    padding: '7px 16px',
-    borderRadius: 9,
-    border: `1.5px solid ${TEAL}`,
-    backgroundColor: 'transparent',
-    color: TEAL,
-    fontSize: 12,
-    fontWeight: 700,
-    cursor: 'pointer',
-    fontFamily: 'inherit',
-    transition: 'all 0.15s',
-    whiteSpace: 'nowrap',
-  },
   bookBtn: {
     padding: '7px 16px', borderRadius: 9,
     border: 'none', backgroundColor: TEAL, color: '#fff',
     fontSize: 12, fontWeight: 700, cursor: 'pointer',
     boxShadow: `0 3px 10px rgba(37,168,130,0.28)`,
     whiteSpace: 'nowrap', fontFamily: 'inherit',
-    transition: 'background-color 0.15s',
+    transition: 'all 0.15s',
   },
 };
 

@@ -1,17 +1,65 @@
-from rest_framework import generics, permissions, status
+from rest_framework import generics, permissions, status, filters
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.contrib.auth import get_user_model
 from django.db.models import Q
+from django.shortcuts import get_object_or_404
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from rest_framework_simplejwt.tokens import RefreshToken
 from .serializers import UserSerializer, RegisterSerializer, FollowSerializer
 from .models import Follow
 import os
+from django.contrib.auth import authenticate
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
+from django_filters.rest_framework import DjangoFilterBackend
 
 User = get_user_model()
 
+class ChangePasswordView(APIView):
+    """
+    API endpoint for changing user password
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+    
+    def post(self, request):
+        user = request.user
+        old_password = request.data.get('old_password')
+        new_password = request.data.get('new_password')
+        
+        # Validate required fields
+        if not old_password or not new_password:
+            return Response(
+                {'error': 'Both old_password and new_password are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check if old password is correct
+        if not user.check_password(old_password):
+            return Response(
+                {'error': 'Current password is incorrect'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Validate new password strength
+        try:
+            validate_password(new_password, user)
+        except ValidationError as e:
+            return Response(
+                {'error': e.messages},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Set new password
+        user.set_password(new_password)
+        user.save()
+        
+        return Response(
+            {'message': 'Password changed successfully'},
+            status=status.HTTP_200_OK
+        )
+    
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     permission_classes = (permissions.AllowAny,)
@@ -24,6 +72,19 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
     def get_object(self):
         return self.request.user
 
+class UserListView(generics.ListAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = (permissions.AllowAny,)
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ['is_agent', 'is_service_provider', 'is_verified']
+    search_fields = ['username', 'first_name', 'last_name', 'email', 'city', 'district']
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+    
 class UserDetailView(generics.RetrieveAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
@@ -237,3 +298,51 @@ class FacebookLoginView(APIView):
                 {'error': f'Facebook login failed: {str(e)}'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+class FollowStatusView(APIView):
+    permission_classes = (permissions.IsAuthenticated,)
+    
+    def get(self, request, username):
+        try:
+            user_to_check = User.objects.get(username=username)
+            is_following = Follow.objects.filter(
+                follower=request.user, 
+                following=user_to_check
+            ).exists()
+            return Response({'is_following': is_following})
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+class UserFollowersView(generics.ListAPIView):
+    """Get list of users following a specific user"""
+    serializer_class = UserSerializer
+    permission_classes = (permissions.AllowAny,)
+    
+    def get_queryset(self):
+        username = self.kwargs.get('username')
+        user = get_object_or_404(User, username=username)
+        # Get the User objects of people who follow this user
+        follower_ids = Follow.objects.filter(following=user).values_list('follower_id', flat=True)
+        return User.objects.filter(id__in=follower_ids)
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+
+class UserFollowingView(generics.ListAPIView):
+    """Get list of users a specific user is following"""
+    serializer_class = UserSerializer
+    permission_classes = (permissions.AllowAny,)
+    
+    def get_queryset(self):
+        username = self.kwargs.get('username')
+        user = get_object_or_404(User, username=username)
+        # Get the User objects that this user follows
+        following_ids = Follow.objects.filter(follower=user).values_list('following_id', flat=True)
+        return User.objects.filter(id__in=following_ids)
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context

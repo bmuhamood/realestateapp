@@ -17,6 +17,12 @@ import { notificationService } from './services/notificationService';
 import ServiceDetail from './pages/ServiceDetail';
 import ServiceProviderPortal from './pages/ServiceProviderPortal';
 import ServiceProviderDashboard from './pages/ServiceProviderDashboard';
+import ProfilePage from './pages/ProfilePage';
+import AccountSettings from './pages/AccountSettings';
+import AgentsList from './pages/AgentsList';
+import ServiceProvidersList from './pages/ServiceProvidersList';
+import FollowersList from './pages/FollowersList';
+import FollowingList from './pages/FollowingList';
 
 const theme = createTheme({
   palette: {
@@ -85,9 +91,6 @@ const ServiceProviderRoute: React.FC<{ children: React.ReactNode }> = ({ childre
     );
   }
 
-  // Check if user is authenticated AND is a service provider (you can add a is_service_provider field to User model)
-  // For now, we'll allow any authenticated user to access the service provider portal
-  // You can modify this to check for specific user role
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
 };
 
@@ -128,10 +131,20 @@ function AppContent() {
     <>
       <Navbar />
       <Routes>
+        {/* Public Routes */}
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/property/:id" element={<PropertyDetail />} />
+        <Route path="/properties" element={<AllProperties />} />
+        <Route path="/search" element={<AllProperties />} />
+        <Route path="/services" element={<Services />} />
+        <Route path="/services/:id" element={<ServiceDetail />} />
+        <Route path="/agents" element={<AgentsList />} />
+        <Route path="/service-providers" element={<ServiceProvidersList />} />
+        <Route path="/profile/:username/followers" element={<FollowersList />} />
+        <Route path="/profile/:username/following" element={<FollowingList />} />
+        {/* Protected Routes - Require Authentication */}
         <Route
           path="/favorites"
           element={
@@ -140,6 +153,36 @@ function AppContent() {
             </PrivateRoute>
           }
         />
+        
+        {/* Profile Routes - Supports both own profile and viewing others */}
+        <Route
+          path="/profile"
+          element={
+            <PrivateRoute>
+              <ProfilePage />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/profile/:username"
+          element={
+            <PrivateRoute>
+              <ProfilePage />
+            </PrivateRoute>
+          }
+        />
+
+        {/* Account Settings Route */}
+        <Route
+          path="/settings"
+          element={
+            <PrivateRoute>
+              <AccountSettings />
+            </PrivateRoute>
+          }
+        />
+        
+        {/* Dashboard Routes */}
         <Route
           path="/dashboard"
           element={
@@ -154,9 +197,8 @@ function AppContent() {
             )
           }
         />
-        <Route path="/properties" element={<AllProperties />} />
-        <Route path="/services" element={<Services />} />
-        <Route path="/services/:id" element={<ServiceDetail />} />
+        
+        {/* Service Provider Routes */}
         <Route
           path="/service-provider"
           element={
@@ -165,19 +207,14 @@ function AppContent() {
             </ServiceProviderRoute>
           }
         />
-        <Route path="/service-provider/dashboard" element={
-          <ServiceProviderRoute>
-            <ServiceProviderDashboard />
-          </ServiceProviderRoute>
-        } />
-        <Route path="/profile" element={
-          <PrivateRoute>
-            <Box sx={{ mt: 10, p: 4 }}>
-              <Typography variant="h4">Profile Page - Coming Soon</Typography>
-            </Box>
-          </PrivateRoute>
-        } />
-        <Route path="/search" element={<AllProperties />} />
+        <Route
+          path="/service-provider/dashboard"
+          element={
+            <ServiceProviderRoute>
+              <ServiceProviderDashboard />
+            </ServiceProviderRoute>
+          }
+        />
       </Routes>
       <Chatbot />
     </>

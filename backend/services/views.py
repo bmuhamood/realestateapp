@@ -2,12 +2,24 @@ from rest_framework import generics, permissions, filters, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
+from django_filters import rest_framework as django_filters
 from django.db.models import Q
 from .models import ServiceCategory, Service, ServiceBooking, ServiceReview
 from .serializers import (
     ServiceCategorySerializer, ServiceSerializer, 
     ServiceBookingSerializer, ServiceReviewSerializer
 )
+
+# Add this filter class
+class ServiceFilter(django_filters.FilterSet):
+    # ✅ FIX: Use provider_user for filtering (the ForeignKey to User)
+    provider_user = django_filters.NumberFilter(field_name='provider_user__id')
+    provider = django_filters.CharFilter(field_name='provider', lookup_expr='icontains')
+    category = django_filters.NumberFilter(field_name='category__id')
+    
+    class Meta:
+        model = Service
+        fields = ['category', 'service_type', 'provider_user', 'is_featured']
 
 class ServiceCategoryListView(generics.ListAPIView):
     queryset = ServiceCategory.objects.filter(is_active=True)
@@ -19,12 +31,22 @@ class ServiceListView(generics.ListCreateAPIView):
     serializer_class = ServiceSerializer
     permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['category', 'service_type']
+    filterset_class = ServiceFilter
     search_fields = ['name', 'description', 'provider']
     ordering_fields = ['price', 'rating', 'created_at']
     
     def get_queryset(self):
         queryset = super().get_queryset()
+        
+        # ✅ FIX: Filter by provider_user (the ForeignKey to User)
+        provider_id = self.request.query_params.get('provider_user')
+        if provider_id:
+            queryset = queryset.filter(provider_user_id=provider_id)
+        
+        # Also support 'provider' parameter for backward compatibility
+        provider_name = self.request.query_params.get('provider')
+        if provider_name:
+            queryset = queryset.filter(provider__icontains=provider_name)
         
         # Filter by price range
         min_price = self.request.query_params.get('min_price')
@@ -84,18 +106,11 @@ class ServiceReviewView(generics.ListCreateAPIView):
         # Update service rating
         service = serializer.validated_data.get('service')
         reviews = service.reviews.all()
-        avg_rating = sum(r.rating for r in reviews) / reviews.count()
-        service.rating = avg_rating
-        service.reviews_count = reviews.count()
-        service.save()
-
-class AgentServiceBookingsView(generics.ListAPIView):
-    serializer_class = ServiceBookingSerializer
-    permission_classes = (permissions.IsAuthenticated,)
-    
-    def get_queryset(self):
-        # For demo, show all bookings (in production, filter by agent)
-        return ServiceBooking.objects.all().order_by('-created_at')
+        if reviews.exists():
+            avg_rating = sum(r.rating for r in reviews) / reviews.count()
+            service.rating = avg_rating
+            service.reviews_count = reviews.count()
+            service.save()
 
 class AgentServiceBookingsView(generics.ListAPIView):
     serializer_class = ServiceBookingSerializer
@@ -104,7 +119,7 @@ class AgentServiceBookingsView(generics.ListAPIView):
     def get_queryset(self):
         # Get all bookings for services owned by the current user as provider
         return ServiceBooking.objects.filter(
-            service__provider_email=self.request.user.email
+            service__provider_user=self.request.user
         ).order_by('-created_at')
     
 class UpdateBookingStatusView(APIView):

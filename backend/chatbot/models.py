@@ -1,7 +1,6 @@
-# chatbot/models.py
+# chatbot/models.py - COMPLETE FIXED VERSION
 from django.db import models
 from django.conf import settings
-from django.db.models import JSONField
 import uuid
 
 class ChatSession(models.Model):
@@ -24,6 +23,7 @@ class ChatSession(models.Model):
     
     def __str__(self):
         return f"Session {self.session_id} - {self.user.username if self.user else 'Anonymous'}"
+
 
 class ChatMessage(models.Model):
     MESSAGE_TYPES = [
@@ -48,7 +48,7 @@ class ChatMessage(models.Model):
     message_type = models.CharField(max_length=10, choices=MESSAGE_TYPES, default='user')
     intent = models.CharField(max_length=50, choices=INTENTS, null=True, blank=True)
     content = models.TextField()
-    entities = models.JSONField(default=dict, blank=True)  # Extracted entities like location, price, etc.
+    entities = models.JSONField(default=dict, blank=True)
     suggestions = models.JSONField(default=list, blank=True)
     property_data = models.JSONField(null=True, blank=True)
     service_data = models.JSONField(null=True, blank=True)
@@ -64,6 +64,7 @@ class ChatMessage(models.Model):
     
     def __str__(self):
         return f"{self.message_type}: {self.content[:50]}"
+
 
 class UserChatPreference(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='chat_preferences')
@@ -85,6 +86,7 @@ class UserChatPreference(models.Model):
     def __str__(self):
         return f"Preferences for {self.user.username}"
 
+
 class ConversationAnalytics(models.Model):
     """Track conversation patterns for improvement"""
     session = models.ForeignKey(ChatSession, on_delete=models.CASCADE)
@@ -92,5 +94,58 @@ class ConversationAnalytics(models.Model):
     bot_response = models.TextField()
     intent = models.CharField(max_length=50)
     response_time_ms = models.IntegerField()
-    user_rating = models.IntegerField(null=True, blank=True)  # 1-5 stars
+    user_rating = models.IntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"Analytics - {self.intent} - {self.created_at.strftime('%Y-%m-%d')}"
+
+
+class AgentUsage(models.Model):
+    """Track agent usage for analytics"""
+    session_id = models.CharField(max_length=100)
+    agent_name = models.CharField(max_length=50)
+    user_message = models.TextField()
+    confidence_score = models.FloatField()
+    response_time_ms = models.IntegerField()
+    success = models.BooleanField(default=True)
+    user_rating = models.IntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['agent_name', '-created_at']),
+            models.Index(fields=['session_id', '-created_at']),
+        ]
+    
+    def __str__(self):
+        return f"{self.agent_name} - {self.session_id[:8]} - {self.created_at.strftime('%Y-%m-%d')}"
+
+
+class UserFeedback(models.Model):
+    """Store user feedback for training"""
+    FEEDBACK_TYPES = [
+        ('helpful', 'Helpful'),
+        ('not_helpful', 'Not Helpful'),
+        ('wrong_info', 'Wrong Information'),
+        ('confusing', 'Confusing'),
+        ('excellent', 'Excellent'),
+        ('training_data', 'Training Data'),
+    ]
+    
+    session_id = models.CharField(max_length=100)
+    agent_name = models.CharField(max_length=50)
+    user_message = models.TextField()
+    bot_response = models.TextField()
+    feedback_type = models.CharField(max_length=20, choices=FEEDBACK_TYPES)
+    correction = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['agent_name', '-created_at']),
+            models.Index(fields=['feedback_type', '-created_at']),
+        ]
+    
+    def __str__(self):
+        return f"{self.feedback_type} - {self.agent_name} - {self.created_at.strftime('%Y-%m-%d')}"
