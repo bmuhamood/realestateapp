@@ -1,7 +1,7 @@
 # properties/urls.py - COMPLETE UPGRADED VERSION
 from django.urls import path
 from .views import (
-    PropertyListView, PropertyDetailView, PropertyLikeView, 
+    PropertyImageView, PropertyListView, PropertyDetailView, PropertyLikeView, 
     MyPropertiesView, BoostPropertyView, PropertyRecommendationsView, UserFavoritesView,
     # New imports for upgraded features
     PropertyVideoView, PropertyDocumentView, PropertyReviewView, PropertyInquiryView
@@ -44,4 +44,5 @@ urlpatterns = [
     
     # ========== NEW: INQUIRY ENDPOINTS ==========
     path('<int:property_id>/inquiries/', PropertyInquiryView.as_view(), name='property-inquiries'),
+    path('images/<int:image_id>/', PropertyImageView.as_view(), name='property-image-delete'),
 ]

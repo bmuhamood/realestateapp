@@ -1,5 +1,5 @@
 /**
- * Dashboard.tsx — Agent Dashboard · PropertyHub.ug design system
+ * Dashboard.tsx — Agent Dashboard · Metro Properties design system
  * Colors: RED #e63946 · NAVY #0d1b2e · TEAL #25a882
  * Fonts:  Sora (headings) · DM Sans (body)
  */
@@ -10,7 +10,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import api from '../../services/api';
 import { Property, Booking, PropertyImage } from '../../types';
 import BoostModal from '../Boost/BoostModal';
-import PropertyForm from '../Forms/PropertyForm';
 
 // ─── Brand tokens ─────────────────────────────────────────────────────────────
 const RED      = '#e63946';
@@ -30,34 +29,6 @@ const ORANGE_BG = 'rgba(249,115,22,0.08)';
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface UploadImage { file: File; preview: string; is_main: boolean; }
 
-interface PropertyFormData {
-  title: string; description: string; property_type: string; transaction_type: string;
-  price: string; bedrooms: string; bathrooms: string; square_meters: string;
-  address: string; city: string; district: string; latitude: string; longitude: string;
-  video_url: string; virtual_tour_url: string;
-  neighborhood_name: string; neighborhood_description: string; distance_to_city_center: string;
-  distance_to_airport: string; distance_to_highway: string;
-  nearby_schools: string; distance_to_nearest_school: string; school_rating: string;
-  nearby_roads: string; nearest_road: string; public_transport: boolean;
-  nearest_bus_stop: string; nearest_taxi_stage: string;
-  amenities: string[]; nearest_mall: string; distance_to_mall: string;
-  nearest_supermarket: string; nearest_market: string; nearest_pharmacy: string;
-  nearest_hospital: string; distance_to_hospital: string;
-  nearest_restaurant: string; nearest_cafe: string; nearest_gym: string; nearest_park: string;
-  year_built: string; furnishing_status: string; parking_type: string; parking_spaces: string;
-  has_security: boolean; has_cctv: boolean; has_electric_fence: boolean;
-  has_security_lights: boolean; has_security_guards: boolean; has_gated_community: boolean;
-  has_solar: boolean; has_backup_generator: boolean; has_water_tank: boolean;
-  has_borehole: boolean; has_internet: boolean; has_cable_tv: boolean;
-  has_garden: boolean; has_balcony: boolean; has_terrace: boolean;
-  has_swimming_pool: boolean; has_playground: boolean; has_bbq_area: boolean;
-  has_air_conditioning: boolean; has_heating: boolean; has_fireplace: boolean;
-  has_modern_kitchen: boolean; has_walk_in_closet: boolean; has_study_room: boolean;
-  pets_allowed: boolean; smoking_allowed: boolean;
-  has_title_deed: boolean; title_deed_number: string; land_registration_number: string;
-  agent_phone: string; agent_email: string; viewing_instructions: string;
-}
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmtPrice = (p: number) =>
   new Intl.NumberFormat('en-UG', { style: 'currency', currency: 'UGX', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(p);
@@ -73,34 +44,6 @@ const fmtTime = (d: string) => {
 const getInitials = (user: any) =>
   ((user?.first_name?.[0] || '') + (user?.last_name?.[0] || '')).toUpperCase() ||
   user?.username?.[0]?.toUpperCase() || '?';
-
-const EMPTY_FORM = (user: any): PropertyFormData => ({
-  title: '', description: '', property_type: 'house', transaction_type: 'sale',
-  price: '', bedrooms: '', bathrooms: '', square_meters: '',
-  address: '', city: '', district: '', latitude: '', longitude: '',
-  video_url: '', virtual_tour_url: '',
-  neighborhood_name: '', neighborhood_description: '', distance_to_city_center: '',
-  distance_to_airport: '', distance_to_highway: '',
-  nearby_schools: '', distance_to_nearest_school: '', school_rating: '',
-  nearby_roads: '', nearest_road: '', public_transport: false,
-  nearest_bus_stop: '', nearest_taxi_stage: '',
-  amenities: [], nearest_mall: '', distance_to_mall: '',
-  nearest_supermarket: '', nearest_market: '', nearest_pharmacy: '',
-  nearest_hospital: '', distance_to_hospital: '',
-  nearest_restaurant: '', nearest_cafe: '', nearest_gym: '', nearest_park: '',
-  year_built: '', furnishing_status: 'unfurnished', parking_type: 'none', parking_spaces: '',
-  has_security: false, has_cctv: false, has_electric_fence: false,
-  has_security_lights: false, has_security_guards: false, has_gated_community: false,
-  has_solar: false, has_backup_generator: false, has_water_tank: false,
-  has_borehole: false, has_internet: false, has_cable_tv: false,
-  has_garden: false, has_balcony: false, has_terrace: false,
-  has_swimming_pool: false, has_playground: false, has_bbq_area: false,
-  has_air_conditioning: false, has_heating: false, has_fireplace: false,
-  has_modern_kitchen: false, has_walk_in_closet: false, has_study_room: false,
-  pets_allowed: true, smoking_allowed: true,
-  has_title_deed: false, title_deed_number: '', land_registration_number: '',
-  agent_phone: user?.phone || '', agent_email: user?.email || '', viewing_instructions: '',
-});
 
 // ─── Status Badge ─────────────────────────────────────────────────────────────
 const STATUS_STYLES: Record<string, { bg: string; color: string; dot: string }> = {
@@ -464,30 +407,24 @@ const TabHead: React.FC<{ title: string; count: number; action?: React.ReactNode
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 const Dashboard: React.FC = () => {
-  const { user }  = useAuth();
-  const navigate  = useNavigate();
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
-  const [activeTab,         setActiveTab]         = useState(0);
-  const [properties,        setProperties]        = useState<Property[]>([]);
-  const [bookings,          setBookings]          = useState<Booking[]>([]);
-  const [loading,           setLoading]           = useState(true);
-  const [toast,             setToast]             = useState<{ msg: string; ok: boolean } | null>(null);
+  const [activeTab, setActiveTab] = useState(0);
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
-  const [addOpen,           setAddOpen]           = useState(false);
-  const [editOpen,          setEditOpen]          = useState(false);
-  const [deleteOpen,        setDeleteOpen]        = useState(false);
-  const [boostOpen,         setBoostOpen]         = useState(false);
-  const [detailOpen,        setDetailOpen]        = useState(false);
-  const [selectedProp,      setSelectedProp]      = useState<Property | null>(null);
-  const [propToDelete,      setPropToDelete]      = useState<Property | null>(null);
-  const [boostProp,         setBoostProp]         = useState<Property | null>(null);
-  const [deleteError,       setDeleteError]       = useState<string | null>(null);
-  const [submitLoading,     setSubmitLoading]     = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [boostOpen, setBoostOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedProp, setSelectedProp] = useState<Property | null>(null);
+  const [propToDelete, setPropToDelete] = useState<Property | null>(null);
+  const [boostProp, setBoostProp] = useState<Property | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [submitLoading, setSubmitLoading] = useState(false);
   const [updatingBookingId, setUpdatingBookingId] = useState<number | null>(null);
-
-  const [images,        setImages]        = useState<UploadImage[]>([]);
-  const [existingImages,setExistingImages]= useState<PropertyImage[]>([]);
-  const [formData,      setFormData]      = useState<PropertyFormData>(EMPTY_FORM(user));
 
   const showToast = (msg: string, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 3500); };
 
@@ -502,103 +439,13 @@ const Dashboard: React.FC = () => {
     finally { setLoading(false); }
   };
 
-  const resetForm = () => { setFormData(EMPTY_FORM(user)); setImages([]); setExistingImages([]); setSelectedProp(null); };
-  const onChange   = (f: keyof PropertyFormData, v: any) => setFormData(p => ({ ...p, [f]: v }));
+  const hasBookings = (id: number) => bookings.some(b => b.property?.id === id);
+  const getPropBookings = (id: number) => bookings.filter(b => b.property?.id === id);
+  const hasActiveBookings = (id: number) => getPropBookings(id).some(b => b.status === 'pending' || b.status === 'confirmed');
 
-  const hasBookings        = (id: number) => bookings.some(b => b.property?.id === id);
-  const getPropBookings    = (id: number) => bookings.filter(b => b.property?.id === id);
-  const hasActiveBookings  = (id: number) => getPropBookings(id).some(b => b.status === 'pending' || b.status === 'confirmed');
-
+  // Navigate to edit page instead of modal
   const openEdit = (property: Property) => {
-    setSelectedProp(property);
-    setFormData({
-      title: property.title, description: property.description,
-      property_type: property.property_type, transaction_type: property.transaction_type,
-      price: property.price.toString(), bedrooms: property.bedrooms?.toString() || '',
-      bathrooms: property.bathrooms?.toString() || '', square_meters: property.square_meters?.toString() || '',
-      address: property.address, city: property.city, district: property.district,
-      latitude: property.latitude?.toString() || '', longitude: property.longitude?.toString() || '',
-      video_url: property.video_url || '', virtual_tour_url: property.virtual_tour_url || '',
-      neighborhood_name: property.neighborhood_name || '', neighborhood_description: property.neighborhood_description || '',
-      distance_to_city_center: property.distance_to_city_center?.toString() || '',
-      distance_to_airport: property.distance_to_airport?.toString() || '',
-      distance_to_highway: property.distance_to_highway?.toString() || '',
-      nearby_schools: property.nearby_schools || '', distance_to_nearest_school: property.distance_to_nearest_school?.toString() || '',
-      school_rating: property.school_rating?.toString() || '',
-      nearby_roads: property.nearby_roads || '', nearest_road: property.nearest_road || '',
-      public_transport: property.public_transport || false,
-      nearest_bus_stop: property.nearest_bus_stop || '', nearest_taxi_stage: property.nearest_taxi_stage || '',
-      amenities: property.amenities_list || property.amenities || [],
-      nearest_mall: property.nearest_mall || '', distance_to_mall: property.distance_to_mall?.toString() || '',
-      nearest_supermarket: property.nearest_supermarket || '', nearest_market: property.nearest_market || '',
-      nearest_pharmacy: property.nearest_pharmacy || '', nearest_hospital: property.nearest_hospital || '',
-      distance_to_hospital: property.distance_to_hospital?.toString() || '',
-      nearest_restaurant: property.nearest_restaurant || '', nearest_cafe: property.nearest_cafe || '',
-      nearest_gym: property.nearest_gym || '', nearest_park: property.nearest_park || '',
-      year_built: property.year_built?.toString() || '', furnishing_status: property.furnishing_status || 'unfurnished',
-      parking_type: property.parking_type || 'none', parking_spaces: property.parking_spaces?.toString() || '',
-      has_security: property.has_security || false, has_cctv: property.has_cctv || false,
-      has_electric_fence: property.has_electric_fence || false, has_security_lights: property.has_security_lights || false,
-      has_security_guards: property.has_security_guards || false, has_gated_community: property.has_gated_community || false,
-      has_solar: property.has_solar || false, has_backup_generator: property.has_backup_generator || false,
-      has_water_tank: property.has_water_tank || false, has_borehole: property.has_borehole || false,
-      has_internet: property.has_internet || false, has_cable_tv: property.has_cable_tv || false,
-      has_garden: property.has_garden || false, has_balcony: property.has_balcony || false,
-      has_terrace: property.has_terrace || false, has_swimming_pool: property.has_swimming_pool || false,
-      has_playground: property.has_playground || false, has_bbq_area: property.has_bbq_area || false,
-      has_air_conditioning: property.has_air_conditioning || false, has_heating: property.has_heating || false,
-      has_fireplace: property.has_fireplace || false, has_modern_kitchen: property.has_modern_kitchen || false,
-      has_walk_in_closet: property.has_walk_in_closet || false, has_study_room: property.has_study_room || false,
-      pets_allowed: property.pets_allowed ?? true, smoking_allowed: property.smoking_allowed ?? true,
-      has_title_deed: property.has_title_deed || false, title_deed_number: property.title_deed_number || '',
-      land_registration_number: property.land_registration_number || '',
-      agent_phone: property.agent_phone || user?.phone || '', agent_email: property.agent_email || user?.email || '',
-      viewing_instructions: property.viewing_instructions || '',
-    });
-    setExistingImages(property.images || []);
-    setImages([]);
-    setEditOpen(true);
-  };
-
-  const buildFD = (fd: PropertyFormData, imgs: UploadImage[]) => {
-    const f = new FormData();
-    Object.entries(fd).forEach(([k, v]) => {
-      if (v !== null && v !== undefined && v !== '') {
-        if (k === 'amenities') f.append(k, JSON.stringify(v));
-        else if (typeof v === 'boolean') f.append(k, String(v));
-        else f.append(k, String(v));
-      }
-    });
-    imgs.forEach((img, i) => { f.append('images', img.file); if (img.is_main) f.append('main_image_index', i.toString()); });
-    return f;
-  };
-
-  const handleAdd = async () => {
-    if (images.length === 0) { showToast('Please upload at least one image', false); return; }
-    setSubmitLoading(true);
-    try {
-      await api.post('/properties/', buildFD(formData, images), { headers: { 'Content-Type': 'multipart/form-data' } });
-      showToast('Property added successfully!');
-      setAddOpen(false); fetchData(); resetForm();
-    } catch { showToast('Failed to add property', false); }
-    finally { setSubmitLoading(false); }
-  };
-
-  const handleUpdate = async () => {
-    if (!selectedProp) return;
-    setSubmitLoading(true);
-    try {
-      const f = buildFD(formData, images);
-      f.append('existing_images', JSON.stringify(existingImages.map(i => i.id)));
-      const main = existingImages.find(i => i.is_main);
-      if (main) f.append('main_image_id', main.id.toString());
-      const newMainIdx = images.findIndex(i => i.is_main);
-      if (newMainIdx !== -1) f.append('main_image_index', newMainIdx.toString());
-      await api.put(`/properties/${selectedProp.id}/`, f, { headers: { 'Content-Type': 'multipart/form-data' } });
-      showToast('Property updated successfully!');
-      setEditOpen(false); fetchData(); resetForm();
-    } catch { showToast('Failed to update property', false); }
-    finally { setSubmitLoading(false); }
+    navigate(`/dashboard/properties/edit/${property.id}`);
   };
 
   const handleDelete = async () => {
@@ -623,13 +470,13 @@ const Dashboard: React.FC = () => {
   };
 
   const stats = {
-    totalProperties:  properties.length,
-    totalBookings:    bookings.length,
-    pendingBookings:  bookings.filter(b => b.status === 'pending').length,
-    totalViews:       properties.reduce((s, p) => s + (p.views_count || 0), 0),
+    totalProperties: properties.length,
+    totalBookings: bookings.length,
+    pendingBookings: bookings.filter(b => b.status === 'pending').length,
+    totalViews: properties.reduce((s, p) => s + (p.views_count || 0), 0),
   };
 
-  // ── Loading screen ────────────────────────────────────────────────────────────
+  // Loading screen
   if (loading) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f4f7fb', marginTop: 64 }}>
       <div style={{ textAlign: 'center' }}>
@@ -639,23 +486,10 @@ const Dashboard: React.FC = () => {
     </div>
   );
 
-  // ── Shared modal styles ───────────────────────────────────────────────────────
-  const ModalShell: React.FC<{ title: string; onClose: () => void; children: React.ReactNode }> = ({ title, onClose, children }) => (
-    <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(13,27,46,0.5)', backdropFilter: 'blur(5px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ backgroundColor: '#fff', borderRadius: 20, width: '100%', maxWidth: 820, maxHeight: '90vh', overflow: 'hidden', boxShadow: '0 28px 64px rgba(0,0,0,0.22)', animation: 'dbModalIn 0.22s ease-out', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 24px', borderBottom: '1px solid #f1f5f9', position: 'sticky', top: 0, backgroundColor: '#fff', zIndex: 2, flexShrink: 0 }}>
-          <h3 style={{ margin: 0, color: NAVY, fontFamily: "'Sora', sans-serif", fontSize: 18, fontWeight: 800 }}>{title}</h3>
-          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, background: '#f4f7fb', border: 'none', cursor: 'pointer', fontSize: 15, color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
-        </div>
-        <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>{children}</div>
-      </div>
-    </div>
-  );
-
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f4f7fb', fontFamily: "'DM Sans', 'Sora', system-ui, sans-serif", marginTop: 64 }}>
 
-      {/* ── Toast ────────────────────────────────────────────────────────────── */}
+      {/* Toast */}
       {toast && (
         <div style={{ position: 'fixed', top: 78, left: '50%', transform: 'translateX(-50%)', zIndex: 2000, backgroundColor: toast.ok ? '#1a3a2e' : '#3a1a1e', color: toast.ok ? '#4ade80' : '#f87171', border: `1px solid ${toast.ok ? TEAL : RED}33`, padding: '12px 20px', borderRadius: 12, fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.22)', animation: 'dbFadeDown 0.3s ease-out', whiteSpace: 'nowrap' }}>
           <span>{toast.ok ? '✓' : '⚠'}</span>
@@ -666,9 +500,8 @@ const Dashboard: React.FC = () => {
 
       <div style={{ maxWidth: 1400, margin: '0 auto', padding: '28px 20px 60px' }}>
 
-        {/* ── Header banner ────────────────────────────────────────────────────── */}
+        {/* Header banner */}
         <div style={{ background: `linear-gradient(135deg, ${NAVY} 0%, #1a3a5c 60%, ${RED}22 100%)`, borderRadius: 20, padding: '24px 28px', marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16, animation: 'dbFadeUp 0.4s ease-out both', position: 'relative', overflow: 'hidden' }}>
-          {/* Decorative blobs */}
           <div style={{ position: 'absolute', top: -40, right: -40, width: 180, height: 180, borderRadius: '50%', background: `${RED}18`, pointerEvents: 'none' }} />
           <div style={{ position: 'absolute', bottom: -50, left: '40%', width: 140, height: 140, borderRadius: '50%', background: `${TEAL}12`, pointerEvents: 'none' }} />
 
@@ -687,21 +520,21 @@ const Dashboard: React.FC = () => {
             <button onClick={() => navigate('/properties')} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderRadius: 10, border: '1.5px solid rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.08)', color: '#f0f6ff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
               🔍 Browse
             </button>
-            <button onClick={() => { resetForm(); setAddOpen(true); }} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 18px', borderRadius: 10, border: 'none', backgroundColor: RED, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 14px rgba(230,57,70,0.35)' }}>
+            <button onClick={() => navigate('/dashboard/properties/add')} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 18px', borderRadius: 10, border: 'none', backgroundColor: RED, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 14px rgba(230,57,70,0.35)' }}>
               + Add Property
             </button>
           </div>
         </div>
 
-        {/* ── Stats grid ───────────────────────────────────────────────────────── */}
+        {/* Stats grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 14, marginBottom: 24 }}>
-          <StatCard icon="🏠" label="Total Properties" value={stats.totalProperties} color={RED}    bg={RED_BG}    sub={`${properties.filter(p => p.is_available).length} available`} delay="0s" />
-          <StatCard icon="📅" label="Total Bookings"   value={stats.totalBookings}   color={AMBER}  bg={AMBER_BG}  sub="all time"  delay="0.07s" />
-          <StatCard icon="⏳" label="Pending"          value={stats.pendingBookings} color={ORANGE} bg={ORANGE_BG} sub="need action" delay="0.14s" />
-          <StatCard icon="👁️" label="Total Views"      value={stats.totalViews.toLocaleString()} color={GREEN} bg={GREEN_BG} sub="across all listings" delay="0.21s" />
+          <StatCard icon="🏠" label="Total Properties" value={stats.totalProperties} color={RED} bg={RED_BG} sub={`${properties.filter(p => p.is_available).length} available`} delay="0s" />
+          <StatCard icon="📅" label="Total Bookings" value={stats.totalBookings} color={AMBER} bg={AMBER_BG} sub="all time" delay="0.07s" />
+          <StatCard icon="⏳" label="Pending" value={stats.pendingBookings} color={ORANGE} bg={ORANGE_BG} sub="need action" delay="0.14s" />
+          <StatCard icon="👁️" label="Total Views" value={stats.totalViews.toLocaleString()} color={GREEN} bg={GREEN_BG} sub="across all listings" delay="0.21s" />
         </div>
 
-        {/* ── Main panel: sidebar + content ────────────────────────────────────── */}
+        {/* Main panel: sidebar + content */}
         <div style={{ display: 'grid', gridTemplateColumns: '210px 1fr', gap: 16, alignItems: 'start' }}>
 
           {/* Sidebar */}
@@ -709,7 +542,7 @@ const Dashboard: React.FC = () => {
             <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8, padding: '0 4px' }}>Menu</div>
             {[
               { icon: '🏠', label: 'My Properties', count: properties.length },
-              { icon: '📅', label: 'Bookings',       count: bookings.length   },
+              { icon: '📅', label: 'Bookings', count: bookings.length },
             ].map((t, i) => <NavTab key={i} {...t} active={activeTab === i} onClick={() => setActiveTab(i)} />)}
 
             <div style={{ height: 1, background: '#f1f5f9', margin: '14px 0' }} />
@@ -717,8 +550,8 @@ const Dashboard: React.FC = () => {
             {/* Quick stats in sidebar */}
             {[
               { label: 'Available', val: properties.filter(p => p.is_available).length, color: TEAL },
-              { label: 'Boosted',   val: properties.filter(p => p.is_boosted).length,   color: AMBER },
-              { label: 'Pending',   val: stats.pendingBookings,                          color: ORANGE },
+              { label: 'Boosted', val: properties.filter(p => p.is_boosted).length, color: AMBER },
+              { label: 'Pending', val: stats.pendingBookings, color: ORANGE },
             ].map(s => (
               <div key={s.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 10px', borderRadius: 8 }}>
                 <span style={{ fontSize: 12, color: '#64748b' }}>{s.label}</span>
@@ -730,20 +563,20 @@ const Dashboard: React.FC = () => {
           {/* Content */}
           <div style={{ minWidth: 0 }}>
 
-            {/* ── Properties Tab ─────────────────────────────────────────────── */}
+            {/* Properties Tab */}
             {activeTab === 0 && (
               <div style={{ backgroundColor: '#fff', borderRadius: 16, border: '1px solid #eef2f7', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden', animation: 'dbFadeUp 0.35s ease-out both' }}>
                 <TabHead
                   title="My Properties"
                   count={properties.length}
                   action={
-                    <button onClick={() => { resetForm(); setAddOpen(true); }} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10, border: 'none', backgroundColor: RED, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    <button onClick={() => navigate('/dashboard/properties/add')} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10, border: 'none', backgroundColor: RED, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
                       + Add New
                     </button>
                   }
                 />
                 {properties.length === 0 ? (
-                  <EmptyState icon="🏚️" title="No properties yet" desc="Add your first property to start receiving bookings from clients." btnLabel="Add Property" onClick={() => { resetForm(); setAddOpen(true); }} />
+                  <EmptyState icon="🏚️" title="No properties yet" desc="Add your first property to start receiving bookings from clients." btnLabel="Add Property" onClick={() => navigate('/dashboard/properties/add')} />
                 ) : (
                   <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 760 }}>
@@ -779,7 +612,7 @@ const Dashboard: React.FC = () => {
               </div>
             )}
 
-            {/* ── Bookings Tab ────────────────────────────────────────────────── */}
+            {/* Bookings Tab */}
             {activeTab === 1 && (
               <div style={{ backgroundColor: '#fff', borderRadius: 16, border: '1px solid #eef2f7', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden', animation: 'dbFadeUp 0.35s ease-out both' }}>
                 <TabHead title="Property Bookings" count={bookings.length} />
@@ -801,9 +634,9 @@ const Dashboard: React.FC = () => {
                             key={b.id}
                             booking={b}
                             updating={updatingBookingId === b.id}
-                            onConfirm={()  => updateBookingStatus(b.id, 'confirmed')}
-                            onCancel={()   => updateBookingStatus(b.id, 'cancelled')}
-                            onComplete={()  => updateBookingStatus(b.id, 'completed')}
+                            onConfirm={() => updateBookingStatus(b.id, 'confirmed')}
+                            onCancel={() => updateBookingStatus(b.id, 'cancelled')}
+                            onComplete={() => updateBookingStatus(b.id, 'completed')}
                           />
                         ))}
                       </tbody>
@@ -816,7 +649,7 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* ── Modals ─────────────────────────────────────────────────────────────── */}
+      {/* Modals */}
       {deleteOpen && propToDelete && (
         <ConfirmModal
           title="Delete Property?"
@@ -828,18 +661,6 @@ const Dashboard: React.FC = () => {
       )}
 
       <PropertyDetailModal property={detailOpen ? selectedProp : null} onClose={() => { setDetailOpen(false); setSelectedProp(null); }} />
-
-      {addOpen && (
-        <ModalShell title="Add New Property" onClose={() => setAddOpen(false)}>
-          <PropertyForm formData={formData} onChange={onChange} onSubmit={handleAdd} onCancel={() => setAddOpen(false)} loading={submitLoading} submitText="Add Property" images={images} onImagesChange={setImages} />
-        </ModalShell>
-      )}
-
-      {editOpen && selectedProp && (
-        <ModalShell title="Edit Property" onClose={() => setEditOpen(false)}>
-          <PropertyForm formData={formData} onChange={onChange} onSubmit={handleUpdate} onCancel={() => setEditOpen(false)} loading={submitLoading} submitText="Update Property" images={images} onImagesChange={setImages} existingImages={existingImages} onExistingImagesChange={setExistingImages} />
-        </ModalShell>
-      )}
 
       <BoostModal
         open={boostOpen}

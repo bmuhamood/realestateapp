@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.db.models import Count
 
-# FIXED: Remove 'backend.' prefix - use relative imports
+from .models import Status, StatusView
 from properties.models import Property
 from services.models import Service
 from .models import Follow
@@ -123,3 +123,52 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         if attrs['new_password'] != attrs['confirm_password']:
             raise serializers.ValidationError({"confirm_password": "Passwords don't match."})
         return attrs
+    
+class StatusSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source='user.username', read_only=True)
+    user_first_name = serializers.CharField(source='user.first_name', read_only=True)
+    user_last_name = serializers.CharField(source='user.last_name', read_only=True)
+    user_profile_picture = serializers.SerializerMethodField()
+    user_is_agent = serializers.BooleanField(source='user.is_agent', read_only=True)
+    user_is_service_provider = serializers.BooleanField(source='user.is_service_provider', read_only=True)
+    has_viewed = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Status
+        fields = [
+            'id', 'user', 'user_name', 'user_first_name', 'user_last_name',
+            'user_profile_picture', 'user_is_agent', 'user_is_service_provider',
+            'media', 'media_type', 'text_content', 'background_color',
+            'created_at', 'expires_at', 'views_count', 'has_viewed', 'is_active'
+        ]
+        read_only_fields = ['user', 'created_at', 'views_count', 'has_viewed']
+        extra_kwargs = {
+            'expires_at': {'required': False, 'allow_null': True},  # Add this
+            'media': {'required': False},
+            'text_content': {'required': False},
+            'background_color': {'required': False},
+        }
+    
+    def get_user_profile_picture(self, obj):
+        if obj.user.profile_picture:
+            return obj.user.profile_picture.url
+        return None
+    
+    def get_has_viewed(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return StatusView.objects.filter(status=obj, viewer=request.user).exists()
+        return False
+    
+class StatusViewSerializer(serializers.ModelSerializer):
+    viewer_name = serializers.CharField(source='viewer.username', read_only=True)
+    viewer_profile_picture = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = StatusView
+        fields = ['id', 'viewer', 'viewer_name', 'viewer_profile_picture', 'viewed_at']
+    
+    def get_viewer_profile_picture(self, obj):
+        if obj.viewer.profile_picture:
+            return obj.viewer.profile_picture.url
+        return None

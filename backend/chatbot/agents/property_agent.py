@@ -127,3 +127,4 @@ class PropertyAgent(BaseAgent):
                 pass
             data.append(prop_data)
         return data
+    

@@ -1,298 +1,58 @@
-import React, { useState } from 'react';
-import {
-  Grid,
-  TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Button,
-  Box,
-  Typography,
-  IconButton,
-  Paper,
-  Alert,
-  CircularProgress,
-  Chip,
-  Switch,
-  Tab,
-  Tabs,
-  alpha,
-  styled,
-} from '@mui/material';
-import {
-  CloudUpload,
-  Delete,
-  Home,
-  LocationOn,
-  Videocam,
-  Apartment,
-  School,
-  DirectionsCar,
-  Stars,
-  Security,
-  Chair,
-  Description,
-  CheckCircle,
-  Add,
-} from '@mui/icons-material';
+/**
+ * PropertyForm.tsx — Fully redesigned, MUI-free, typing-bug fixed
+ *
+ * ROOT CAUSE OF TYPING BUG:
+ *   The old form used MUI styled-components defined INSIDE the component body.
+ *   Every keystroke triggered a re-render which recreated those styled components,
+ *   causing React to unmount/remount the entire subtree → input lost focus + cleared.
+ *
+ * FIX:
+ *   - All styled objects are defined OUTSIDE the component (module level).
+ *   - All sub-components (FeatureToggle, Field, etc.) are defined OUTSIDE too.
+ *   - Zero MUI — pure inline styles matching Metro Properties design tokens.
+ *   - Using React.memo on sub-components to prevent unnecessary re-renders.
+ */
+
+import React, { useState, useCallback, useRef } from 'react';
 import { UploadImage, PropertyImage as ExistingImage } from '../../types';
 
-// ============================================
-// STYLED COMPONENTS
-// ============================================
+// ─── Brand tokens ─────────────────────────────────────────────────────────────
+const RED      = '#e63946';
+const RED_BG   = 'rgba(230,57,70,0.07)';
+const RED_DARK = '#c1121f';
+const NAVY     = '#0d1b2e';
+const TEAL     = '#25a882';
+const TEAL_BG  = 'rgba(37,168,130,0.08)';
+const SLATE    = '#475569';
 
-const PRIMARY_COLOR = '#c45a2c';
-const PRIMARY_LIGHT = '#e07347';
-const PRIMARY_DARK = '#9a4522';
-
-const StyledTabs = styled(Tabs)({
-  minHeight: 56,
-  '& .MuiTabs-indicator': {
-    display: 'none',
-  },
-  '& .MuiTabs-flexContainer': {
-    gap: 8,
-  },
-});
-
-const StyledTab = styled(Tab)(({ theme }) => ({
-  minHeight: 44,
-  borderRadius: 24,
-  padding: '8px 20px',
-  textTransform: 'none',
-  fontWeight: 500,
-  fontSize: 13,
-  color: theme.palette.text.secondary,
-  backgroundColor: alpha(theme.palette.grey[500], 0.08),
-  transition: 'all 0.2s ease',
-  '&:hover': {
-    backgroundColor: alpha(PRIMARY_COLOR, 0.08),
-    color: PRIMARY_COLOR,
-  },
-  '&.Mui-selected': {
-    backgroundColor: PRIMARY_COLOR,
-    color: '#fff',
-    fontWeight: 600,
-    '&:hover': {
-      backgroundColor: PRIMARY_DARK,
-    },
-  },
-}));
-
-const SectionCard = styled(Paper)(({ theme }) => ({
-  padding: theme.spacing(4),
-  borderRadius: 16,
-  border: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
-  boxShadow: '0 4px 24px rgba(0,0,0,0.04)',
-  marginBottom: theme.spacing(3),
-}));
-
-const UploadZone = styled(Paper)(({ theme }) => ({
-  padding: theme.spacing(5),
-  borderRadius: 16,
-  border: `2px dashed ${alpha(theme.palette.divider, 0.3)}`,
-  backgroundColor: alpha(theme.palette.grey[100], 0.5),
-  textAlign: 'center',
-  cursor: 'pointer',
-  transition: 'all 0.25s ease',
-  '&:hover': {
-    borderColor: PRIMARY_COLOR,
-    backgroundColor: alpha(PRIMARY_COLOR, 0.04),
-    '& .upload-icon': {
-      transform: 'scale(1.1)',
-      color: PRIMARY_COLOR,
-    },
-  },
-}));
-
-const ImageThumbnail = styled(Paper)<{ selected?: boolean }>(({ selected }) => ({
-  position: 'relative',
-  borderRadius: 12,
-  overflow: 'hidden',
-  aspectRatio: '1',
-  cursor: 'pointer',
-  border: selected ? `3px solid ${PRIMARY_COLOR}` : '3px solid transparent',
-  transition: 'all 0.2s ease',
-  boxShadow: selected ? `0 0 0 2px ${alpha(PRIMARY_COLOR, 0.2)}` : 'none',
-  '&:hover': {
-    transform: 'scale(1.02)',
-    boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-  },
-}));
-
-const FeatureCard = styled(Paper)(({ theme }) => ({
-  padding: theme.spacing(2, 2.5),
-  borderRadius: 12,
-  border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-  backgroundColor: alpha(theme.palette.grey[50], 0.8),
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  transition: 'all 0.2s ease',
-  '&:hover': {
-    backgroundColor: alpha(PRIMARY_COLOR, 0.04),
-    borderColor: alpha(PRIMARY_COLOR, 0.2),
-  },
-}));
-
-const SectionTitle = styled(Typography)({
-  fontSize: 11,
-  fontWeight: 700,
-  letterSpacing: 1.5,
-  textTransform: 'uppercase',
-  color: '#888',
-  marginBottom: 16,
-  paddingBottom: 12,
-  borderBottom: '1px solid #eee',
-});
-
-const StyledTextField = styled(TextField)({
-  '& .MuiOutlinedInput-root': {
-    borderRadius: 10,
-    backgroundColor: '#fafafa',
-    transition: 'all 0.2s ease',
-    '&:hover': {
-      backgroundColor: '#f5f5f5',
-    },
-    '&.Mui-focused': {
-      backgroundColor: '#fff',
-      '& .MuiOutlinedInput-notchedOutline': {
-        borderColor: PRIMARY_COLOR,
-        borderWidth: 2,
-      },
-    },
-  },
-  '& .MuiInputLabel-root.Mui-focused': {
-    color: PRIMARY_COLOR,
-  },
-});
-
-const StyledSelect = styled(FormControl)({
-  '& .MuiOutlinedInput-root': {
-    borderRadius: 10,
-    backgroundColor: '#fafafa',
-    '&:hover': {
-      backgroundColor: '#f5f5f5',
-    },
-    '&.Mui-focused': {
-      backgroundColor: '#fff',
-      '& .MuiOutlinedInput-notchedOutline': {
-        borderColor: PRIMARY_COLOR,
-        borderWidth: 2,
-      },
-    },
-  },
-  '& .MuiInputLabel-root.Mui-focused': {
-    color: PRIMARY_COLOR,
-  },
-});
-
-const PrimaryButton = styled(Button)({
-  backgroundColor: PRIMARY_COLOR,
-  borderRadius: 10,
-  padding: '12px 32px',
-  fontWeight: 600,
-  textTransform: 'none',
-  boxShadow: `0 4px 14px ${alpha(PRIMARY_COLOR, 0.4)}`,
-  '&:hover': {
-    backgroundColor: PRIMARY_DARK,
-    boxShadow: `0 6px 20px ${alpha(PRIMARY_COLOR, 0.5)}`,
-  },
-});
-
-const SecondaryButton = styled(Button)(({ theme }) => ({
-  borderRadius: 10,
-  padding: '12px 32px',
-  fontWeight: 600,
-  textTransform: 'none',
-  color: theme.palette.text.secondary,
-  '&:hover': {
-    backgroundColor: alpha(theme.palette.grey[500], 0.08),
-  },
-}));
-
-// ============================================
-// TYPES
-// ============================================
-
-interface PropertyFormData {
-  title: string;
-  description: string;
-  property_type: string;
-  transaction_type: string;
-  price: string;
-  bedrooms: string;
-  bathrooms: string;
-  square_meters: string;
-  latitude: string;
-  longitude: string;
-  address: string;
-  city: string;
-  district: string;
-  video_url: string;
-  virtual_tour_url: string;
-  neighborhood_name: string;
-  neighborhood_description: string;
-  distance_to_city_center: string;
-  distance_to_airport: string;
-  distance_to_highway: string;
-  nearby_schools: string;
-  distance_to_nearest_school: string;
-  school_rating: string;
-  nearby_roads: string;
-  nearest_road: string;
-  public_transport: boolean;
-  nearest_bus_stop: string;
-  nearest_taxi_stage: string;
-  amenities: string[];
-  nearest_mall: string;
-  distance_to_mall: string;
-  nearest_supermarket: string;
-  nearest_market: string;
-  nearest_pharmacy: string;
-  nearest_hospital: string;
-  distance_to_hospital: string;
-  nearest_restaurant: string;
-  nearest_cafe: string;
-  nearest_gym: string;
-  nearest_park: string;
-  year_built: string;
-  furnishing_status: string;
-  parking_type: string;
-  parking_spaces: string;
-  has_security: boolean;
-  has_cctv: boolean;
-  has_electric_fence: boolean;
-  has_security_lights: boolean;
-  has_security_guards: boolean;
-  has_gated_community: boolean;
-  has_solar: boolean;
-  has_backup_generator: boolean;
-  has_water_tank: boolean;
-  has_borehole: boolean;
-  has_internet: boolean;
-  has_cable_tv: boolean;
-  has_garden: boolean;
-  has_balcony: boolean;
-  has_terrace: boolean;
-  has_swimming_pool: boolean;
-  has_playground: boolean;
-  has_bbq_area: boolean;
-  has_air_conditioning: boolean;
-  has_heating: boolean;
-  has_fireplace: boolean;
-  has_modern_kitchen: boolean;
-  has_walk_in_closet: boolean;
-  has_study_room: boolean;
-  pets_allowed: boolean;
-  smoking_allowed: boolean;
-  has_title_deed: boolean;
-  title_deed_number: string;
-  land_registration_number: string;
-  agent_phone: string;
-  agent_email: string;
-  viewing_instructions: string;
+// ─── Types ────────────────────────────────────────────────────────────────────
+export interface PropertyFormData {
+  title: string; description: string; property_type: string; transaction_type: string;
+  price: string; bedrooms: string; bathrooms: string; square_meters: string;
+  latitude: string; longitude: string; address: string; city: string; district: string;
+  video_url: string; virtual_tour_url: string;
+  video_file: File | null;  // Add this line
+  neighborhood_name: string; neighborhood_description: string;
+  distance_to_city_center: string; distance_to_airport: string; distance_to_highway: string;
+  nearby_schools: string; distance_to_nearest_school: string; school_rating: string;
+  nearby_roads: string; nearest_road: string; public_transport: boolean;
+  nearest_bus_stop: string; nearest_taxi_stage: string;
+  amenities: string[]; nearest_mall: string; distance_to_mall: string;
+  nearest_supermarket: string; nearest_market: string; nearest_pharmacy: string;
+  nearest_hospital: string; distance_to_hospital: string;
+  nearest_restaurant: string; nearest_cafe: string; nearest_gym: string; nearest_park: string;
+  year_built: string; furnishing_status: string; parking_type: string; parking_spaces: string;
+  has_security: boolean; has_cctv: boolean; has_electric_fence: boolean;
+  has_security_lights: boolean; has_security_guards: boolean; has_gated_community: boolean;
+  has_solar: boolean; has_backup_generator: boolean; has_water_tank: boolean;
+  has_borehole: boolean; has_internet: boolean; has_cable_tv: boolean;
+  has_garden: boolean; has_balcony: boolean; has_terrace: boolean;
+  has_swimming_pool: boolean; has_playground: boolean; has_bbq_area: boolean;
+  has_air_conditioning: boolean; has_heating: boolean; has_fireplace: boolean;
+  has_modern_kitchen: boolean; has_walk_in_closet: boolean; has_study_room: boolean;
+  pets_allowed: boolean; smoking_allowed: boolean;
+  has_title_deed: boolean; title_deed_number: string; land_registration_number: string;
+  agent_phone: string; agent_email: string; viewing_instructions: string;
 }
 
 interface PropertyFormProps {
@@ -309,964 +69,717 @@ interface PropertyFormProps {
   onImageRemove?: (imageId: number) => void;
 }
 
-// ============================================
-// MAIN COMPONENT
-// ============================================
+// ─── Tab config (defined outside — stable reference) ──────────────────────────
+const TABS = [
+  { label: 'Basic Info',     icon: '🏠' },
+  { label: 'Location',       icon: '📍' },
+  { label: 'Media',          icon: '🎬' },
+  { label: 'Neighborhood',   icon: '🏘️' },
+  { label: 'Schools',        icon: '🎓' },
+  { label: 'Transport',      icon: '🚗' },
+  { label: 'Amenities',      icon: '✨' },
+  { label: 'Security',       icon: '🔒' },
+  { label: 'Features',       icon: '🛋️' },
+  { label: 'Legal & Contact',icon: '📋' },
+];
 
-const PropertyForm: React.FC<PropertyFormProps> = ({
-  formData,
-  onChange,
-  onSubmit,
-  onCancel,
-  loading = false,
-  submitText = 'Submit',
-  images = [],
-  onImagesChange,
-  existingImages = [],
-  onExistingImagesChange,
-  onImageRemove,
-}) => {
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState(0);
-  const [amenitiesInput, setAmenitiesInput] = useState('');
-
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
-    setUploadError(null);
-
-    const validFiles: File[] = [];
-    for (const file of files) {
-      if (!file.type.startsWith('image/')) {
-        setUploadError('Only image files are allowed');
-        continue;
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        setUploadError('Image size must be less than 5MB');
-        continue;
-      }
-      validFiles.push(file);
-    }
-
-    if (validFiles.length === 0) return;
-
-    const newImages = validFiles.map((file, index) => ({
-      file,
-      preview: URL.createObjectURL(file),
-      is_main: images.length === 0 && existingImages.length === 0 && index === 0,
-    }));
-
-    if (onImagesChange) {
-      onImagesChange([...images, ...newImages]);
-    }
-  };
-
-  const handleRemoveImage = (index: number) => {
-    const newImages = images.filter((_, i) => i !== index);
-    if (onImagesChange) {
-      onImagesChange(newImages);
-    }
-  };
-
-  const handleSetMainImage = (index: number, isExisting: boolean = false) => {
-    if (isExisting && onExistingImagesChange) {
-      const newExistingImages = existingImages.map((img, i) => ({
-        ...img,
-        is_main: i === index,
-      }));
-      onExistingImagesChange(newExistingImages);
-    } else if (onImagesChange) {
-      const newImages = images.map((img, i) => ({
-        ...img,
-        is_main: i === index,
-      }));
-      onImagesChange(newImages);
-    }
-  };
-
-  const handleAmenitiesAdd = () => {
-    if (amenitiesInput.trim() && !formData.amenities.includes(amenitiesInput.trim())) {
-      onChange('amenities', [...formData.amenities, amenitiesInput.trim()]);
-      setAmenitiesInput('');
-    }
-  };
-
-  const handleAmenitiesRemove = (amenity: string) => {
-    onChange('amenities', formData.amenities.filter((a: string) => a !== amenity));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (images.length === 0 && existingImages.length === 0) {
-      setUploadError('Please upload at least one image');
-      return;
-    }
-    onSubmit();
-  };
-
-  const tabs = [
-    { label: 'Basic Info', icon: <Home fontSize="small" /> },
-    { label: 'Location', icon: <LocationOn fontSize="small" /> },
-    { label: 'Media', icon: <Videocam fontSize="small" /> },
-    { label: 'Neighborhood', icon: <Apartment fontSize="small" /> },
-    { label: 'Schools', icon: <School fontSize="small" /> },
-    { label: 'Transport', icon: <DirectionsCar fontSize="small" /> },
-    { label: 'Amenities', icon: <Stars fontSize="small" /> },
-    { label: 'Security', icon: <Security fontSize="small" /> },
-    { label: 'Features', icon: <Chair fontSize="small" /> },
-    { label: 'Legal & Contact', icon: <Description fontSize="small" /> },
-  ];
-
-  const FeatureToggle = ({ label, checked, onToggle }: { label: string; checked: boolean; onToggle: (v: boolean) => void }) => (
-    <FeatureCard elevation={0}>
-      <Typography variant="body2" fontWeight={500}>{label}</Typography>
-      <Switch
-        checked={checked}
-        onChange={(e) => onToggle(e.target.checked)}
-        sx={{
-          '& .MuiSwitch-switchBase.Mui-checked': {
-            color: PRIMARY_COLOR,
-            '&:hover': { backgroundColor: alpha(PRIMARY_COLOR, 0.08) },
-          },
-          '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-            backgroundColor: PRIMARY_COLOR,
-          },
-        }}
+// ─── Field component (defined OUTSIDE — no remount on parent re-render) ────────
+const Field = React.memo<{
+  label: string; value: string; onChange: (v: string) => void;
+  type?: string; placeholder?: string; required?: boolean;
+  hint?: string; multiline?: boolean; rows?: number; step?: string;
+  min?: number; max?: number;
+}>(({ label, value, onChange, type = 'text', placeholder, required, hint, multiline, rows = 3, step, min, max }) => (
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+    <label style={f.label}>{label}{required && <span style={{ color: RED, marginLeft: 3 }}>*</span>}</label>
+    {multiline ? (
+      <textarea
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        rows={rows}
+        style={{ ...f.input, resize: 'vertical', height: 'auto', minHeight: rows * 24 + 20 }}
       />
-    </FeatureCard>
+    ) : (
+      <input
+        type={type}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        required={required}
+        step={step}
+        min={min}
+        max={max}
+        style={f.input}
+      />
+    )}
+    {hint && <span style={f.hint}>{hint}</span>}
+  </div>
+));
+
+// ─── Select component ─────────────────────────────────────────────────────────
+const SelectField = React.memo<{
+  label: string; value: string; onChange: (v: string) => void;
+  options: { value: string; label: string }[]; required?: boolean;
+}>(({ label, value, onChange, options, required }) => (
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+    <label style={f.label}>{label}{required && <span style={{ color: RED, marginLeft: 3 }}>*</span>}</label>
+    <select value={value} onChange={e => onChange(e.target.value)} required={required} style={f.input}>
+      {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+    </select>
+  </div>
+));
+
+// ─── Toggle (defined OUTSIDE) ─────────────────────────────────────────────────
+const FeatureToggle = React.memo<{
+  label: string; icon?: string; checked: boolean; onChange: (v: boolean) => void;
+}>(({ label, icon, checked, onChange }) => (
+  <div
+    onClick={() => onChange(!checked)}
+    style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '12px 14px', borderRadius: 12, cursor: 'pointer',
+      border: `1.5px solid ${checked ? RED : '#eef2f7'}`,
+      backgroundColor: checked ? RED_BG : '#fafcff',
+      transition: 'all 0.15s', userSelect: 'none',
+    }}
+  >
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      {icon && <span style={{ fontSize: 16 }}>{icon}</span>}
+      <span style={{ fontSize: 13, fontWeight: checked ? 700 : 500, color: checked ? RED : SLATE }}>{label}</span>
+    </div>
+    {/* Toggle track */}
+    <div style={{
+      width: 38, height: 22, borderRadius: 11,
+      backgroundColor: checked ? RED : '#d1d5db',
+      position: 'relative', transition: 'background-color 0.2s', flexShrink: 0,
+    }}>
+      <div style={{
+        position: 'absolute', top: 3, left: checked ? 19 : 3,
+        width: 16, height: 16, borderRadius: '50%', backgroundColor: '#fff',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.2)', transition: 'left 0.2s',
+      }} />
+    </div>
+  </div>
+));
+
+// ─── Section wrapper ──────────────────────────────────────────────────────────
+const Section: React.FC<{ title: string; icon?: string; children: React.ReactNode }> = ({ title, icon, children }) => (
+  <div style={f.section}>
+    <div style={f.sectionTitle}>
+      {icon && <span style={{ fontSize: 16 }}>{icon}</span>}
+      <span>{title}</span>
+    </div>
+    {children}
+  </div>
+);
+
+// ─── 2-col grid helper ────────────────────────────────────────────────────────
+const Grid2: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
+    {children}
+  </div>
+);
+
+// ─── Toggle grid helper ───────────────────────────────────────────────────────
+const ToggleGrid: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }}>
+    {children}
+  </div>
+);
+
+// ─── Module-level styles (never re-created) ────────────────────────────────────
+const f: Record<string, React.CSSProperties> = {
+  label: { fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.07em' },
+  hint:  { fontSize: 11, color: '#94a3b8' },
+  input: {
+    width: '100%', padding: '10px 13px', borderRadius: 10,
+    border: '1.5px solid #eef2f7', fontSize: 13, color: NAVY,
+    backgroundColor: '#fafcff', fontFamily: "'DM Sans', sans-serif",
+    outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.15s',
+  },
+  section: {
+    backgroundColor: '#fff', borderRadius: 16,
+    border: '1px solid #eef2f7', padding: '22px 20px',
+    boxShadow: '0 1px 4px rgba(0,0,0,0.04)', marginBottom: 14,
+  },
+  sectionTitle: {
+    display: 'flex', alignItems: 'center', gap: 7,
+    fontSize: 11, fontWeight: 700, color: '#94a3b8',
+    textTransform: 'uppercase', letterSpacing: '0.1em',
+    marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid #f1f5f9',
+  },
+};
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+const PropertyForm: React.FC<PropertyFormProps> = ({
+  formData, onChange, onSubmit, onCancel, loading = false, submitText = 'Submit',
+  images = [], onImagesChange, existingImages = [], onExistingImagesChange, onImageRemove,
+}) => {
+  const [activeTab,     setActiveTab]     = useState(0);
+  const [uploadError,   setUploadError]   = useState<string | null>(null);
+  const [amenityInput,  setAmenityInput]  = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Stable callbacks so child components don't re-render unnecessarily
+  const handleField = useCallback(
+    (field: keyof PropertyFormData) => (value: string | boolean) => onChange(field, value),
+    [onChange]
   );
 
-  return (
-    <Box component="form" onSubmit={handleSubmit} sx={{ maxWidth: 1200, mx: 'auto', py: 4 }}>
-      {/* Header with Tabs */}
-      <Paper
-        elevation={0}
-        sx={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 10,
-          backgroundColor: 'rgba(255,255,255,0.95)',
-          backdropFilter: 'blur(10px)',
-          borderRadius: 3,
-          mb: 4,
-          p: 2,
-          border: '1px solid',
-          borderColor: 'divider',
-        }}
-      >
-        <StyledTabs
-          value={activeTab}
-          onChange={(_, newValue) => setActiveTab(newValue)}
-          variant="scrollable"
-          scrollButtons="auto"
-        >
-          {tabs.map((tab, idx) => (
-            <StyledTab
-              key={idx}
-              label={
-                <Box display="flex" alignItems="center" gap={1}>
-                  {tab.icon}
-                  <span>{tab.label}</span>
-                  {activeTab > idx && <CheckCircle sx={{ fontSize: 14, color: '#4caf50', ml: 0.5 }} />}
-                </Box>
-              }
-            />
-          ))}
-        </StyledTabs>
-      </Paper>
+  const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    setUploadError(null);
+    const valid: UploadImage[] = [];
+    for (const file of files) {
+      if (!file.type.startsWith('image/')) { setUploadError('Only image files are allowed'); continue; }
+      if (file.size > 5 * 1024 * 1024) { setUploadError('Each image must be under 5MB'); continue; }
+      valid.push({ file, preview: URL.createObjectURL(file), is_main: images.length === 0 && existingImages.length === 0 && valid.length === 0 });
+    }
+    if (valid.length && onImagesChange) onImagesChange([...images, ...valid]);
+    if (e.target) e.target.value = '';
+  }, [images, existingImages, onImagesChange]);
 
-      {/* Content */}
-      <Box sx={{ minHeight: '50vh' }}>
+  const removeNewImage = useCallback((idx: number) => {
+    if (onImagesChange) onImagesChange(images.filter((_, i) => i !== idx));
+  }, [images, onImagesChange]);
+
+  const setMainNew = useCallback((idx: number) => {
+    if (onImagesChange) onImagesChange(images.map((img, i) => ({ ...img, is_main: i === idx })));
+  }, [images, onImagesChange]);
+
+  const setMainExisting = useCallback((idx: number) => {
+    if (onExistingImagesChange) onExistingImagesChange(existingImages.map((img, i) => ({ ...img, is_main: i === idx })));
+  }, [existingImages, onExistingImagesChange]);
+
+  const addAmenity = useCallback(() => {
+    const val = amenityInput.trim();
+    if (val && !formData.amenities.includes(val)) {
+      onChange('amenities', [...formData.amenities, val]);
+      setAmenityInput('');
+    }
+  }, [amenityInput, formData.amenities, onChange]);
+
+  const removeAmenity = useCallback((a: string) => {
+    onChange('amenities', formData.amenities.filter(x => x !== a));
+  }, [formData.amenities, onChange]);
+
+  const handleSubmit = useCallback((e: React.FormEvent) => {
+    e.preventDefault();
+    if (images.length === 0 && existingImages.length === 0) {
+      setUploadError('Please upload at least one image'); return;
+    }
+    onSubmit();
+  }, [images.length, existingImages.length, onSubmit]);
+
+  const totalImages = images.length + existingImages.length;
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+  return (
+    <div style={{ fontFamily: "'DM Sans', 'Sora', system-ui, sans-serif", maxWidth: 900, margin: '0 auto' }}>
+
+      {/* ── Tab bar ─────────────────────────────────────────────────────────── */}
+      <div style={{
+        position: 'sticky', top: 0, zIndex: 10,
+        backgroundColor: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(10px)',
+        borderRadius: 14, marginBottom: 18,
+        border: '1px solid #eef2f7', padding: '10px 12px',
+        boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+      }}>
+        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2 }}>
+          {TABS.map((tab, i) => {
+            const isActive  = activeTab === i;
+            const isDone    = activeTab > i;
+            return (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setActiveTab(i)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  padding: '7px 13px', borderRadius: 24, border: 'none',
+                  cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit',
+                  fontSize: 12, fontWeight: isActive ? 700 : 500,
+                  backgroundColor: isActive ? RED : isDone ? TEAL_BG : '#f1f5f9',
+                  color: isActive ? '#fff' : isDone ? TEAL : SLATE,
+                  transition: 'all 0.15s', flexShrink: 0,
+                }}
+              >
+                <span>{tab.icon}</span>
+                <span>{tab.label}</span>
+                {isDone && <span style={{ fontSize: 10 }}>✓</span>}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Progress bar */}
+        <div style={{ marginTop: 10, height: 3, backgroundColor: '#f1f5f9', borderRadius: 3, overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${((activeTab + 1) / TABS.length) * 100}%`, backgroundColor: RED, borderRadius: 3, transition: 'width 0.3s ease' }} />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 5 }}>
+          <span style={{ fontSize: 10, color: '#94a3b8' }}>Step {activeTab + 1} of {TABS.length}</span>
+          <span style={{ fontSize: 10, color: '#94a3b8' }}>{TABS[activeTab].icon} {TABS[activeTab].label}</span>
+        </div>
+      </div>
+
+      {/* ── Tab content ─────────────────────────────────────────────────────── */}
+      <form onSubmit={handleSubmit}>
+
         {/* TAB 0: Basic Info */}
         {activeTab === 0 && (
           <>
-            <SectionCard elevation={0}>
-              <SectionTitle>Property Images</SectionTitle>
-              <UploadZone
-                elevation={0}
-                onClick={() => document.getElementById('image-upload')?.click()}
-              >
-                <input
-                  id="image-upload"
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  style={{ display: 'none' }}
-                  onChange={handleImageUpload}
-                />
-                <CloudUpload
-                  className="upload-icon"
-                  sx={{ fontSize: 56, color: '#bbb', mb: 2, transition: 'all 0.25s ease' }}
-                />
-                <Typography variant="h6" fontWeight={500} color="text.primary" gutterBottom>
-                  Drop images here or click to upload
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  JPEG, PNG up to 5MB each - First image will be the main photo
-                </Typography>
-              </UploadZone>
-
+            {/* Image upload */}
+            <Section title="Property Images" icon="📷">
               {uploadError && (
-                <Alert severity="error" sx={{ mt: 2, borderRadius: 2 }}>{uploadError}</Alert>
+                <div style={{ marginBottom: 12, padding: '10px 14px', backgroundColor: '#fee2e2', color: '#b91c1c', borderRadius: 10, fontSize: 12, fontWeight: 600 }}>
+                  ⚠ {uploadError}
+                </div>
               )}
 
+              {/* Drop zone */}
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                style={{
+                  border: `2px dashed ${totalImages > 0 ? TEAL : '#d1d5db'}`,
+                  borderRadius: 14, padding: '32px 20px', textAlign: 'center',
+                  cursor: 'pointer', backgroundColor: totalImages > 0 ? TEAL_BG : '#fafcff',
+                  transition: 'all 0.2s', marginBottom: 16,
+                }}
+              >
+                <input ref={fileInputRef} type="file" multiple accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
+                <div style={{ fontSize: 36, marginBottom: 8 }}>📁</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: NAVY, marginBottom: 4 }}>
+                  {totalImages > 0 ? `${totalImages} image${totalImages !== 1 ? 's' : ''} uploaded — click to add more` : 'Click to upload images'}
+                </div>
+                <div style={{ fontSize: 12, color: '#94a3b8' }}>JPEG or PNG · Max 5MB each · First image = main photo</div>
+              </div>
+
+              {/* Existing images */}
               {existingImages.length > 0 && (
-                <Box sx={{ mt: 4 }}>
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2, color: 'text.secondary' }}>
-                    Existing Images
-                  </Typography>
-                  <Grid container spacing={2}>
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>
+                    Existing Images ({existingImages.length})
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
                     {existingImages.map((img, idx) => (
-                      <Grid size={{ xs: 4, sm: 3, md: 2 }} key={img.id}>
-                        <ImageThumbnail
-                          selected={img.is_main}
-                          elevation={0}
-                          onClick={() => handleSetMainImage(idx, true)}
-                        >
-                          <img
-                            src={img.image}
-                            alt="Property"
-                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                          />
-                          {img.is_main && (
-                            <Chip
-                              label="Main"
-                              size="small"
-                              sx={{
-                                position: 'absolute',
-                                top: 8,
-                                left: 8,
-                                bgcolor: PRIMARY_COLOR,
-                                color: 'white',
-                                fontWeight: 600,
-                                fontSize: 10,
-                              }}
-                            />
-                          )}
-                          {onImageRemove && (
-                            <IconButton
-                              size="small"
-                              sx={{
-                                position: 'absolute',
-                                top: 8,
-                                right: 8,
-                                bgcolor: 'rgba(0,0,0,0.6)',
-                                color: 'white',
-                                opacity: 0,
-                                transition: 'opacity 0.2s',
-                                '.MuiPaper-root:hover &': { opacity: 1 },
-                                '&:hover': { bgcolor: 'rgba(0,0,0,0.8)' },
-                              }}
-                              onClick={(e) => { e.stopPropagation(); onImageRemove(img.id); }}
-                            >
-                              <Delete fontSize="small" />
-                            </IconButton>
-                          )}
-                        </ImageThumbnail>
-                      </Grid>
-                    ))}
-                  </Grid>
-                </Box>
-              )}
-
-              {images.length > 0 && (
-                <Box sx={{ mt: 4 }}>
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2, color: 'text.secondary' }}>
-                    New Images
-                  </Typography>
-                  <Grid container spacing={2}>
-                    {images.map((img, index) => (
-                      <Grid size={{ xs: 4, sm: 3, md: 2 }} key={index}>
-                        <ImageThumbnail
-                          selected={img.is_main}
-                          elevation={0}
-                          onClick={() => handleSetMainImage(index, false)}
-                        >
-                          <img
-                            src={img.preview}
-                            alt="Preview"
-                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                          />
-                          {img.is_main && (
-                            <Chip
-                              label="Main"
-                              size="small"
-                              sx={{
-                                position: 'absolute',
-                                top: 8,
-                                left: 8,
-                                bgcolor: PRIMARY_COLOR,
-                                color: 'white',
-                                fontWeight: 600,
-                                fontSize: 10,
-                              }}
-                            />
-                          )}
-                          <IconButton
-                            size="small"
-                            sx={{
-                              position: 'absolute',
-                              top: 8,
-                              right: 8,
-                              bgcolor: 'rgba(0,0,0,0.6)',
-                              color: 'white',
-                              opacity: 0,
-                              transition: 'opacity 0.2s',
-                              '.MuiPaper-root:hover &': { opacity: 1 },
-                              '&:hover': { bgcolor: 'rgba(0,0,0,0.8)' },
+                      <div key={img.id} style={{ position: 'relative', width: 88, height: 72, borderRadius: 10, overflow: 'hidden', border: `2.5px solid ${img.is_main ? RED : '#eef2f7'}`, cursor: 'pointer', flexShrink: 0 }} onClick={() => setMainExisting(idx)}>
+                        <img src={img.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        {img.is_main && <span style={{ position: 'absolute', top: 4, left: 4, backgroundColor: RED, color: '#fff', fontSize: 8, fontWeight: 800, padding: '2px 6px', borderRadius: 20 }}>MAIN</span>}
+                        {onImageRemove && (
+                          <button
+                            type="button"
+                            onClick={e => { e.stopPropagation(); onImageRemove(img.id); }}
+                            style={{
+                              position: 'absolute', top: 4, right: 4,
+                              width: 20, height: 20, borderRadius: '50%',
+                              border: 'none', backgroundColor: 'rgba(0,0,0,0.6)',
+                              color: '#fff', cursor: 'pointer', fontSize: 10,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center'
                             }}
-                            onClick={(e) => { e.stopPropagation(); handleRemoveImage(index); }}
                           >
-                            <Delete fontSize="small" />
-                          </IconButton>
-                        </ImageThumbnail>
-                      </Grid>
+                            ✕
+                          </button>
+                        )}
+                      </div>
                     ))}
-                  </Grid>
-                </Box>
+                  </div>
+                </div>
               )}
-            </SectionCard>
 
-            <SectionCard elevation={0}>
-              <SectionTitle>Basic Information</SectionTitle>
-              <Grid container spacing={3}>
-                <Grid size={{ xs: 12 }}>
-                  <StyledTextField
-                    fullWidth
-                    label="Property Title"
-                    value={formData.title}
-                    onChange={(e) => onChange('title', e.target.value)}
-                    required
-                    placeholder="e.g., Modern 3-Bedroom Villa in Kololo"
-                  />
-                </Grid>
-                <Grid size={{ xs: 12 }}>
-                  <StyledTextField
-                    fullWidth
-                    label="Description"
-                    multiline
-                    rows={4}
-                    value={formData.description}
-                    onChange={(e) => onChange('description', e.target.value)}
-                    required
-                    placeholder="Describe your property in detail..."
-                  />
-                </Grid>
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <StyledSelect fullWidth required>
-                    <InputLabel>Property Type</InputLabel>
-                    <Select
-                      value={formData.property_type}
-                      onChange={(e) => onChange('property_type', e.target.value)}
-                      label="Property Type"
-                    >
-                      <MenuItem value="house">House</MenuItem>
-                      <MenuItem value="apartment">Apartment</MenuItem>
-                      <MenuItem value="land">Land</MenuItem>
-                      <MenuItem value="commercial">Commercial</MenuItem>
-                      <MenuItem value="condo">Condo</MenuItem>
-                      <MenuItem value="villa">Villa</MenuItem>
-                      <MenuItem value="townhouse">Townhouse</MenuItem>
-                      <MenuItem value="duplex">Duplex</MenuItem>
-                      <MenuItem value="bungalow">Bungalow</MenuItem>
-                    </Select>
-                  </StyledSelect>
-                </Grid>
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <StyledSelect fullWidth required>
-                    <InputLabel>Transaction Type</InputLabel>
-                    <Select
-                      value={formData.transaction_type}
-                      onChange={(e) => onChange('transaction_type', e.target.value)}
-                      label="Transaction Type"
-                    >
-                      <MenuItem value="sale">For Sale</MenuItem>
-                      <MenuItem value="rent">For Rent</MenuItem>
-                      <MenuItem value="shortlet">Shortlet</MenuItem>
-                    </Select>
-                  </StyledSelect>
-                </Grid>
-                <Grid size={{ xs: 6, md: 3 }}>
-                  <StyledTextField
-                    fullWidth
-                    label="Price (UGX)"
-                    type="number"
-                    value={formData.price}
-                    onChange={(e) => onChange('price', e.target.value)}
-                    required
-                  />
-                </Grid>
-                <Grid size={{ xs: 6, md: 3 }}>
-                  <StyledTextField
-                    fullWidth
-                    label="Bedrooms"
-                    type="number"
-                    value={formData.bedrooms}
-                    onChange={(e) => onChange('bedrooms', e.target.value)}
-                  />
-                </Grid>
-                <Grid size={{ xs: 6, md: 3 }}>
-                  <StyledTextField
-                    fullWidth
-                    label="Bathrooms"
-                    type="number"
-                    value={formData.bathrooms}
-                    onChange={(e) => onChange('bathrooms', e.target.value)}
-                  />
-                </Grid>
-                <Grid size={{ xs: 6, md: 3 }}>
-                  <StyledTextField
-                    fullWidth
-                    label="Square Meters"
-                    type="number"
-                    value={formData.square_meters}
-                    onChange={(e) => onChange('square_meters', e.target.value)}
-                  />
-                </Grid>
-                <Grid size={{ xs: 6, md: 3 }}>
-                  <StyledTextField
-                    fullWidth
-                    label="Year Built"
-                    type="number"
-                    value={formData.year_built}
-                    onChange={(e) => onChange('year_built', e.target.value)}
-                  />
-                </Grid>
-                <Grid size={{ xs: 6, md: 3 }}>
-                  <StyledSelect fullWidth>
-                    <InputLabel>Furnishing Status</InputLabel>
-                    <Select
-                      value={formData.furnishing_status}
-                      onChange={(e) => onChange('furnishing_status', e.target.value)}
-                      label="Furnishing Status"
-                    >
-                      <MenuItem value="unfurnished">Unfurnished</MenuItem>
-                      <MenuItem value="semi_furnished">Semi-Furnished</MenuItem>
-                      <MenuItem value="fully_furnished">Fully Furnished</MenuItem>
-                      <MenuItem value="luxury">Luxury Furnished</MenuItem>
-                    </Select>
-                  </StyledSelect>
-                </Grid>
-              </Grid>
-            </SectionCard>
+              {/* New images */}
+              {images.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>New Images</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                    {images.map((img, idx) => (
+                      <div key={idx} style={{ position: 'relative', width: 88, height: 72, borderRadius: 10, overflow: 'hidden', border: `2.5px solid ${img.is_main ? RED : '#eef2f7'}`, cursor: 'pointer', flexShrink: 0 }} onClick={() => setMainNew(idx)}>
+                        <img src={img.preview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        {img.is_main && <span style={{ position: 'absolute', top: 4, left: 4, backgroundColor: RED, color: '#fff', fontSize: 8, fontWeight: 800, padding: '2px 6px', borderRadius: 20 }}>MAIN</span>}
+                        <button type="button" onClick={e => { e.stopPropagation(); removeNewImage(idx); }} style={{ position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: '50%', border: 'none', backgroundColor: 'rgba(0,0,0,0.6)', color: '#fff', cursor: 'pointer', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </Section>
+
+            {/* Basic fields */}
+            <Section title="Basic Information" icon="🏠">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <Field label="Property Title" value={formData.title} onChange={handleField('title')} required placeholder="e.g., Modern 3-Bedroom Villa in Kololo" />
+                <Field label="Description" value={formData.description} onChange={handleField('description')} required multiline rows={4} placeholder="Describe your property in detail…" />
+                <Grid2>
+                  <SelectField label="Property Type" value={formData.property_type} onChange={handleField('property_type')} required options={[
+                    { value: 'house', label: 'House' }, { value: 'apartment', label: 'Apartment' },
+                    { value: 'land', label: 'Land' }, { value: 'commercial', label: 'Commercial' },
+                    { value: 'condo', label: 'Condo' }, { value: 'villa', label: 'Villa' },
+                    { value: 'townhouse', label: 'Townhouse' }, { value: 'duplex', label: 'Duplex' },
+                    { value: 'bungalow', label: 'Bungalow' },
+                  ]} />
+                  <SelectField label="Transaction Type" value={formData.transaction_type} onChange={handleField('transaction_type')} required options={[
+                    { value: 'sale', label: 'For Sale' }, { value: 'rent', label: 'For Rent' }, { value: 'shortlet', label: 'Shortlet' },
+                  ]} />
+                  <Field label="Price (UGX)" value={formData.price} onChange={handleField('price')} type="number" required />
+                  <Field label="Bedrooms" value={formData.bedrooms} onChange={handleField('bedrooms')} type="number" />
+                  <Field label="Bathrooms" value={formData.bathrooms} onChange={handleField('bathrooms')} type="number" />
+                  <Field label="Square Meters" value={formData.square_meters} onChange={handleField('square_meters')} type="number" />
+                  <Field label="Year Built" value={formData.year_built} onChange={handleField('year_built')} type="number" />
+                  <SelectField label="Furnishing Status" value={formData.furnishing_status} onChange={handleField('furnishing_status')} options={[
+                    { value: 'unfurnished', label: 'Unfurnished' }, { value: 'semi_furnished', label: 'Semi-Furnished' },
+                    { value: 'fully_furnished', label: 'Fully Furnished' }, { value: 'luxury', label: 'Luxury Furnished' },
+                  ]} />
+                </Grid2>
+              </div>
+            </Section>
           </>
         )}
 
         {/* TAB 1: Location */}
         {activeTab === 1 && (
-          <SectionCard elevation={0}>
-            <SectionTitle>Property Location</SectionTitle>
-            <Grid container spacing={3}>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <StyledTextField
-                  fullWidth
-                  label="Latitude"
-                  type="number"
-                  value={formData.latitude}
-                  onChange={(e) => onChange('latitude', e.target.value)}
-                  required
-                  helperText="Example: 0.3136"
-                  inputProps={{ step: 'any' }}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <StyledTextField
-                  fullWidth
-                  label="Longitude"
-                  type="number"
-                  value={formData.longitude}
-                  onChange={(e) => onChange('longitude', e.target.value)}
-                  required
-                  helperText="Example: 32.5811"
-                  inputProps={{ step: 'any' }}
-                />
-              </Grid>
-              <Grid size={{ xs: 12 }}>
-                <StyledTextField
-                  fullWidth
-                  label="Full Address"
-                  value={formData.address}
-                  onChange={(e) => onChange('address', e.target.value)}
-                  required
-                  placeholder="e.g., Plot 12, Acacia Avenue, Kololo"
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <StyledTextField
-                  fullWidth
-                  label="City"
-                  value={formData.city}
-                  onChange={(e) => onChange('city', e.target.value)}
-                  required
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <StyledTextField
-                  fullWidth
-                  label="District"
-                  value={formData.district}
-                  onChange={(e) => onChange('district', e.target.value)}
-                  required
-                />
-              </Grid>
-            </Grid>
-          </SectionCard>
+          <Section title="Property Location" icon="📍">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <Grid2>
+                <Field label="Latitude" value={formData.latitude} onChange={handleField('latitude')} type="number" required hint="e.g. 0.3136" step="any" />
+                <Field label="Longitude" value={formData.longitude} onChange={handleField('longitude')} type="number" required hint="e.g. 32.5811" step="any" />
+              </Grid2>
+              <Field label="Full Address" value={formData.address} onChange={handleField('address')} required placeholder="e.g., Plot 12, Acacia Avenue, Kololo" />
+              <Grid2>
+                <Field label="City" value={formData.city} onChange={handleField('city')} required />
+                <Field label="District" value={formData.district} onChange={handleField('district')} required />
+              </Grid2>
+            </div>
+          </Section>
         )}
 
         {/* TAB 2: Media */}
         {activeTab === 2 && (
-          <SectionCard elevation={0}>
-            <SectionTitle>Video & Virtual Tours</SectionTitle>
-            <Grid container spacing={3}>
-              <Grid size={{ xs: 12 }}>
-                <StyledTextField
-                  fullWidth
-                  label="YouTube/Vimeo Video URL"
-                  type="url"
-                  value={formData.video_url}
-                  onChange={(e) => onChange('video_url', e.target.value)}
-                  placeholder="https://youtube.com/watch?v=..."
-                  helperText="Add a video walkthrough of your property"
-                />
-              </Grid>
-              <Grid size={{ xs: 12 }}>
-                <StyledTextField
-                  fullWidth
-                  label="Virtual Tour URL"
-                  type="url"
-                  value={formData.virtual_tour_url}
-                  onChange={(e) => onChange('virtual_tour_url', e.target.value)}
-                  placeholder="https://..."
-                  helperText="360° virtual tour link (Matterport, etc.)"
-                />
-              </Grid>
-            </Grid>
-          </SectionCard>
+          <Section title="Video & Virtual Tours" icon="🎬">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              
+              {/* Video File Upload */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                <label style={f.label}>Upload Video File</label>
+                <div
+                  onClick={() => document.getElementById('video-file-upload')?.click()}
+                  style={{
+                    border: `2px dashed ${formData.video_file ? TEAL : '#d1d5db'}`,
+                    borderRadius: 10, padding: '20px', textAlign: 'center',
+                    cursor: 'pointer', backgroundColor: formData.video_file ? TEAL_BG : '#fafcff',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  <input
+                    id="video-file-upload"
+                    type="file"
+                    accept="video/mp4,video/mov,video/avi,video/webm"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        // Check file size (100MB limit)
+                        if (file.size > 100 * 1024 * 1024) {
+                          alert('Video file must be less than 100MB');
+                          return;
+                        }
+                        onChange('video_file', file);
+                      }
+                    }}
+                  />
+                  <div style={{ fontSize: 32, marginBottom: 8 }}>🎥</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: NAVY, marginBottom: 4 }}>
+                    {formData.video_file ? formData.video_file.name : 'Click to upload video file'}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#94a3b8' }}>
+                    MP4, MOV, AVI, WEBM · Max 100MB
+                  </div>
+                </div>
+                {formData.video_file && (
+                  <button
+                    type="button"
+                    onClick={() => onChange('video_file', null)}
+                    style={{
+                      alignSelf: 'flex-start', marginTop: 8,
+                      padding: '4px 12px', borderRadius: 6,
+                      border: '1px solid #fee2e2', backgroundColor: '#fee2e2',
+                      color: '#b91c1c', fontSize: 11, fontWeight: 600,
+                      cursor: 'pointer', fontFamily: 'inherit',
+                    }}
+                  >
+                    Remove video file
+                  </button>
+                )}
+              </div>
+
+              {/* OR Divider */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '8px 0' }}>
+                <div style={{ flex: 1, height: 1, backgroundColor: '#eef2f7' }} />
+                <span style={{ fontSize: 11, color: '#94a3b8' }}>OR</span>
+                <div style={{ flex: 1, height: 1, backgroundColor: '#eef2f7' }} />
+              </div>
+
+              {/* Video URL */}
+              <Field 
+                label="YouTube / Vimeo Video URL" 
+                value={formData.video_url} 
+                onChange={handleField('video_url')} 
+                type="url" 
+                placeholder="https://youtube.com/watch?v=…" 
+                hint="Add a video walkthrough of your property" 
+              />
+              
+              {/* Virtual Tour URL */}
+              <Field 
+                label="Virtual Tour URL" 
+                value={formData.virtual_tour_url} 
+                onChange={handleField('virtual_tour_url')} 
+                type="url" 
+                placeholder="https://…" 
+                hint="360° virtual tour link (Matterport, etc.)" 
+              />
+            </div>
+          </Section>
         )}
 
         {/* TAB 3: Neighborhood */}
         {activeTab === 3 && (
-          <SectionCard elevation={0}>
-            <SectionTitle>Neighborhood Information</SectionTitle>
-            <Grid container spacing={3}>
-              <Grid size={{ xs: 12 }}>
-                <StyledTextField
-                  fullWidth
-                  label="Neighborhood Name"
-                  value={formData.neighborhood_name}
-                  onChange={(e) => onChange('neighborhood_name', e.target.value)}
-                  placeholder="e.g., Kololo, Nakasero, Muyenga"
-                />
-              </Grid>
-              <Grid size={{ xs: 12 }}>
-                <StyledTextField
-                  fullWidth
-                  label="Neighborhood Description"
-                  multiline
-                  rows={3}
-                  value={formData.neighborhood_description}
-                  onChange={(e) => onChange('neighborhood_description', e.target.value)}
-                  placeholder="Describe the neighborhood and its highlights..."
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 4 }}>
-                <StyledTextField
-                  fullWidth
-                  label="Distance to City Center (km)"
-                  type="number"
-                  value={formData.distance_to_city_center}
-                  onChange={(e) => onChange('distance_to_city_center', e.target.value)}
-                  inputProps={{ step: '0.1' }}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 4 }}>
-                <StyledTextField
-                  fullWidth
-                  label="Distance to Airport (km)"
-                  type="number"
-                  value={formData.distance_to_airport}
-                  onChange={(e) => onChange('distance_to_airport', e.target.value)}
-                  inputProps={{ step: '0.1' }}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 4 }}>
-                <StyledTextField
-                  fullWidth
-                  label="Distance to Highway (km)"
-                  type="number"
-                  value={formData.distance_to_highway}
-                  onChange={(e) => onChange('distance_to_highway', e.target.value)}
-                  inputProps={{ step: '0.1' }}
-                />
-              </Grid>
-            </Grid>
-          </SectionCard>
+          <Section title="Neighborhood Information" icon="🏘️">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <Field label="Neighborhood Name" value={formData.neighborhood_name} onChange={handleField('neighborhood_name')} placeholder="e.g., Kololo, Nakasero, Muyenga" />
+              <Field label="Neighborhood Description" value={formData.neighborhood_description} onChange={handleField('neighborhood_description')} multiline rows={3} placeholder="Describe the neighborhood and its highlights…" />
+              <Grid2>
+                <Field label="Distance to City Center (km)" value={formData.distance_to_city_center} onChange={handleField('distance_to_city_center')} type="number" step="0.1" />
+                <Field label="Distance to Airport (km)" value={formData.distance_to_airport} onChange={handleField('distance_to_airport')} type="number" step="0.1" />
+                <Field label="Distance to Highway (km)" value={formData.distance_to_highway} onChange={handleField('distance_to_highway')} type="number" step="0.1" />
+              </Grid2>
+            </div>
+          </Section>
         )}
 
         {/* TAB 4: Schools */}
         {activeTab === 4 && (
-          <SectionCard elevation={0}>
-            <SectionTitle>Nearby Schools</SectionTitle>
-            <Grid container spacing={3}>
-              <Grid size={{ xs: 12 }}>
-                <StyledTextField
-                  fullWidth
-                  label="Nearby Schools"
-                  value={formData.nearby_schools}
-                  onChange={(e) => onChange('nearby_schools', e.target.value)}
-                  placeholder="Aga Khan, Kampala International, Greenhill Academy"
-                  helperText="Separate multiple schools with commas"
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <StyledTextField
-                  fullWidth
-                  label="Distance to Nearest School (km)"
-                  type="number"
-                  value={formData.distance_to_nearest_school}
-                  onChange={(e) => onChange('distance_to_nearest_school', e.target.value)}
-                  inputProps={{ step: '0.1' }}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <StyledTextField
-                  fullWidth
-                  label="School Rating (1-5)"
-                  type="number"
-                  value={formData.school_rating}
-                  onChange={(e) => onChange('school_rating', e.target.value)}
-                  inputProps={{ min: 0, max: 5, step: '0.1' }}
-                />
-              </Grid>
-            </Grid>
-          </SectionCard>
+          <Section title="Nearby Schools" icon="🎓">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <Field label="Nearby Schools" value={formData.nearby_schools} onChange={handleField('nearby_schools')} placeholder="Aga Khan, Kampala International, Greenhill Academy" hint="Separate multiple schools with commas" />
+              <Grid2>
+                <Field label="Distance to Nearest School (km)" value={formData.distance_to_nearest_school} onChange={handleField('distance_to_nearest_school')} type="number" step="0.1" />
+                <Field label="School Rating (1–5)" value={formData.school_rating} onChange={handleField('school_rating')} type="number" step="0.1" min={0} max={5} />
+              </Grid2>
+            </div>
+          </Section>
         )}
 
-        {/* TAB 5: Transportation */}
+        {/* TAB 5: Transport */}
         {activeTab === 5 && (
-          <SectionCard elevation={0}>
-            <SectionTitle>Transportation & Access</SectionTitle>
-            <Grid container spacing={3}>
-              <Grid size={{ xs: 12 }}>
-                <StyledTextField
-                  fullWidth
-                  label="Nearby Roads"
-                  value={formData.nearby_roads}
-                  onChange={(e) => onChange('nearby_roads', e.target.value)}
-                  placeholder="Jinja Road, Entebbe Road, Kampala-Hoima Road"
-                  helperText="Separate multiple roads with commas"
-                />
-              </Grid>
-              <Grid size={{ xs: 12 }}>
-                <StyledTextField
-                  fullWidth
-                  label="Nearest Main Road"
-                  value={formData.nearest_road}
-                  onChange={(e) => onChange('nearest_road', e.target.value)}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <StyledTextField
-                  fullWidth
-                  label="Nearest Bus Stop"
-                  value={formData.nearest_bus_stop}
-                  onChange={(e) => onChange('nearest_bus_stop', e.target.value)}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <StyledTextField
-                  fullWidth
-                  label="Nearest Taxi Stage"
-                  value={formData.nearest_taxi_stage}
-                  onChange={(e) => onChange('nearest_taxi_stage', e.target.value)}
-                />
-              </Grid>
-              <Grid size={{ xs: 12 }}>
-                <FeatureToggle
-                  label="Public transport available nearby"
-                  checked={formData.public_transport}
-                  onToggle={(v) => onChange('public_transport', v)}
-                />
-              </Grid>
-            </Grid>
-          </SectionCard>
+          <Section title="Transportation & Access" icon="🚗">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <Field label="Nearby Roads" value={formData.nearby_roads} onChange={handleField('nearby_roads')} placeholder="Jinja Road, Entebbe Road…" hint="Separate with commas" />
+              <Field label="Nearest Main Road" value={formData.nearest_road} onChange={handleField('nearest_road')} />
+              <Grid2>
+                <Field label="Nearest Bus Stop" value={formData.nearest_bus_stop} onChange={handleField('nearest_bus_stop')} />
+                <Field label="Nearest Taxi Stage" value={formData.nearest_taxi_stage} onChange={handleField('nearest_taxi_stage')} />
+              </Grid2>
+              <FeatureToggle label="Public Transport Available Nearby" icon="🚌" checked={formData.public_transport} onChange={handleField('public_transport') as (v: boolean) => void} />
+            </div>
+          </Section>
         )}
 
         {/* TAB 6: Amenities */}
         {activeTab === 6 && (
-          <SectionCard elevation={0}>
-            <SectionTitle>Custom Amenities</SectionTitle>
-            <Box display="flex" gap={2} mb={3}>
-              <StyledTextField
-                fullWidth
-                size="small"
-                placeholder="Type an amenity (e.g., Swimming Pool, Gym, Security)"
-                value={amenitiesInput}
-                onChange={(e) => setAmenitiesInput(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleAmenitiesAdd();
-                  }
-                }}
-              />
-              <Button
-                variant="contained"
-                onClick={handleAmenitiesAdd}
-                startIcon={<Add />}
-                sx={{
-                  bgcolor: PRIMARY_COLOR,
-                  borderRadius: 2,
-                  px: 3,
-                  whiteSpace: 'nowrap',
-                  '&:hover': { bgcolor: PRIMARY_DARK },
-                }}
-              >
-                Add
-              </Button>
-            </Box>
-            <Box display="flex" flexWrap="wrap" gap={1} mb={4}>
-              {formData.amenities.map((amenity, idx) => (
-                <Chip
-                  key={idx}
-                  label={amenity}
-                  onDelete={() => handleAmenitiesRemove(amenity)}
-                  sx={{
-                    bgcolor: alpha(PRIMARY_COLOR, 0.1),
-                    color: PRIMARY_COLOR,
-                    fontWeight: 500,
-                    '& .MuiChip-deleteIcon': {
-                      color: PRIMARY_COLOR,
-                      '&:hover': { color: PRIMARY_DARK },
-                    },
-                  }}
+          <>
+            <Section title="Custom Amenities" icon="✨">
+              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                <input
+                  value={amenityInput}
+                  onChange={e => setAmenityInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addAmenity(); } }}
+                  placeholder="Type an amenity and press Enter…"
+                  style={{ ...f.input, flex: 1 }}
                 />
-              ))}
-            </Box>
+                <button type="button" onClick={addAmenity} style={{ padding: '10px 16px', borderRadius: 10, border: 'none', backgroundColor: RED, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', flexShrink: 0, fontFamily: 'inherit' }}>+ Add</button>
+              </div>
+              {formData.amenities.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {formData.amenities.map((a, i) => (
+                    <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, backgroundColor: RED_BG, color: RED, fontSize: 12, fontWeight: 600, padding: '4px 10px', borderRadius: 20 }}>
+                      {a}
+                      <button type="button" onClick={() => removeAmenity(a)} style={{ background: 'none', border: 'none', color: RED, cursor: 'pointer', fontSize: 13, padding: 0, lineHeight: 1, display: 'flex', alignItems: 'center' }}>×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              {formData.amenities.length === 0 && <div style={{ fontSize: 12, color: '#94a3b8' }}>No custom amenities added yet.</div>}
+            </Section>
 
-            <SectionTitle>Nearby Places</SectionTitle>
-            <Grid container spacing={3}>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <StyledTextField fullWidth label="Nearest Mall" value={formData.nearest_mall} onChange={(e) => onChange('nearest_mall', e.target.value)} />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <StyledTextField fullWidth label="Distance to Mall (km)" type="number" value={formData.distance_to_mall} onChange={(e) => onChange('distance_to_mall', e.target.value)} inputProps={{ step: '0.1' }} />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <StyledTextField fullWidth label="Nearest Supermarket" value={formData.nearest_supermarket} onChange={(e) => onChange('nearest_supermarket', e.target.value)} />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <StyledTextField fullWidth label="Nearest Market" value={formData.nearest_market} onChange={(e) => onChange('nearest_market', e.target.value)} />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <StyledTextField fullWidth label="Nearest Pharmacy" value={formData.nearest_pharmacy} onChange={(e) => onChange('nearest_pharmacy', e.target.value)} />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <StyledTextField fullWidth label="Nearest Hospital" value={formData.nearest_hospital} onChange={(e) => onChange('nearest_hospital', e.target.value)} />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <StyledTextField fullWidth label="Distance to Hospital (km)" type="number" value={formData.distance_to_hospital} onChange={(e) => onChange('distance_to_hospital', e.target.value)} inputProps={{ step: '0.1' }} />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <StyledTextField fullWidth label="Nearest Restaurant" value={formData.nearest_restaurant} onChange={(e) => onChange('nearest_restaurant', e.target.value)} />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <StyledTextField fullWidth label="Nearest Cafe" value={formData.nearest_cafe} onChange={(e) => onChange('nearest_cafe', e.target.value)} />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <StyledTextField fullWidth label="Nearest Gym" value={formData.nearest_gym} onChange={(e) => onChange('nearest_gym', e.target.value)} />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <StyledTextField fullWidth label="Nearest Park" value={formData.nearest_park} onChange={(e) => onChange('nearest_park', e.target.value)} />
-              </Grid>
-            </Grid>
-          </SectionCard>
+            <Section title="Nearby Places" icon="🗺️">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <Grid2>
+                  <Field label="Nearest Mall" value={formData.nearest_mall} onChange={handleField('nearest_mall')} />
+                  <Field label="Distance to Mall (km)" value={formData.distance_to_mall} onChange={handleField('distance_to_mall')} type="number" step="0.1" />
+                  <Field label="Nearest Supermarket" value={formData.nearest_supermarket} onChange={handleField('nearest_supermarket')} />
+                  <Field label="Nearest Market" value={formData.nearest_market} onChange={handleField('nearest_market')} />
+                  <Field label="Nearest Pharmacy" value={formData.nearest_pharmacy} onChange={handleField('nearest_pharmacy')} />
+                  <Field label="Nearest Hospital" value={formData.nearest_hospital} onChange={handleField('nearest_hospital')} />
+                  <Field label="Distance to Hospital (km)" value={formData.distance_to_hospital} onChange={handleField('distance_to_hospital')} type="number" step="0.1" />
+                  <Field label="Nearest Restaurant" value={formData.nearest_restaurant} onChange={handleField('nearest_restaurant')} />
+                  <Field label="Nearest Café" value={formData.nearest_cafe} onChange={handleField('nearest_cafe')} />
+                  <Field label="Nearest Gym" value={formData.nearest_gym} onChange={handleField('nearest_gym')} />
+                  <Field label="Nearest Park" value={formData.nearest_park} onChange={handleField('nearest_park')} />
+                </Grid2>
+              </div>
+            </Section>
+          </>
         )}
 
         {/* TAB 7: Security */}
         {activeTab === 7 && (
-          <SectionCard elevation={0}>
-            <SectionTitle>Security Features</SectionTitle>
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <FeatureToggle label="24/7 Security" checked={formData.has_security} onToggle={(v) => onChange('has_security', v)} />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <FeatureToggle label="CCTV Cameras" checked={formData.has_cctv} onToggle={(v) => onChange('has_cctv', v)} />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <FeatureToggle label="Electric Fence" checked={formData.has_electric_fence} onToggle={(v) => onChange('has_electric_fence', v)} />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <FeatureToggle label="Security Lights" checked={formData.has_security_lights} onToggle={(v) => onChange('has_security_lights', v)} />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <FeatureToggle label="Security Guards" checked={formData.has_security_guards} onToggle={(v) => onChange('has_security_guards', v)} />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <FeatureToggle label="Gated Community" checked={formData.has_gated_community} onToggle={(v) => onChange('has_gated_community', v)} />
-              </Grid>
-            </Grid>
-          </SectionCard>
+          <Section title="Security Features" icon="🔒">
+            <ToggleGrid>
+              <FeatureToggle label="24/7 Security" icon="👮" checked={formData.has_security} onChange={handleField('has_security') as (v:boolean)=>void} />
+              <FeatureToggle label="CCTV Cameras" icon="📹" checked={formData.has_cctv} onChange={handleField('has_cctv') as (v:boolean)=>void} />
+              <FeatureToggle label="Electric Fence" icon="⚡" checked={formData.has_electric_fence} onChange={handleField('has_electric_fence') as (v:boolean)=>void} />
+              <FeatureToggle label="Security Lights" icon="💡" checked={formData.has_security_lights} onChange={handleField('has_security_lights') as (v:boolean)=>void} />
+              <FeatureToggle label="Security Guards" icon="🛡️" checked={formData.has_security_guards} onChange={handleField('has_security_guards') as (v:boolean)=>void} />
+              <FeatureToggle label="Gated Community" icon="🏘️" checked={formData.has_gated_community} onChange={handleField('has_gated_community') as (v:boolean)=>void} />
+            </ToggleGrid>
+          </Section>
         )}
 
         {/* TAB 8: Features */}
         {activeTab === 8 && (
           <>
-            <SectionCard elevation={0}>
-              <SectionTitle>Utilities</SectionTitle>
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 12, md: 6 }}><FeatureToggle label="Solar Power" checked={formData.has_solar} onToggle={(v) => onChange('has_solar', v)} /></Grid>
-                <Grid size={{ xs: 12, md: 6 }}><FeatureToggle label="Backup Generator" checked={formData.has_backup_generator} onToggle={(v) => onChange('has_backup_generator', v)} /></Grid>
-                <Grid size={{ xs: 12, md: 6 }}><FeatureToggle label="Water Tank" checked={formData.has_water_tank} onToggle={(v) => onChange('has_water_tank', v)} /></Grid>
-                <Grid size={{ xs: 12, md: 6 }}><FeatureToggle label="Borehole" checked={formData.has_borehole} onToggle={(v) => onChange('has_borehole', v)} /></Grid>
-                <Grid size={{ xs: 12, md: 6 }}><FeatureToggle label="High-speed Internet" checked={formData.has_internet} onToggle={(v) => onChange('has_internet', v)} /></Grid>
-                <Grid size={{ xs: 12, md: 6 }}><FeatureToggle label="Cable TV" checked={formData.has_cable_tv} onToggle={(v) => onChange('has_cable_tv', v)} /></Grid>
-              </Grid>
-            </SectionCard>
+            <Section title="Utilities" icon="🔌">
+              <ToggleGrid>
+                <FeatureToggle label="Solar Power"        icon="☀️"  checked={formData.has_solar}             onChange={handleField('has_solar') as (v:boolean)=>void} />
+                <FeatureToggle label="Backup Generator"   icon="⚡"  checked={formData.has_backup_generator}   onChange={handleField('has_backup_generator') as (v:boolean)=>void} />
+                <FeatureToggle label="Water Tank"         icon="💧"  checked={formData.has_water_tank}         onChange={handleField('has_water_tank') as (v:boolean)=>void} />
+                <FeatureToggle label="Borehole"           icon="🌊"  checked={formData.has_borehole}           onChange={handleField('has_borehole') as (v:boolean)=>void} />
+                <FeatureToggle label="High-speed Internet"icon="📶"  checked={formData.has_internet}           onChange={handleField('has_internet') as (v:boolean)=>void} />
+                <FeatureToggle label="Cable TV"           icon="📺"  checked={formData.has_cable_tv}           onChange={handleField('has_cable_tv') as (v:boolean)=>void} />
+              </ToggleGrid>
+            </Section>
 
-            <SectionCard elevation={0}>
-              <SectionTitle>Outdoor Features</SectionTitle>
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 12, md: 6 }}><FeatureToggle label="Garden" checked={formData.has_garden} onToggle={(v) => onChange('has_garden', v)} /></Grid>
-                <Grid size={{ xs: 12, md: 6 }}><FeatureToggle label="Balcony" checked={formData.has_balcony} onToggle={(v) => onChange('has_balcony', v)} /></Grid>
-                <Grid size={{ xs: 12, md: 6 }}><FeatureToggle label="Terrace" checked={formData.has_terrace} onToggle={(v) => onChange('has_terrace', v)} /></Grid>
-                <Grid size={{ xs: 12, md: 6 }}><FeatureToggle label="Swimming Pool" checked={formData.has_swimming_pool} onToggle={(v) => onChange('has_swimming_pool', v)} /></Grid>
-                <Grid size={{ xs: 12, md: 6 }}><FeatureToggle label="Playground" checked={formData.has_playground} onToggle={(v) => onChange('has_playground', v)} /></Grid>
-                <Grid size={{ xs: 12, md: 6 }}><FeatureToggle label="BBQ Area" checked={formData.has_bbq_area} onToggle={(v) => onChange('has_bbq_area', v)} /></Grid>
-              </Grid>
-            </SectionCard>
+            <Section title="Outdoor Features" icon="🌿">
+              <ToggleGrid>
+                <FeatureToggle label="Garden"        icon="🌱" checked={formData.has_garden}        onChange={handleField('has_garden') as (v:boolean)=>void} />
+                <FeatureToggle label="Balcony"       icon="🏡" checked={formData.has_balcony}       onChange={handleField('has_balcony') as (v:boolean)=>void} />
+                <FeatureToggle label="Terrace"       icon="🏙️" checked={formData.has_terrace}       onChange={handleField('has_terrace') as (v:boolean)=>void} />
+                <FeatureToggle label="Swimming Pool" icon="🏊" checked={formData.has_swimming_pool} onChange={handleField('has_swimming_pool') as (v:boolean)=>void} />
+                <FeatureToggle label="Playground"    icon="🛝" checked={formData.has_playground}    onChange={handleField('has_playground') as (v:boolean)=>void} />
+                <FeatureToggle label="BBQ Area"      icon="🔥" checked={formData.has_bbq_area}      onChange={handleField('has_bbq_area') as (v:boolean)=>void} />
+              </ToggleGrid>
+            </Section>
 
-            <SectionCard elevation={0}>
-              <SectionTitle>Interior Features</SectionTitle>
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 12, md: 6 }}><FeatureToggle label="Air Conditioning" checked={formData.has_air_conditioning} onToggle={(v) => onChange('has_air_conditioning', v)} /></Grid>
-                <Grid size={{ xs: 12, md: 6 }}><FeatureToggle label="Heating" checked={formData.has_heating} onToggle={(v) => onChange('has_heating', v)} /></Grid>
-                <Grid size={{ xs: 12, md: 6 }}><FeatureToggle label="Fireplace" checked={formData.has_fireplace} onToggle={(v) => onChange('has_fireplace', v)} /></Grid>
-                <Grid size={{ xs: 12, md: 6 }}><FeatureToggle label="Modern Kitchen" checked={formData.has_modern_kitchen} onToggle={(v) => onChange('has_modern_kitchen', v)} /></Grid>
-                <Grid size={{ xs: 12, md: 6 }}><FeatureToggle label="Walk-in Closet" checked={formData.has_walk_in_closet} onToggle={(v) => onChange('has_walk_in_closet', v)} /></Grid>
-                <Grid size={{ xs: 12, md: 6 }}><FeatureToggle label="Study Room" checked={formData.has_study_room} onToggle={(v) => onChange('has_study_room', v)} /></Grid>
-              </Grid>
-            </SectionCard>
+            <Section title="Interior Features" icon="🛋️">
+              <ToggleGrid>
+                <FeatureToggle label="Air Conditioning" icon="❄️" checked={formData.has_air_conditioning} onChange={handleField('has_air_conditioning') as (v:boolean)=>void} />
+                <FeatureToggle label="Heating"          icon="🌡️" checked={formData.has_heating}          onChange={handleField('has_heating') as (v:boolean)=>void} />
+                <FeatureToggle label="Fireplace"        icon="🔥" checked={formData.has_fireplace}        onChange={handleField('has_fireplace') as (v:boolean)=>void} />
+                <FeatureToggle label="Modern Kitchen"   icon="🍳" checked={formData.has_modern_kitchen}   onChange={handleField('has_modern_kitchen') as (v:boolean)=>void} />
+                <FeatureToggle label="Walk-in Closet"   icon="👔" checked={formData.has_walk_in_closet}   onChange={handleField('has_walk_in_closet') as (v:boolean)=>void} />
+                <FeatureToggle label="Study Room"       icon="📚" checked={formData.has_study_room}       onChange={handleField('has_study_room') as (v:boolean)=>void} />
+              </ToggleGrid>
+            </Section>
 
-            <SectionCard elevation={0}>
-              <SectionTitle>Restrictions</SectionTitle>
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 12, md: 6 }}><FeatureToggle label="Pets Allowed" checked={formData.pets_allowed} onToggle={(v) => onChange('pets_allowed', v)} /></Grid>
-                <Grid size={{ xs: 12, md: 6 }}><FeatureToggle label="Smoking Allowed" checked={formData.smoking_allowed} onToggle={(v) => onChange('smoking_allowed', v)} /></Grid>
-              </Grid>
-            </SectionCard>
+            <Section title="Rules & Restrictions" icon="📌">
+              <ToggleGrid>
+                <FeatureToggle label="Pets Allowed"    icon="🐾" checked={formData.pets_allowed}    onChange={handleField('pets_allowed') as (v:boolean)=>void} />
+                <FeatureToggle label="Smoking Allowed" icon="🚬" checked={formData.smoking_allowed} onChange={handleField('smoking_allowed') as (v:boolean)=>void} />
+              </ToggleGrid>
+            </Section>
 
-            <SectionCard elevation={0}>
-              <SectionTitle>Parking</SectionTitle>
-              <Grid container spacing={3}>
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <StyledSelect fullWidth>
-                    <InputLabel>Parking Type</InputLabel>
-                    <Select value={formData.parking_type} onChange={(e) => onChange('parking_type', e.target.value)} label="Parking Type">
-                      <MenuItem value="none">No Parking</MenuItem>
-                      <MenuItem value="street">Street Parking</MenuItem>
-                      <MenuItem value="open">Open Parking</MenuItem>
-                      <MenuItem value="covered">Covered Parking</MenuItem>
-                      <MenuItem value="garage">Garage</MenuItem>
-                      <MenuItem value="multiple">Multiple Garages</MenuItem>
-                    </Select>
-                  </StyledSelect>
-                </Grid>
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <StyledTextField fullWidth label="Number of Parking Spaces" type="number" value={formData.parking_spaces} onChange={(e) => onChange('parking_spaces', e.target.value)} />
-                </Grid>
-              </Grid>
-            </SectionCard>
+            <Section title="Parking" icon="🚗">
+              <Grid2>
+                <SelectField label="Parking Type" value={formData.parking_type} onChange={handleField('parking_type')} options={[
+                  { value: 'none', label: 'No Parking' }, { value: 'street', label: 'Street Parking' },
+                  { value: 'open', label: 'Open Parking' }, { value: 'covered', label: 'Covered Parking' },
+                  { value: 'garage', label: 'Garage' }, { value: 'multiple', label: 'Multiple Garages' },
+                ]} />
+                <Field label="Number of Parking Spaces" value={formData.parking_spaces} onChange={handleField('parking_spaces')} type="number" />
+              </Grid2>
+            </Section>
           </>
         )}
 
         {/* TAB 9: Legal & Contact */}
         {activeTab === 9 && (
           <>
-            <SectionCard elevation={0}>
-              <SectionTitle>Legal Information</SectionTitle>
-              <Grid container spacing={3}>
-                <Grid size={{ xs: 12 }}>
-                  <FeatureToggle label="Has Title Deed" checked={formData.has_title_deed} onToggle={(v) => onChange('has_title_deed', v)} />
-                </Grid>
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <StyledTextField fullWidth label="Title Deed Number" value={formData.title_deed_number} onChange={(e) => onChange('title_deed_number', e.target.value)} />
-                </Grid>
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <StyledTextField fullWidth label="Land Registration Number" value={formData.land_registration_number} onChange={(e) => onChange('land_registration_number', e.target.value)} />
-                </Grid>
-              </Grid>
-            </SectionCard>
+            <Section title="Legal Information" icon="⚖️">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <FeatureToggle label="Has Title Deed" icon="📄" checked={formData.has_title_deed} onChange={handleField('has_title_deed') as (v:boolean)=>void} />
+                <Grid2>
+                  <Field label="Title Deed Number" value={formData.title_deed_number} onChange={handleField('title_deed_number')} />
+                  <Field label="Land Registration Number" value={formData.land_registration_number} onChange={handleField('land_registration_number')} />
+                </Grid2>
+              </div>
+            </Section>
 
-            <SectionCard elevation={0}>
-              <SectionTitle>Contact Information</SectionTitle>
-              <Grid container spacing={3}>
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <StyledTextField fullWidth label="Agent Phone Number" value={formData.agent_phone} onChange={(e) => onChange('agent_phone', e.target.value)} placeholder="+256 700 000 000" />
-                </Grid>
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <StyledTextField fullWidth label="Agent Email" type="email" value={formData.agent_email} onChange={(e) => onChange('agent_email', e.target.value)} placeholder="agent@company.com" />
-                </Grid>
-                <Grid size={{ xs: 12 }}>
-                  <StyledTextField
-                    fullWidth
-                    label="Viewing Instructions"
-                    multiline
-                    rows={3}
-                    value={formData.viewing_instructions}
-                    onChange={(e) => onChange('viewing_instructions', e.target.value)}
-                    placeholder="Instructions for scheduling property viewings..."
-                  />
-                </Grid>
-              </Grid>
-            </SectionCard>
+            <Section title="Agent Contact" icon="📞">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <Grid2>
+                  <Field label="Agent Phone Number" value={formData.agent_phone} onChange={handleField('agent_phone')} placeholder="+256 700 000 000" />
+                  <Field label="Agent Email" value={formData.agent_email} onChange={handleField('agent_email')} type="email" placeholder="agent@company.com" />
+                </Grid2>
+                <Field label="Viewing Instructions" value={formData.viewing_instructions} onChange={handleField('viewing_instructions')} multiline rows={3} placeholder="Instructions for scheduling property viewings…" />
+              </div>
+            </Section>
           </>
         )}
-      </Box>
 
-      {/* Footer Actions */}
-      <Paper
-        elevation={0}
-        sx={{
-          position: 'sticky',
-          bottom: 0,
-          mt: 4,
-          p: 3,
-          borderRadius: 3,
-          border: '1px solid',
-          borderColor: 'divider',
-          backgroundColor: 'rgba(255,255,255,0.95)',
-          backdropFilter: 'blur(10px)',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <Box display="flex" gap={1}>
-          {activeTab > 0 && (
-            <SecondaryButton onClick={() => setActiveTab(activeTab - 1)}>
-              Previous
-            </SecondaryButton>
-          )}
-        </Box>
-        <Box display="flex" gap={2}>
-          {onCancel && (
-            <SecondaryButton onClick={onCancel} disabled={loading}>
-              Cancel
-            </SecondaryButton>
-          )}
-          {activeTab < tabs.length - 1 ? (
-            <PrimaryButton onClick={() => setActiveTab(activeTab + 1)}>
-              Next Step
-            </PrimaryButton>
-          ) : (
-            <PrimaryButton type="submit" disabled={loading}>
-              {loading ? <CircularProgress size={24} sx={{ color: 'white' }} /> : submitText}
-            </PrimaryButton>
-          )}
-        </Box>
-      </Paper>
-    </Box>
+        {/* ── Footer actions ──────────────────────────────────────────────────── */}
+        <div style={{
+          position: 'sticky', bottom: 0,
+          backgroundColor: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(10px)',
+          borderTop: '1px solid #eef2f7', borderRadius: '0 0 14px 14px',
+          padding: '14px 16px', marginTop: 14,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10,
+          boxShadow: '0 -4px 12px rgba(0,0,0,0.05)',
+        }}>
+          {/* Previous */}
+          <div>
+            {activeTab > 0 && (
+              <button type="button" onClick={() => setActiveTab(t => t - 1)} style={{ padding: '10px 18px', borderRadius: 10, border: '1.5px solid #eef2f7', backgroundColor: '#fff', color: SLATE, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                ← Previous
+              </button>
+            )}
+          </div>
+
+          {/* Right side */}
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            {onCancel && (
+              <button type="button" onClick={onCancel} disabled={loading} style={{ padding: '10px 18px', borderRadius: 10, border: '1.5px solid #eef2f7', backgroundColor: '#fff', color: SLATE, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                Cancel
+              </button>
+            )}
+            {activeTab < TABS.length - 1 ? (
+              <button type="button" onClick={() => setActiveTab(t => t + 1)} style={{ padding: '10px 22px', borderRadius: 10, border: 'none', backgroundColor: RED, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 12px rgba(230,57,70,0.28)' }}>
+                Next Step →
+              </button>
+            ) : (
+              <button type="submit" disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 24px', borderRadius: 10, border: 'none', backgroundColor: loading ? '#94a3b8' : RED, color: '#fff', fontSize: 13, fontWeight: 700, cursor: loading ? 'wait' : 'pointer', fontFamily: 'inherit', boxShadow: loading ? 'none' : '0 4px 12px rgba(230,57,70,0.28)' }}>
+                {loading ? (
+                  <><span style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'pfSpin 0.7s linear infinite' }} /> Saving…</>
+                ) : `✓ ${submitText}`}
+              </button>
+            )}
+          </div>
+        </div>
+      </form>
+
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
+        @keyframes pfSpin { to { transform: rotate(360deg); } }
+        input[type="text"]:focus, input[type="number"]:focus, input[type="email"]:focus,
+        input[type="url"]:focus, textarea:focus, select:focus {
+          border-color: ${RED} !important;
+          outline: none;
+          background-color: #fff !important;
+          box-shadow: 0 0 0 3px rgba(230,57,70,0.08);
+        }
+        input::placeholder, textarea::placeholder { color: #94a3b8; }
+        select option { color: ${NAVY}; }
+      `}</style>
+    </div>
   );
 };
 

@@ -869,7 +869,7 @@ const Chatbot: React.FC = () => {
         </div>
         
         <div style={panel.footer}>
-          🤖 8 AI Experts · PropertyHub.ug
+          🤖 8 AI Experts · Metro Properties
         </div>
       </div>
     </>

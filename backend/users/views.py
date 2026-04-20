@@ -1,26 +1,34 @@
-from rest_framework import generics, permissions, status, filters
+# users/views.py - COMPLETE FIXED VERSION
+from rest_framework import generics, permissions, status, filters, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from django.db import models
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from rest_framework_simplejwt.tokens import RefreshToken
-from .serializers import UserSerializer, RegisterSerializer, FollowSerializer
-from .models import Follow
-import os
-from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django_filters.rest_framework import DjangoFilterBackend
+import os
+import requests as http_requests
+
+from .serializers import (
+    UserSerializer, RegisterSerializer, FollowSerializer,
+    StatusSerializer, StatusViewSerializer
+)
+from .models import Follow, Status, StatusView
 
 User = get_user_model()
 
+# ========== USER MANAGEMENT VIEWS ==========
+
 class ChangePasswordView(APIView):
-    """
-    API endpoint for changing user password
-    """
     permission_classes = (permissions.IsAuthenticated,)
     
     def post(self, request):
@@ -28,21 +36,18 @@ class ChangePasswordView(APIView):
         old_password = request.data.get('old_password')
         new_password = request.data.get('new_password')
         
-        # Validate required fields
         if not old_password or not new_password:
             return Response(
                 {'error': 'Both old_password and new_password are required'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Check if old password is correct
         if not user.check_password(old_password):
             return Response(
                 {'error': 'Current password is incorrect'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Validate new password strength
         try:
             validate_password(new_password, user)
         except ValidationError as e:
@@ -51,7 +56,6 @@ class ChangePasswordView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Set new password
         user.set_password(new_password)
         user.save()
         
@@ -59,7 +63,7 @@ class ChangePasswordView(APIView):
             {'message': 'Password changed successfully'},
             status=status.HTTP_200_OK
         )
-    
+
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     permission_classes = (permissions.AllowAny,)
@@ -84,12 +88,14 @@ class UserListView(generics.ListAPIView):
         context = super().get_serializer_context()
         context['request'] = self.request
         return context
-    
+
 class UserDetailView(generics.RetrieveAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = (permissions.AllowAny,)
     lookup_field = 'username'
+
+# ========== FOLLOW VIEWS ==========
 
 class FollowUserView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
@@ -135,6 +141,52 @@ class FollowUserView(APIView):
         except User.DoesNotExist:
             return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
 
+class FollowStatusView(APIView):
+    permission_classes = (permissions.IsAuthenticated,)
+    
+    def get(self, request, username):
+        try:
+            user_to_check = User.objects.get(username=username)
+            is_following = Follow.objects.filter(
+                follower=request.user, 
+                following=user_to_check
+            ).exists()
+            return Response({'is_following': is_following})
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+class UserFollowersView(generics.ListAPIView):
+    serializer_class = UserSerializer
+    permission_classes = (permissions.AllowAny,)
+    
+    def get_queryset(self):
+        username = self.kwargs.get('username')
+        user = get_object_or_404(User, username=username)
+        follower_ids = Follow.objects.filter(following=user).values_list('follower_id', flat=True)
+        return User.objects.filter(id__in=follower_ids)
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+
+class UserFollowingView(generics.ListAPIView):
+    serializer_class = UserSerializer
+    permission_classes = (permissions.AllowAny,)
+    
+    def get_queryset(self):
+        username = self.kwargs.get('username')
+        user = get_object_or_404(User, username=username)
+        following_ids = Follow.objects.filter(follower=user).values_list('following_id', flat=True)
+        return User.objects.filter(id__in=following_ids)
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+
+# ========== SOCIAL LOGIN VIEWS ==========
+
 class GoogleLoginView(APIView):
     permission_classes = (permissions.AllowAny,)
     
@@ -148,24 +200,20 @@ class GoogleLoginView(APIView):
             )
         
         try:
-            # Get Google Client ID from environment or settings
             GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com')
             
-            # Verify Google token
             idinfo = id_token.verify_oauth2_token(
                 token, 
                 google_requests.Request(), 
                 GOOGLE_CLIENT_ID
             )
             
-            # Check if token is valid
             if idinfo['iss'] not in ['accounts.google.com', 'https://accounts.google.com']:
                 return Response(
                     {'error': 'Invalid token issuer'}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Get user info from token
             email = idinfo.get('email')
             first_name = idinfo.get('given_name', '')
             last_name = idinfo.get('family_name', '')
@@ -177,16 +225,13 @@ class GoogleLoginView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Generate username from email
             username = email.split('@')[0]
-            # Ensure username is unique
             base_username = username
             counter = 1
             while User.objects.filter(username=username).exists():
                 username = f"{base_username}{counter}"
                 counter += 1
             
-            # Get or create user
             user, created = User.objects.get_or_create(
                 email=email,
                 defaults={
@@ -198,12 +243,10 @@ class GoogleLoginView(APIView):
                 }
             )
             
-            # If user already exists but no profile picture, update it
             if not created and not user.profile_picture and profile_picture:
                 user.profile_picture = profile_picture
                 user.save()
             
-            # Generate JWT tokens
             refresh = RefreshToken.for_user(user)
             
             return Response({
@@ -227,7 +270,6 @@ class FacebookLoginView(APIView):
     permission_classes = (permissions.AllowAny,)
     
     def post(self, request):
-        # Implement Facebook login using facebook-sdk or requests
         token = request.data.get('token')
         
         if not token:
@@ -237,8 +279,6 @@ class FacebookLoginView(APIView):
             )
         
         try:
-            # Use requests to verify Facebook token
-            import requests as http_requests
             response = http_requests.get(
                 f'https://graph.facebook.com/me',
                 params={
@@ -265,7 +305,6 @@ class FacebookLoginView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Generate username
             username = email.split('@')[0]
             base_username = username
             counter = 1
@@ -273,7 +312,6 @@ class FacebookLoginView(APIView):
                 username = f"{base_username}{counter}"
                 counter += 1
             
-            # Get or create user
             user, created = User.objects.get_or_create(
                 email=email,
                 defaults={
@@ -299,50 +337,117 @@ class FacebookLoginView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-class FollowStatusView(APIView):
-    permission_classes = (permissions.IsAuthenticated,)
-    
-    def get(self, request, username):
-        try:
-            user_to_check = User.objects.get(username=username)
-            is_following = Follow.objects.filter(
-                follower=request.user, 
-                following=user_to_check
-            ).exists()
-            return Response({'is_following': is_following})
-        except User.DoesNotExist:
-            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+# ========== STATUS VIEWS ==========
 
-class UserFollowersView(generics.ListAPIView):
-    """Get list of users following a specific user"""
-    serializer_class = UserSerializer
-    permission_classes = (permissions.AllowAny,)
+class StatusViewSet(viewsets.ModelViewSet):
+    serializer_class = StatusSerializer
+    permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
-        username = self.kwargs.get('username')
-        user = get_object_or_404(User, username=username)
-        # Get the User objects of people who follow this user
-        follower_ids = Follow.objects.filter(following=user).values_list('follower_id', flat=True)
-        return User.objects.filter(id__in=follower_ids)
+        """Get active statuses from followed users"""
+        following_user_ids = self.request.user.following.values_list('following', flat=True)
+        now = timezone.now()
+        
+        return Status.objects.filter(
+            user__in=following_user_ids,
+            is_active=True
+        ).filter(
+            Q(expires_at__isnull=True) | Q(expires_at__gt=now)
+        ).select_related('user').order_by('-created_at')
     
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context['request'] = self.request
         return context
-
-class UserFollowingView(generics.ListAPIView):
-    """Get list of users a specific user is following"""
-    serializer_class = UserSerializer
-    permission_classes = (permissions.AllowAny,)
     
-    def get_queryset(self):
-        username = self.kwargs.get('username')
-        user = get_object_or_404(User, username=username)
-        # Get the User objects that this user follows
-        following_ids = Follow.objects.filter(follower=user).values_list('following_id', flat=True)
-        return User.objects.filter(id__in=following_ids)
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
     
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context['request'] = self.request
-        return context
+    def create(self, request, *args, **kwargs):
+        # Create mutable copy of data
+        mutable_data = request.data.copy()
+        
+        # Remove user if present
+        if 'user' in mutable_data:
+            del mutable_data['user']
+        
+        # Remove expires_at if present (let model handle it)
+        if 'expires_at' in mutable_data:
+            del mutable_data['expires_at']
+        
+        serializer = self.get_serializer(data=mutable_data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+    
+    @action(detail=True, methods=['post'])
+    def mark_viewed(self, request, pk=None):
+        status_obj = self.get_object()
+        view, created = StatusView.objects.get_or_create(
+            status=status_obj,
+            viewer=request.user
+        )
+        if created:
+            status_obj.views_count += 1
+            status_obj.save(update_fields=['views_count'])
+        return Response({'status': 'viewed'})
+    
+    @action(detail=False, methods=['get'])
+    def my_statuses(self, request):
+        """Get current user's active statuses"""
+        now = timezone.now()
+        statuses = Status.objects.filter(
+            user=request.user,
+            is_active=True
+        ).filter(
+            Q(expires_at__isnull=True) | Q(expires_at__gt=now)
+        ).order_by('-created_at')
+        serializer = self.get_serializer(statuses, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def following_statuses(self, request):
+        """Get statuses grouped by user (like WhatsApp)"""
+        following_user_ids = request.user.following.values_list('following', flat=True)
+        now = timezone.now()
+        
+        statuses = Status.objects.filter(
+            user__in=following_user_ids,
+            is_active=True
+        ).filter(
+            Q(expires_at__isnull=True) | Q(expires_at__gt=now)
+        ).select_related('user').order_by('-created_at')
+        
+        # Group by user
+        grouped = {}
+        for status in statuses:
+            if status.user.id not in grouped:
+                grouped[status.user.id] = {
+                    'user': {
+                        'id': status.user.id,
+                        'username': status.user.username,
+                        'first_name': status.user.first_name,
+                        'last_name': status.user.last_name,
+                        'profile_picture': status.user.profile_picture.url if status.user.profile_picture else None,
+                        'is_agent': status.user.is_agent,
+                        'is_service_provider': status.user.is_service_provider,
+                    },
+                    'statuses': []
+                }
+            grouped[status.user.id]['statuses'].append(
+                StatusSerializer(status, context={'request': request}).data
+            )
+        
+        return Response(list(grouped.values()))
+    
+    @action(detail=False, methods=['delete'])
+    def delete_expired(self, request):
+        """Delete expired statuses"""
+        now = timezone.now()
+        deleted = Status.objects.filter(
+            expires_at__lte=now,
+            expires_at__isnull=False
+        ).delete()
+        return Response({'deleted': deleted[0]})

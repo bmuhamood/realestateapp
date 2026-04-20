@@ -82,7 +82,18 @@ const AmenityChip: React.FC<{ icon: string; label: string }> = ({ icon, label })
 );
 
 const ac: Record<string, React.CSSProperties> = {
-  chip: { display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', backgroundColor: '#f8faff', border: '1px solid #eef2f7', borderRadius: 30, fontSize: 12 },
+  chip: { 
+    display: 'flex', 
+    alignItems: 'center', 
+    gap: 6, 
+    padding: '6px 12px', 
+    backgroundColor: '#f8faff', 
+    border: '1px solid #eef2f7', 
+    borderRadius: 30, 
+    fontSize: 12,
+    transition: 'all 0.2s',
+    cursor: 'default',
+  },
 };
 
 // ─── Detail Row ───────────────────────────────────────────────────────────────
@@ -309,8 +320,55 @@ const ts: Record<string, React.CSSProperties> = {
 
 // ─── Amenities Grid ──────────────────────────────────────────────────────────
 const AmenitiesGrid: React.FC<{ property: Property }> = ({ property }) => {
-  const amenities = property.amenities_list || [];
-  if (amenities.length === 0) return null;
+  // Helper function to parse amenities - handles array, JSON string, and comma-separated string
+  const getAmenitiesArray = (): string[] => {
+    // Get amenities from property (try both possible field names)
+    const amenities: unknown = property.amenities || property.amenities_list;
+    
+    if (!amenities) return [];
+    
+    // Case 1: Already an array
+    if (Array.isArray(amenities)) {
+      return amenities.filter((item): item is string => typeof item === 'string');
+    }
+    
+    // Case 2: String - try to parse as JSON
+    if (typeof amenities === 'string') {
+      const trimmed = amenities.trim();
+      
+      // Check if it looks like a JSON array
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (Array.isArray(parsed)) {
+            return parsed.filter((item): item is string => typeof item === 'string');
+          }
+        } catch (e) {
+          console.error('Failed to parse amenities JSON:', e);
+        }
+      }
+      
+      // If it contains commas, split by comma
+      if (trimmed.includes(',')) {
+        return trimmed
+          .split(',')
+          .map(a => a.trim().replace(/[\[\]"]/g, ''))
+          .filter(a => a.length > 0);
+      }
+      
+      // Single amenity as string (remove quotes if present)
+      const cleaned = trimmed.replace(/[\[\]"]/g, '');
+      if (cleaned.length > 0) {
+        return [cleaned];
+      }
+    }
+    
+    return [];
+  };
+
+  const amenitiesList = getAmenitiesArray();
+  
+  if (amenitiesList.length === 0) return null;
 
   const amenityIcons: Record<string, string> = {
     'swimming pool': '🏊',
@@ -325,15 +383,31 @@ const AmenitiesGrid: React.FC<{ property: Property }> = ({ property }) => {
     'solar': '☀️',
     'generator': '⚡',
     'water tank': '💧',
+    'electricity': '⚡',
+    'electricity available': '⚡',
+    'national water connection': '💧',
+    'road access': '🛣️',
+    'security fence': '🔒',
+    'spacious compound': '🏘️',
+    'quiet environment': '🌿',
+    'internet coverage': '📶',
+    'borehole water': '🚰',
   };
 
   return (
     <div style={pg.section}>
       <h2 style={pg.sectionTitle}>✨ Amenities & Features</h2>
       <div style={ag.grid}>
-        {amenities.map((amenity, idx) => (
-          <AmenityChip key={idx} icon={amenityIcons[amenity.toLowerCase()] || '✓'} label={amenity} />
-        ))}
+        {amenitiesList.map((amenity: string, idx: number) => {
+          const amenityKey = amenity.toLowerCase();
+          const icon = amenityIcons[amenityKey] || '✓';
+          return (
+            <div key={idx} style={ac.chip}>
+              <span style={{ fontSize: 16 }}>{icon}</span>
+              <span style={{ fontSize: 12, fontWeight: 500 }}>{amenity}</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

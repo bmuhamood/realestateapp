@@ -23,6 +23,8 @@ import AgentsList from './pages/AgentsList';
 import ServiceProvidersList from './pages/ServiceProvidersList';
 import FollowersList from './pages/FollowersList';
 import FollowingList from './pages/FollowingList';
+import AddPropertyPage from './pages/AddPropertyPage';
+import EditPropertyPage from './pages/EditPropertyPage';
 
 const theme = createTheme({
   palette: {
@@ -144,6 +146,8 @@ function AppContent() {
         <Route path="/service-providers" element={<ServiceProvidersList />} />
         <Route path="/profile/:username/followers" element={<FollowersList />} />
         <Route path="/profile/:username/following" element={<FollowingList />} />
+        <Route path="/dashboard/properties/add" element={<AddPropertyPage />} />
+        <Route path="/dashboard/properties/edit/:id" element={<EditPropertyPage />} />
         {/* Protected Routes - Require Authentication */}
         <Route
           path="/favorites"

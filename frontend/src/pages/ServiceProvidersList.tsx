@@ -1,4 +1,4 @@
-// src/pages/ServiceProvidersList.tsx — Redesigned to match AgentsList/PropertyHub.ug design system
+// src/pages/ServiceProvidersList.tsx — Redesigned to match AgentsList/Metro Properties design system
 // Colors: RED #e63946 · NAVY #0d1b2e · TEAL #25a882
 // Fonts: Sora (headings) · DM Sans (body)
 // Patterns: Bayut-inspired sticky filter bar, card styles, badges, animations

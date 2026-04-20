@@ -1,4 +1,4 @@
-# properties/views.py - COMPLETE UPGRADED VERSION
+# properties/views.py - COMPLETE WORKING VERSION
 from datetime import timedelta
 from rest_framework import generics, permissions, filters, status
 from rest_framework.response import Response
@@ -248,9 +248,13 @@ class PropertyListView(generics.ListCreateAPIView):
 class PropertyDetailView(generics.RetrieveUpdateDestroyAPIView):
     """Retrieve, update or delete a property"""
     queryset = Property.objects.all()
-    serializer_class = PropertySerializer
     permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
     parser_classes = (MultiPartParser, FormParser, JSONParser)
+    
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return PropertyCreateSerializer
+        return PropertySerializer
     
     def retrieve(self, request, *args, **kwargs):
         try:
@@ -286,63 +290,46 @@ class PropertyDetailView(generics.RetrieveUpdateDestroyAPIView):
                     status=status.HTTP_403_FORBIDDEN
                 )
             
-            mutable_data = request.data.copy()
-            
-            # Handle existing images deletion
-            if 'existing_images' in mutable_data:
+            # Process existing images first
+            existing_images = request.data.get('existing_images')
+            if existing_images:
                 try:
-                    existing_images = json.loads(mutable_data['existing_images'])
-                    instance.images.exclude(id__in=existing_images).delete()
+                    existing_image_ids = json.loads(existing_images)
+                    instance.images.exclude(id__in=existing_image_ids).delete()
                 except (json.JSONDecodeError, TypeError) as e:
                     print(f"Error parsing existing_images: {e}")
-                mutable_data.pop('existing_images', None)
             
-            # Handle amenities as JSON
-            if 'amenities' in mutable_data and isinstance(mutable_data['amenities'], str):
-                try:
-                    mutable_data['amenities'] = json.loads(mutable_data['amenities'])
-                except json.JSONDecodeError:
-                    mutable_data['amenities'] = []
+            # Use the serializer directly with request.data
+            serializer = self.get_serializer(instance, data=request.data, partial=True)
             
-            # Update property fields
-            serializer = self.get_serializer(instance, data=mutable_data, partial=True)
             if serializer.is_valid():
                 self.perform_update(serializer)
             else:
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
             
-            # Handle new image uploads
-            if 'images' in request.FILES:
-                files = request.FILES.getlist('images')
-                main_image_index = request.data.get('main_image_index')
-                
-                for i, file in enumerate(files):
-                    image = PropertyImage.objects.create(
-                        property=instance,
-                        image=file,
-                        is_main=(str(i) == main_image_index) if main_image_index else (i == 0)
-                    )
-                    image.order = i
-                    image.save()
+            # Handle main image after save
+            main_image_id = request.data.get('main_image_id')
+            if main_image_id and main_image_id != 'new':
+                try:
+                    instance.images.filter(id=int(main_image_id)).update(is_main=True)
+                    instance.images.exclude(id=int(main_image_id)).update(is_main=False)
+                except (ValueError, TypeError) as e:
+                    print(f"Error setting main image: {e}")
             
-            # Handle video upload
+            # Handle video file if uploaded
             if 'video_file' in request.FILES:
                 instance.video_file = request.FILES['video_file']
                 instance.save(update_fields=['video_file'])
             
-            # Set main image
-            if 'main_image_id' in mutable_data and mutable_data['main_image_id'] != 'new':
-                try:
-                    main_image_id = int(mutable_data['main_image_id'])
-                    instance.images.filter(id=main_image_id).update(is_main=True)
-                    instance.images.exclude(id=main_image_id).update(is_main=False)
-                except (ValueError, TypeError) as e:
-                    print(f"Error setting main image: {e}")
-            
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            # Refresh and return
+            instance.refresh_from_db()
+            response_serializer = PropertySerializer(instance, context={'request': request})
+            return Response(response_serializer.data, status=status.HTTP_200_OK)
             
         except Exception as e:
             print(f"Error updating property: {e}")
+            import traceback
+            traceback.print_exc()
             return Response(
                 {'error': f'Failed to update property: {str(e)}'}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -350,6 +337,42 @@ class PropertyDetailView(generics.RetrieveUpdateDestroyAPIView):
     
     def perform_update(self, serializer):
         serializer.save()
+    
+    def delete(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            
+            if request.user != instance.owner and not request.user.is_staff:
+                return Response(
+                    {'error': 'You don\'t have permission to delete this property'}, 
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            # Check for active bookings
+            from bookings.models import Booking
+            active_bookings = Booking.objects.filter(
+                property=instance,
+                status__in=['pending', 'confirmed']
+            ).exists()
+            
+            if active_bookings:
+                return Response(
+                    {'error': 'Cannot delete property with active bookings'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            instance.delete()
+            return Response(
+                {'message': 'Property deleted successfully'}, 
+                status=status.HTTP_200_OK
+            )
+            
+        except Exception as e:
+            print(f"Error deleting property: {e}")
+            return Response(
+                {'error': f'Failed to delete property: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 # ========== PROPERTY LIKE VIEW ==========
@@ -575,7 +598,7 @@ class PropertyReviewView(generics.ListCreateAPIView):
         # Update property average rating
         reviews = PropertyReview.objects.filter(property=property_obj)
         avg_rating = sum(r.rating for r in reviews) / reviews.count()
-        property_obj.school_rating = avg_rating  # Reuse school_rating field for property rating
+        property_obj.school_rating = avg_rating
         property_obj.save(update_fields=['school_rating'])
 
 
@@ -589,7 +612,6 @@ class PropertyInquiryView(generics.CreateAPIView):
         property_id = self.kwargs.get('property_id')
         property_obj = Property.objects.get(id=property_id)
         
-        # If user is authenticated, pre-fill name and email
         if self.request.user.is_authenticated:
             serializer.save(
                 property=property_obj,
@@ -599,3 +621,31 @@ class PropertyInquiryView(generics.CreateAPIView):
             )
         else:
             serializer.save(property=property_obj)
+
+
+# ========== PROPERTY IMAGE DELETE VIEW ==========
+class PropertyImageView(APIView):
+    """Delete a specific property image"""
+    permission_classes = (permissions.IsAuthenticated,)
+    
+    def delete(self, request, image_id):
+        try:
+            image = PropertyImage.objects.get(id=image_id)
+            # Check if user owns the property
+            if image.property.owner != request.user and not request.user.is_staff:
+                return Response(
+                    {'error': 'You do not have permission to delete this image'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            # If this was the main image, set another image as main
+            if image.is_main:
+                other_image = image.property.images.exclude(id=image_id).first()
+                if other_image:
+                    other_image.is_main = True
+                    other_image.save()
+            
+            image.delete()
+            return Response({'message': 'Image deleted successfully'}, status=status.HTTP_200_OK)
+        except PropertyImage.DoesNotExist:
+            return Response({'error': 'Image not found'}, status=status.HTTP_404_NOT_FOUND)

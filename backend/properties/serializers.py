@@ -1,10 +1,12 @@
-# properties/serializers.py - COMPLETE UPGRADED VERSION
+# properties/serializers.py - FIXED VERSION WITH OWNER ASSIGNMENT
+
 from rest_framework import serializers
 from .models import (
     Property, PropertyImage, PropertyLike, 
     PropertyVideo, PropertyDocument, PropertyReview, PropertyInquiry
 )
 from users.serializers import UserSerializer
+import json
 
 
 class PropertyImageSerializer(serializers.ModelSerializer):
@@ -76,7 +78,6 @@ class PropertySerializer(serializers.ModelSerializer):
     owner = UserSerializer(read_only=True)
     is_liked = serializers.SerializerMethodField()
     
-    # New fields for upgraded features
     amenities_list = serializers.SerializerMethodField()
     nearby_schools_list = serializers.SerializerMethodField()
     nearby_roads_list = serializers.SerializerMethodField()
@@ -100,7 +101,13 @@ class PropertySerializer(serializers.ModelSerializer):
         return False
     
     def get_amenities_list(self, obj):
-        return obj.get_amenities_list()
+        amenities = obj.get_amenities_list()
+        if isinstance(amenities, str):
+            try:
+                return json.loads(amenities)
+            except:
+                return [a.strip() for a in amenities.split(',') if a.strip()]
+        return amenities if isinstance(amenities, list) else []
     
     def get_nearby_schools_list(self, obj):
         return obj.get_nearby_schools_list()
@@ -125,10 +132,8 @@ class PropertySerializer(serializers.ModelSerializer):
         return obj.reviews.count()
     
     def to_representation(self, instance):
-        """Convert CombinedExpression and other values to proper Python types"""
         representation = super().to_representation(instance)
         
-        # Convert numeric fields to integers
         numeric_fields = [
             'views_count', 'likes_count', 'shares_count', 'bedrooms', 
             'bathrooms', 'square_meters', 'id', 'parking_spaces', 
@@ -141,7 +146,6 @@ class PropertySerializer(serializers.ModelSerializer):
                 except (TypeError, ValueError):
                     representation[field] = 0
         
-        # Convert decimal fields to float
         decimal_fields = [
             'price', 'latitude', 'longitude', 'distance_to_city_center',
             'distance_to_airport', 'distance_to_highway', 'distance_to_nearest_school',
@@ -154,14 +158,25 @@ class PropertySerializer(serializers.ModelSerializer):
                 except (TypeError, ValueError):
                     representation[field] = 0.0
         
-        # Convert amenities and lists
-        if 'amenities' in representation and representation['amenities']:
-            if isinstance(representation['amenities'], str):
+        if 'amenities' in representation:
+            amenities = representation['amenities']
+            if isinstance(amenities, str):
                 try:
-                    import json
-                    representation['amenities'] = json.loads(representation['amenities'])
+                    representation['amenities'] = json.loads(amenities)
                 except:
-                    representation['amenities'] = []
+                    representation['amenities'] = [a.strip() for a in amenities.split(',') if a.strip()]
+            elif not isinstance(amenities, list):
+                representation['amenities'] = []
+        
+        if 'amenities_list' in representation:
+            amenities_list = representation['amenities_list']
+            if isinstance(amenities_list, str):
+                try:
+                    representation['amenities_list'] = json.loads(amenities_list)
+                except:
+                    representation['amenities_list'] = [a.strip() for a in amenities_list.split(',') if a.strip()]
+            elif not isinstance(amenities_list, list):
+                representation['amenities_list'] = []
         
         return representation
 
@@ -172,8 +187,8 @@ class PropertyCreateSerializer(serializers.ModelSerializer):
         write_only=True,
         required=False
     )
+    video_file = serializers.FileField(write_only=True, required=False, allow_null=True)
     
-    # New fields for upgraded features
     amenities = serializers.ListField(
         child=serializers.CharField(),
         write_only=True,
@@ -192,11 +207,20 @@ class PropertyCreateSerializer(serializers.ModelSerializer):
         )
     
     def create(self, validated_data):
-        # Remove related data
+        # Remove file/image data
+        video_file = validated_data.pop('video_file', None)
         images_data = validated_data.pop('images', [])
         amenities_data = validated_data.pop('amenities', [])
         nearby_schools_data = validated_data.pop('nearby_schools', '')
         nearby_roads_data = validated_data.pop('nearby_roads', '')
+        
+        # ========== CRITICAL FIX: SET OWNER FROM REQUEST ==========
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            validated_data['owner'] = request.user
+        else:
+            raise serializers.ValidationError({"owner": "User must be authenticated to create a property"})
+        # ========== END FIX ==========
         
         # Set JSON fields
         if amenities_data:
@@ -208,6 +232,11 @@ class PropertyCreateSerializer(serializers.ModelSerializer):
         
         # Create property
         property_obj = Property.objects.create(**validated_data)
+        
+        # Handle video file
+        if video_file and hasattr(video_file, 'name'):
+            property_obj.video_file = video_file
+            property_obj.save(update_fields=['video_file'])
         
         # Create image records
         for i, image in enumerate(images_data):
@@ -221,20 +250,31 @@ class PropertyCreateSerializer(serializers.ModelSerializer):
         return property_obj
     
     def update(self, instance, validated_data):
-        # Handle images if present
+        # Remove file/image data
+        video_file = validated_data.pop('video_file', None)
         images_data = validated_data.pop('images', None)
+        amenities_data = validated_data.pop('amenities', None)
+        nearby_schools_data = validated_data.pop('nearby_schools', None)
+        nearby_roads_data = validated_data.pop('nearby_roads', None)
         
-        # Handle JSON fields
-        if 'amenities' in validated_data:
-            validated_data['amenities'] = validated_data['amenities']
-        if 'nearby_schools' in validated_data:
-            validated_data['nearby_schools'] = validated_data['nearby_schools']
-        if 'nearby_roads' in validated_data:
-            validated_data['nearby_roads'] = validated_data['nearby_roads']
+        # Update JSON fields if provided
+        if amenities_data is not None:
+            instance.amenities = amenities_data
+        if nearby_schools_data is not None:
+            instance.nearby_schools = nearby_schools_data
+        if nearby_roads_data is not None:
+            instance.nearby_roads = nearby_roads_data
         
-        # Update property fields
+        # Handle video file
+        if video_file and hasattr(video_file, 'name'):
+            instance.video_file = video_file
+        
+        # Update regular fields
         for attr, value in validated_data.items():
-            setattr(instance, attr, value)
+            if attr not in ['video_file', 'images']:
+                setattr(instance, attr, value)
+        
+        # Save the instance
         instance.save()
         
         # Handle new images
@@ -250,32 +290,5 @@ class PropertyCreateSerializer(serializers.ModelSerializer):
         return instance
     
     def to_representation(self, instance):
-        """Same conversion for create serializer"""
-        representation = super().to_representation(instance)
-        
-        # Convert numeric fields
-        numeric_fields = [
-            'views_count', 'likes_count', 'shares_count', 'bedrooms', 
-            'bathrooms', 'square_meters', 'id', 'parking_spaces', 'year_built'
-        ]
-        for field in numeric_fields:
-            if field in representation and representation[field] is not None:
-                try:
-                    representation[field] = int(representation[field])
-                except (TypeError, ValueError):
-                    representation[field] = 0
-        
-        # Convert decimal fields
-        decimal_fields = [
-            'price', 'latitude', 'longitude', 'distance_to_city_center',
-            'distance_to_airport', 'distance_to_highway', 'distance_to_nearest_school',
-            'school_rating', 'distance_to_mall', 'distance_to_hospital'
-        ]
-        for field in decimal_fields:
-            if field in representation and representation[field] is not None:
-                try:
-                    representation[field] = float(representation[field])
-                except (TypeError, ValueError):
-                    representation[field] = 0.0
-        
-        return representation
+        return PropertySerializer(instance, context=self.context).data
+    
