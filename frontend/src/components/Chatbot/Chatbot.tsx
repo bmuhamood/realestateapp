@@ -415,7 +415,7 @@ const Chatbot: React.FC = () => {
           `⚖️ **Legal Advisor** - Property law & compliance\n` +
           `🏗️ **Construction Expert** - Building & renovation\n\n` +
           `What would you like help with today?`
-        : `👋 Hi there! I'm **PropertyGPT** - your AI property assistant with a team of experts.\n\n` +
+        : `👋 Hi there! I'm **Metro PropertiesGPT** - your AI property assistant with a team of experts.\n\n` +
           `🔍 I can help you find properties, check prices, get investment advice, and more — even without an account.\n\n` +
           `[🔑 Login](/login) or [📝 Create an account](/register) for the best experience.\n\n` +
           `Try asking:\n` +
@@ -644,7 +644,7 @@ const Chatbot: React.FC = () => {
         {pillVisible && !open && (
           <div style={trig.pill}>
             <span style={trig.pillSparkle}>✦</span>
-            Ask PropertyGPT anything
+            Ask Metro PropertiesGPT anything
             <button onClick={() => setPillVisible(false)} style={trig.pillClose}>✕</button>
           </div>
         )}
@@ -668,7 +668,7 @@ const Chatbot: React.FC = () => {
           </span>
           {!responsive.isMobile && (
             <span style={trig.fabLabel}>
-              <span style={trig.fabLabelTop}>Ask AI</span>
+              <span style={trig.fabLabelTop}>Metro Properties AI</span>
               <span style={trig.fabLabelBot}>Property Assistant</span>
             </span>
           )}
@@ -702,7 +702,7 @@ const Chatbot: React.FC = () => {
               </svg>
             </div>
             <div>
-              <div style={panel.headerName}>PropertyGPT</div>
+              <div style={panel.headerName}>Metro PropertiesGPT</div>
               <div style={panel.headerStatus}>
                 <span style={panel.onlineDot} />
                 8 AI Experts Online

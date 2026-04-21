@@ -1,4 +1,4 @@
-// src/components/Property/PropertyCard.tsx - FIXED VERSION
+// src/components/Property/PropertyCard.tsx - FULLY FIXED
 import React, { useState } from 'react';
 import {
   Card,
@@ -8,10 +8,7 @@ import {
   Box,
   Chip,
   IconButton,
-  Rating,
-  alpha,
   Skeleton,
-  Tooltip,
 } from '@mui/material';
 import { 
   LocationOn, 
@@ -22,12 +19,6 @@ import {
   Bathtub, 
   SquareFoot,
   Verified,
-  Share,
-  Videocam,
-  Security,
-  LocalParking,
-  Pool,
-  Description,
 } from '@mui/icons-material';
 import { Property } from '../../types';
 import { useNavigate } from 'react-router-dom';
@@ -38,28 +29,22 @@ interface PropertyCardProps {
   property: Property;
   onLike?: () => void;
   variant?: 'horizontal' | 'vertical';
-  featured?: boolean;
-  showDetails?: boolean;
 }
 
 const PropertyCard: React.FC<PropertyCardProps> = ({ 
   property, 
   onLike, 
   variant = 'horizontal',
-  featured = false,
-  showDetails = false,
 }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [imageLoaded, setImageLoaded] = useState(false);
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-UG', {
-      style: 'currency',
-      currency: 'UGX',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(price);
+  const formatShortPrice = (price: number) => {
+    if (price >= 1_000_000_000) return `${(price / 1_000_000_000).toFixed(1)}B`;
+    if (price >= 1_000_000) return `${(price / 1_000_000).toFixed(0)}M`;
+    if (price >= 1_000) return `${(price / 1_000).toFixed(0)}K`;
+    return `${price}`;
   };
 
   const handleLike = async (e: React.MouseEvent) => {
@@ -76,88 +61,51 @@ const PropertyCard: React.FC<PropertyCardProps> = ({
     }
   };
 
-  const handleShare = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: property.title,
-          text: `Check out this property for ${formatPrice(property.price)}`,
-          url: window.location.origin + `/property/${property.id}`,
-        });
-      } catch (error) {
-        console.log('Error sharing:', error);
-      }
-    } else {
-      navigator.clipboard.writeText(window.location.origin + `/property/${property.id}`);
-      alert('Link copied to clipboard!');
-    }
+  const getTxLabel = () => {
+    if (property.transaction_type === 'sale') return 'For Sale';
+    if (property.transaction_type === 'rent') return 'For Rent';
+    return 'Short Stay';
   };
 
-  // Safe access helper functions
-  const getAmenitiesList = (): string[] => {
-    return property.amenities_list || property.amenities || [];
+  const getTxColor = () => {
+    if (property.transaction_type === 'sale') return '#10b981';
+    if (property.transaction_type === 'rent') return '#3b82f6';
+    return '#f59e0b';
   };
 
-  const getNearbySchoolsList = (): string[] => {
-    return property.nearby_schools_list || [];
+  const getTypeLabel = () => {
+    const types: Record<string, string> = {
+      house: 'House', apartment: 'Apartment', land: 'Land', 
+      commercial: 'Commercial', condo: 'Condo', villa: 'Villa'
+    };
+    return types[property.property_type] || property.property_type;
   };
 
-  const getParkingSpaces = (): number => {
-    return property.parking_spaces || 0;
+  const getTypeColor = () => {
+    const colors: Record<string, string> = {
+      house: '#0369a1', apartment: '#7c3aed', land: '#15803d',
+      commercial: '#b45309', condo: '#0891b2', villa: '#b91c1c'
+    };
+    return colors[property.property_type] || '#475569';
   };
 
-  const getDistanceToCityCenter = (): number | null => {
-    return property.distance_to_city_center ?? null;
+  const getTypeBg = () => {
+    const bg: Record<string, string> = {
+      house: '#e0f2fe', apartment: '#ede9fe', land: '#dcfce7',
+      commercial: '#fef3c7', condo: '#cffafe', villa: '#fee2e2'
+    };
+    return bg[property.property_type] || '#f1f5f9';
   };
 
-  const getDistanceToNearestSchool = (): number | null => {
-    return property.distance_to_nearest_school ?? null;
+  const getTypeEmoji = () => {
+    const emojis: Record<string, string> = {
+      house: '🏠', apartment: '🏢', land: '🌾',
+      commercial: '🏭', condo: '🏙️', villa: '🏡'
+    };
+    return emojis[property.property_type] || '🏠';
   };
 
-  const getSchoolRating = (): number => {
-    return property.school_rating || 0;
-  };
-
-  const getViewsCount = (): number => {
-    return property.views_count || 0;
-  };
-
-  const getSquareMeters = (): number => {
-    return property.square_meters || 0;
-  };
-
-  const getBedrooms = (): number => {
-    return property.bedrooms || 0;
-  };
-
-  const getBathrooms = (): number => {
-    return property.bathrooms || 0;
-  };
-
-  const hasVideo = (): boolean => {
-    return !!(property.has_video || property.video_url || property.video_file);
-  };
-
-  const getFullAddress = (): string => {
-    return property.full_address || `${property.district || ''}, ${property.city || ''}`;
-  };
-
-  const getAverageRating = (): number => {
-    return property.average_rating || 0;
-  };
-
-  const getReviewsCount = (): number => {
-    return property.reviews_count || property.reviews?.length || 0;
-  };
-
-  const amenitiesCount = getAmenitiesList().length;
-  const parkingSpaces = getParkingSpaces();
-  const hasSecurityFeatures = !!(property.has_security || property.has_cctv || property.has_gated_community);
-  const hasPool = property.has_swimming_pool || false;
-  const hasTitleDeed = property.has_title_deed || false;
-
-  // Horizontal variant (default)
+  // Horizontal variant
   if (variant === 'horizontal') {
     return (
       <Card
@@ -167,11 +115,10 @@ const PropertyCard: React.FC<PropertyCardProps> = ({
           borderRadius: 3,
           overflow: 'hidden',
           cursor: 'pointer',
-          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          position: 'relative',
+          transition: 'all 0.2s ease',
           '&:hover': {
-            transform: 'translateY(-4px)',
-            boxShadow: '0 12px 28px rgba(0,0,0,0.15)',
+            transform: 'translateY(-2px)',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
           },
         }}
         onClick={() => navigate(`/property/${property.id}`)}
@@ -186,290 +133,239 @@ const PropertyCard: React.FC<PropertyCardProps> = ({
             sx={{
               height: '100%',
               objectFit: 'cover',
-              transition: 'transform 0.5s ease',
               opacity: imageLoaded ? 1 : 0,
-              '&:hover': {
-                transform: 'scale(1.05)',
-              },
             }}
             image={property.images?.[0]?.image || '/placeholder-property.svg'}
             alt={property.title}
             onLoad={() => setImageLoaded(true)}
           />
           
-          {/* Video Badge */}
-          {hasVideo() && (
+          {/* Property Type Badge */}
+          <Box
+            sx={{
+              position: 'absolute',
+              top: 12,
+              left: 12,
+              bgcolor: getTypeColor(),
+              color: 'white',
+              px: 1.2,
+              py: 0.6,
+              borderRadius: 20,
+              fontSize: '0.75rem',
+              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+              zIndex: 1,
+            }}
+          >
+            {getTypeEmoji()} {getTypeLabel()}
+          </Box>
+
+          {/* Transaction Type Badge */}
+          <Box
+            sx={{
+              position: 'absolute',
+              bottom: 12,
+              left: 12,
+              bgcolor: getTxColor(),
+              color: 'white',
+              px: 1.2,
+              py: 0.5,
+              borderRadius: 1,
+              fontSize: '0.7rem',
+              fontWeight: 'bold',
+              zIndex: 1,
+            }}
+          >
+            {getTxLabel()}
+          </Box>
+
+          {/* Boosted Badge */}
+          {property.is_boosted && (
             <Box
               sx={{
                 position: 'absolute',
                 bottom: 12,
-                left: 12,
-                bgcolor: 'rgba(0,0,0,0.7)',
+                right: 12,
+                bgcolor: '#f59e0b',
                 color: 'white',
                 px: 1,
-                py: 0.5,
-                borderRadius: 1.5,
-                fontSize: '0.7rem',
+                py: 0.4,
+                borderRadius: 1,
+                fontSize: '0.65rem',
                 fontWeight: 'bold',
+                zIndex: 1,
+              }}
+            >
+              ⭐ Featured
+            </Box>
+          )}
+
+          {/* Verified Badge */}
+          {property.is_verified && (
+            <Box
+              sx={{
+                position: 'absolute',
+                top: 12,
+                right: 50,
+                bgcolor: 'rgba(16,185,129,0.85)',
+                color: 'white',
+                px: 1,
+                py: 0.4,
+                borderRadius: 1,
+                fontSize: '0.65rem',
                 display: 'flex',
                 alignItems: 'center',
-                gap: 0.5,
+                gap: 0.3,
                 zIndex: 1,
               }}
             >
-              <Videocam sx={{ fontSize: 12 }} />
-              Video Tour
+              <Verified sx={{ fontSize: 11 }} />
+              Verified
             </Box>
           )}
-          
-          {/* Featured Badge */}
-          {featured && (
-            <Box
-              sx={{
-                position: 'absolute',
-                top: 12,
-                left: 12,
-                bgcolor: '#F97316',
-                color: 'white',
-                px: 1,
-                py: 0.5,
-                borderRadius: 1.5,
-                fontSize: '0.7rem',
-                fontWeight: 'bold',
-                zIndex: 1,
-              }}
-            >
-              FEATURED
-            </Box>
-          )}
-          
-          {/* Status Badge */}
-          {!property.is_available && (
-            <Box
-              sx={{
-                position: 'absolute',
-                top: 12,
-                right: 12,
-                bgcolor: '#ef4444',
-                color: 'white',
-                px: 1,
-                py: 0.5,
-                borderRadius: 1.5,
-                fontSize: '0.7rem',
-                fontWeight: 'bold',
-                zIndex: 1,
-              }}
-            >
-              SOLD
-            </Box>
-          )}
+
+          {/* Favorite Button */}
+          <IconButton
+            onClick={handleLike}
+            size="small"
+            sx={{
+              position: 'absolute',
+              top: 8,
+              right: 8,
+              bgcolor: 'rgba(0,0,0,0.4)',
+              '&:hover': { bgcolor: 'rgba(0,0,0,0.5)' },
+              zIndex: 1,
+              width: 32,
+              height: 32,
+            }}
+          >
+            {property.is_liked ? (
+              <Favorite sx={{ color: '#e63946', fontSize: 16 }} />
+            ) : (
+              <FavoriteBorder sx={{ color: '#fff', fontSize: 16 }} />
+            )}
+          </IconButton>
         </Box>
 
+        {/* Content Section */}
         <CardContent sx={{ flex: 1, p: 2.5, '&:last-child': { pb: 2.5 } }}>
-          {/* Header with price and actions */}
-          <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-            <Box>
-              <Typography variant="h5" component="div" fontWeight="bold" color="#1E3A8A" sx={{ fontSize: '1.5rem' }}>
-                {formatPrice(property.price)}
-                {property.transaction_type === 'rent' && (
-                  <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 0.5 }}>
-                    /month
-                  </Typography>
-                )}
-              </Typography>
-              <Typography variant="subtitle1" fontWeight="600" sx={{ mt: 0.5 }}>
-                {property.title}
-              </Typography>
-            </Box>
-            <Box display="flex" gap={0.5}>
-              <Tooltip title={property.is_liked ? 'Remove from favorites' : 'Add to favorites'}>
-                <IconButton 
-                  onClick={handleLike} 
-                  size="small"
-                  sx={{
-                    bgcolor: property.is_liked ? alpha('#f44336', 0.1) : 'transparent',
-                    '&:hover': { bgcolor: alpha('#f44336', 0.1) },
-                  }}
-                >
-                  {property.is_liked ? <Favorite sx={{ color: '#f44336' }} /> : <FavoriteBorder />}
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Share">
-                <IconButton onClick={handleShare} size="small">
-                  <Share sx={{ fontSize: 18 }} />
-                </IconButton>
-              </Tooltip>
-            </Box>
+          {/* Price Row */}
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
+            <Typography variant="h5" component="div" fontWeight="800" color="#0d1b2e" sx={{ fontSize: '1.3rem' }}>
+              {formatShortPrice(property.price)}
+              {property.transaction_type === 'rent' && (
+                <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 0.5, fontSize: '0.8rem' }}>
+                  /mo
+                </Typography>
+              )}
+            </Typography>
+            <Chip
+              label={`${getTypeEmoji()} ${getTypeLabel()}`}
+              size="small"
+              sx={{
+                height: 26,
+                fontSize: '0.7rem',
+                fontWeight: 600,
+                bgcolor: getTypeBg(),
+                color: getTypeColor(),
+              }}
+            />
           </Box>
 
-          {/* Features */}
-          <Box display="flex" gap={2} mt={1.5} flexWrap="wrap">
-            <Box display="flex" alignItems="center" gap={0.5}>
-              <Bed sx={{ fontSize: 16, color: '#F97316' }} />
-              <Typography variant="body2">{getBedrooms()} beds</Typography>
-            </Box>
-            <Box display="flex" alignItems="center" gap={0.5}>
-              <Bathtub sx={{ fontSize: 16, color: '#F97316' }} />
-              <Typography variant="body2">{getBathrooms()} baths</Typography>
-            </Box>
-            <Box display="flex" alignItems="center" gap={0.5}>
-              <SquareFoot sx={{ fontSize: 16, color: '#F97316' }} />
-              <Typography variant="body2">{getSquareMeters().toLocaleString()} m²</Typography>
-            </Box>
-            {parkingSpaces > 0 && (
+          {/* Title */}
+          <Typography 
+            variant="subtitle1" 
+            fontWeight="700" 
+            sx={{ 
+              mb: 0.75, 
+              fontSize: '0.9rem', 
+              lineHeight: 1.4,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {property.title}
+          </Typography>
+
+          {/* Location */}
+          <Box display="flex" alignItems="center" gap={0.5} mb={1.2}>
+            <LocationOn sx={{ fontSize: 13, color: '#94a3b8' }} />
+            <Typography 
+              variant="body2" 
+              color="text.secondary" 
+              sx={{ 
+                fontSize: '0.75rem',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              {property.district}, {property.city}
+            </Typography>
+          </Box>
+
+          {/* Stats Row */}
+          <Box display="flex" gap={2} mb={1.2}>
+            {property.bedrooms > 0 && (
               <Box display="flex" alignItems="center" gap={0.5}>
-                <LocalParking sx={{ fontSize: 16, color: '#F97316' }} />
-                <Typography variant="body2">{parkingSpaces} parking</Typography>
+                <Bed sx={{ fontSize: 14, color: '#64748b' }} />
+                <Typography variant="body2" color="#475569" sx={{ fontSize: '0.75rem', fontWeight: 500 }}>
+                  {property.bedrooms} Bed{property.bedrooms !== 1 ? 's' : ''}
+                </Typography>
+              </Box>
+            )}
+            {property.bathrooms > 0 && (
+              <Box display="flex" alignItems="center" gap={0.5}>
+                <Bathtub sx={{ fontSize: 14, color: '#64748b' }} />
+                <Typography variant="body2" color="#475569" sx={{ fontSize: '0.75rem', fontWeight: 500 }}>
+                  {property.bathrooms} Bath{property.bathrooms !== 1 ? 's' : ''}
+                </Typography>
+              </Box>
+            )}
+            {property.square_meters > 0 && (
+              <Box display="flex" alignItems="center" gap={0.5}>
+                <SquareFoot sx={{ fontSize: 14, color: '#64748b' }} />
+                <Typography variant="body2" color="#475569" sx={{ fontSize: '0.75rem', fontWeight: 500 }}>
+                  {property.square_meters}m²
+                </Typography>
               </Box>
             )}
           </Box>
 
-          {/* Location */}
-          <Box display="flex" alignItems="center" gap={0.5} mt={1}>
-            <LocationOn sx={{ fontSize: 14, color: 'text.secondary' }} />
-            <Typography variant="body2" color="text.secondary">
-              {getFullAddress()}
+          {/* Footer */}
+          <Box display="flex" justifyContent="space-between" alignItems="center" pt={0.75} sx={{ borderTop: '1px solid #f1f5f9' }}>
+            <Box display="flex" alignItems="center" gap={0.5}>
+              <Visibility sx={{ fontSize: 13, color: '#94a3b8' }} />
+              <Typography variant="body2" color="#94a3b8" sx={{ fontSize: '0.7rem' }}>
+                {property.views_count || 0} views
+              </Typography>
+            </Box>
+            <Typography variant="body2" color="#94a3b8" sx={{ fontSize: '0.7rem' }}>
+              {new Date(property.created_at).toLocaleDateString()}
             </Typography>
           </Box>
-
-          {/* Rating */}
-          {getAverageRating() > 0 && (
-            <Box display="flex" alignItems="center" gap={1} mt={1}>
-              <Rating value={getAverageRating()} readOnly size="small" precision={0.5} />
-              <Typography variant="caption" color="text.secondary">
-                ({getReviewsCount()} reviews)
-              </Typography>
-            </Box>
-          )}
-
-          {/* Amenities Preview */}
-          {amenitiesCount > 0 && (
-            <Box display="flex" gap={1} mt={1} flexWrap="wrap">
-              {getAmenitiesList().slice(0, 3).map((amenity, index) => (
-                <Chip
-                  key={index}
-                  label={amenity}
-                  size="small"
-                  variant="outlined"
-                  sx={{ height: 20, fontSize: '0.65rem' }}
-                />
-              ))}
-              {amenitiesCount > 3 && (
-                <Chip
-                  label={`+${amenitiesCount - 3} more`}
-                  size="small"
-                  sx={{ height: 20, fontSize: '0.65rem', bgcolor: alpha('#F97316', 0.1) }}
-                />
-              )}
-            </Box>
-          )}
-
-          {/* Security Badges */}
-          {hasSecurityFeatures && (
-            <Box display="flex" gap={1} mt={1} flexWrap="wrap">
-              {property.has_security && (
-                <Chip
-                  icon={<Security sx={{ fontSize: 12 }} />}
-                  label="Security"
-                  size="small"
-                  sx={{ height: 20, fontSize: '0.65rem', bgcolor: alpha('#4caf50', 0.1) }}
-                />
-              )}
-              {property.has_cctv && (
-                <Chip
-                  label="CCTV"
-                  size="small"
-                  sx={{ height: 20, fontSize: '0.65rem', bgcolor: alpha('#2196f3', 0.1) }}
-                />
-              )}
-              {property.has_gated_community && (
-                <Chip
-                  label="Gated"
-                  size="small"
-                  sx={{ height: 20, fontSize: '0.65rem', bgcolor: alpha('#9c27b0', 0.1) }}
-                />
-              )}
-              {hasPool && (
-                <Chip
-                  icon={<Pool sx={{ fontSize: 12 }} />}
-                  label="Pool"
-                  size="small"
-                  sx={{ height: 20, fontSize: '0.65rem', bgcolor: alpha('#00bcd4', 0.1) }}
-                />
-              )}
-            </Box>
-          )}
-
-          {/* Footer */}
-          <Box display="flex" justifyContent="space-between" alignItems="center" mt={1.5}>
-            <Box display="flex" gap={1}>
-              {property.is_verified && (
-                <Chip
-                  icon={<Verified sx={{ fontSize: 14 }} />}
-                  label="Verified"
-                  size="small"
-                  color="success"
-                  sx={{ height: 24, '& .MuiChip-label': { fontSize: '0.7rem' } }}
-                />
-              )}
-              <Chip
-                label={property.property_type}
-                size="small"
-                variant="outlined"
-                sx={{ height: 24, textTransform: 'capitalize', fontSize: '0.7rem' }}
-              />
-              {hasTitleDeed && (
-                <Chip
-                  icon={<Description sx={{ fontSize: 12 }} />}
-                  label="Title Deed"
-                  size="small"
-                  sx={{ height: 24, fontSize: '0.65rem' }}
-                />
-              )}
-            </Box>
-            <Box display="flex" alignItems="center" gap={0.5}>
-              <Visibility sx={{ fontSize: 14, color: 'text.secondary' }} />
-              <Typography variant="caption" color="text.secondary">
-                {getViewsCount().toLocaleString()} views
-              </Typography>
-            </Box>
-          </Box>
-
-          {/* Distance to amenities (if available) */}
-          {showDetails && getDistanceToCityCenter() && (
-            <Box display="flex" gap={2} mt={1.5} sx={{ borderTop: 1, borderColor: 'divider', pt: 1 }}>
-              {getDistanceToCityCenter() && (
-                <Typography variant="caption" color="text.secondary">
-                  📍 {getDistanceToCityCenter()} km to city center
-                </Typography>
-              )}
-              {getDistanceToNearestSchool() && (
-                <Typography variant="caption" color="text.secondary">
-                  🏫 {getDistanceToNearestSchool()} km to school
-                </Typography>
-              )}
-            </Box>
-          )}
         </CardContent>
       </Card>
     );
   }
 
-  // Vertical variant (for grid layout)
+  // Vertical variant (grid layout)
   return (
     <Card
       sx={{
         borderRadius: 3,
         overflow: 'hidden',
         cursor: 'pointer',
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        transition: 'all 0.2s ease',
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        position: 'relative',
         '&:hover': {
-          transform: 'translateY(-4px)',
-          boxShadow: '0 12px 28px rgba(0,0,0,0.15)',
+          transform: 'translateY(-2px)',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
         },
       }}
       onClick={() => navigate(`/property/${property.id}`)}
@@ -488,162 +384,179 @@ const PropertyCard: React.FC<PropertyCardProps> = ({
             width: '100%',
             height: '100%',
             objectFit: 'cover',
-            transition: 'transform 0.5s ease',
             opacity: imageLoaded ? 1 : 0,
           }}
           image={property.images?.[0]?.image || '/placeholder-property.svg'}
           alt={property.title}
           onLoad={() => setImageLoaded(true)}
         />
-        
-        {/* Video Badge */}
-        {hasVideo() && (
+
+        {/* Property Type Badge */}
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 10,
+            left: 10,
+            bgcolor: getTypeColor(),
+            color: 'white',
+            px: 1,
+            py: 0.5,
+            borderRadius: 20,
+            fontSize: '0.7rem',
+            fontWeight: 'bold',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.3,
+            zIndex: 1,
+          }}
+        >
+          {getTypeEmoji()} {getTypeLabel()}
+        </Box>
+
+        {/* Transaction Badge */}
+        <Box
+          sx={{
+            position: 'absolute',
+            bottom: 10,
+            left: 10,
+            bgcolor: getTxColor(),
+            color: 'white',
+            px: 1,
+            py: 0.4,
+            borderRadius: 1,
+            fontSize: '0.65rem',
+            fontWeight: 'bold',
+            zIndex: 1,
+          }}
+        >
+          {getTxLabel()}
+        </Box>
+
+        {/* Boosted Badge */}
+        {property.is_boosted && (
           <Box
             sx={{
               position: 'absolute',
-              bottom: 12,
-              left: 12,
-              bgcolor: 'rgba(0,0,0,0.7)',
+              bottom: 10,
+              right: 10,
+              bgcolor: '#f59e0b',
               color: 'white',
               px: 0.8,
               py: 0.3,
               borderRadius: 1,
               fontSize: '0.6rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 0.3,
+              fontWeight: 'bold',
               zIndex: 1,
             }}
           >
-            <Videocam sx={{ fontSize: 10 }} />
-            Video
+            ⭐ Featured
           </Box>
         )}
-        
-        {/* Badges */}
-        <Box sx={{ position: 'absolute', top: 12, left: 12, display: 'flex', gap: 0.5 }}>
-          {featured && (
-            <Box
-              sx={{
-                bgcolor: '#F97316',
-                color: 'white',
-                px: 0.8,
-                py: 0.3,
-                borderRadius: 1,
-                fontSize: '0.6rem',
-                fontWeight: 'bold',
-              }}
-            >
-              FEATURED
-            </Box>
-          )}
-          {!property.is_available && (
-            <Box
-              sx={{
-                bgcolor: '#ef4444',
-                color: 'white',
-                px: 0.8,
-                py: 0.3,
-                borderRadius: 1,
-                fontSize: '0.6rem',
-                fontWeight: 'bold',
-              }}
-            >
-              SOLD
-            </Box>
-          )}
-        </Box>
-        
+
         {/* Favorite Button */}
-        <Box sx={{ position: 'absolute', top: 12, right: 12 }}>
-          <IconButton
-            onClick={handleLike}
-            size="small"
-            sx={{
-              bgcolor: 'white',
-              '&:hover': { bgcolor: '#f5f5f5' },
-              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-            }}
-          >
-            {property.is_liked ? <Favorite sx={{ color: '#f44336', fontSize: 18 }} /> : <FavoriteBorder sx={{ fontSize: 18 }} />}
-          </IconButton>
-        </Box>
+        <IconButton
+          onClick={handleLike}
+          size="small"
+          sx={{
+            position: 'absolute',
+            top: 6,
+            right: 6,
+            bgcolor: 'rgba(0,0,0,0.4)',
+            '&:hover': { bgcolor: 'rgba(0,0,0,0.5)' },
+            zIndex: 1,
+            width: 30,
+            height: 30,
+          }}
+        >
+          {property.is_liked ? (
+            <Favorite sx={{ color: '#e63946', fontSize: 15 }} />
+          ) : (
+            <FavoriteBorder sx={{ color: '#fff', fontSize: 15 }} />
+          )}
+        </IconButton>
       </Box>
 
-      <CardContent sx={{ flex: 1, p: 1.5 }}>
-        {/* Price */}
-        <Typography variant="h6" component="div" fontWeight="bold" color="#1E3A8A" sx={{ fontSize: '1.1rem' }}>
-          {formatPrice(property.price)}
+      {/* Content Section */}
+      <CardContent sx={{ p: 1.8, '&:last-child': { pb: 1.8 } }}>
+        <Typography variant="h6" component="div" fontWeight="800" color="#0d1b2e" sx={{ fontSize: '1rem' }}>
+          {formatShortPrice(property.price)}
           {property.transaction_type === 'rent' && (
-            <Typography component="span" variant="caption" color="text.secondary">
+            <Typography component="span" variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
               /mo
             </Typography>
           )}
         </Typography>
 
         {/* Title */}
-        <Typography variant="subtitle2" fontWeight="600" noWrap sx={{ mt: 0.5, fontSize: '0.8rem' }}>
+        <Typography 
+          variant="body2" 
+          fontWeight="700" 
+          sx={{ 
+            mb: 0.5, 
+            display: 'block', 
+            fontSize: '0.8rem',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap'
+          }}
+        >
           {property.title}
         </Typography>
 
-        {/* Features */}
-        <Box display="flex" gap={1} mt={0.8}>
-          <Box display="flex" alignItems="center" gap={0.3}>
-            <Bed sx={{ fontSize: 12, color: '#F97316' }} />
-            <Typography variant="caption">{getBedrooms()}</Typography>
-          </Box>
-          <Box display="flex" alignItems="center" gap={0.3}>
-            <Bathtub sx={{ fontSize: 12, color: '#F97316' }} />
-            <Typography variant="caption">{getBathrooms()}</Typography>
-          </Box>
-          <Box display="flex" alignItems="center" gap={0.3}>
-            <SquareFoot sx={{ fontSize: 12, color: '#F97316' }} />
-            <Typography variant="caption">{getSquareMeters()}m²</Typography>
-          </Box>
-        </Box>
-
         {/* Location */}
-        <Box display="flex" alignItems="center" gap={0.3} mt={0.5}>
-          <LocationOn sx={{ fontSize: 10, color: 'text.secondary' }} />
-          <Typography variant="caption" color="text.secondary" noWrap>
+        <Box display="flex" alignItems="center" gap={0.3} mb={0.8}>
+          <LocationOn sx={{ fontSize: 11, color: '#94a3b8' }} />
+          <Typography 
+            variant="caption" 
+            color="text.secondary" 
+            sx={{ 
+              fontSize: '0.7rem',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}
+          >
             {property.district}, {property.city}
           </Typography>
         </Box>
 
-        {/* Rating */}
-        {getAverageRating() > 0 && (
-          <Box display="flex" alignItems="center" gap={0.5} mt={0.5}>
-            <Rating value={getAverageRating()} readOnly size="small" precision={0.5} sx={{ fontSize: 12 }} />
-            <Typography variant="caption" color="text.secondary">
-              ({getReviewsCount()})
-            </Typography>
-          </Box>
-        )}
+        <Box display="flex" gap={1.5} mb={0.8}>
+          {property.bedrooms > 0 && (
+            <Box display="flex" alignItems="center" gap={0.3}>
+              <Bed sx={{ fontSize: 12, color: '#64748b' }} />
+              <Typography variant="caption" color="#475569" sx={{ fontSize: '0.65rem', fontWeight: 500 }}>
+                {property.bedrooms}
+              </Typography>
+            </Box>
+          )}
+          {property.bathrooms > 0 && (
+            <Box display="flex" alignItems="center" gap={0.3}>
+              <Bathtub sx={{ fontSize: 12, color: '#64748b' }} />
+              <Typography variant="caption" color="#475569" sx={{ fontSize: '0.65rem', fontWeight: 500 }}>
+                {property.bathrooms}
+              </Typography>
+            </Box>
+          )}
+          {property.square_meters > 0 && (
+            <Box display="flex" alignItems="center" gap={0.3}>
+              <SquareFoot sx={{ fontSize: 12, color: '#64748b' }} />
+              <Typography variant="caption" color="#475569" sx={{ fontSize: '0.65rem', fontWeight: 500 }}>
+                {property.square_meters}
+              </Typography>
+            </Box>
+          )}
+        </Box>
 
-        {/* Footer */}
-        <Box display="flex" justifyContent="space-between" alignItems="center" mt={1}>
-          <Box display="flex" gap={0.5}>
-            {property.is_verified && (
-              <Verified sx={{ fontSize: 12, color: '#4caf50' }} />
-            )}
-            {hasSecurityFeatures && (
-              <Security sx={{ fontSize: 12, color: '#4caf50' }} />
-            )}
-            <Typography variant="caption" color="text.secondary">
-              {getViewsCount().toLocaleString()} views
+        <Box display="flex" justifyContent="space-between" alignItems="center" pt={0.5} sx={{ borderTop: '1px solid #f1f5f9' }}>
+          <Box display="flex" alignItems="center" gap={0.3}>
+            <Visibility sx={{ fontSize: 11, color: '#94a3b8' }} />
+            <Typography variant="caption" color="#94a3b8" sx={{ fontSize: '0.65rem' }}>
+              {property.views_count || 0}
             </Typography>
           </Box>
-          <Chip
-            label={property.property_type}
-            size="small"
-            sx={{
-              height: 18,
-              fontSize: '0.6rem',
-              textTransform: 'capitalize',
-              bgcolor: alpha('#F97316', 0.1),
-              color: '#F97316',
-            }}
-          />
+          {property.is_verified && (
+            <Verified sx={{ fontSize: 12, color: '#10b981' }} />
+          )}
         </Box>
       </CardContent>
     </Card>

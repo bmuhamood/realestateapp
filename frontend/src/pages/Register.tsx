@@ -85,12 +85,12 @@ const Register: React.FC = () => {
               </svg>
             </div>
             <div style={{ textAlign: 'left' }}>
-              <div style={{ fontSize: 18, fontWeight: 800, color: NAVY, fontFamily: "'Sora', sans-serif" }}>Uganda</div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: TEAL }}>Property</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: NAVY, fontFamily: "'Sora', sans-serif" }}>Metro</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: TEAL }}>Properties</div>
             </div>
           </div>
           <h1 style={{ fontSize: 28, fontWeight: 800, color: NAVY, fontFamily: "'Sora', sans-serif", margin: '0 0 8px' }}>Create Account</h1>
-          <p style={{ fontSize: 14, color: SLATE, margin: 0 }}>Join Uganda's fastest growing property platform</p>
+          <p style={{ fontSize: 14, color: SLATE, margin: 0 }}>Join METRO PROPERTIES's fastest growing property platform</p>
         </div>
 
         {/* Error Alert */}

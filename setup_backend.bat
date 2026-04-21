@@ -1,6 +1,6 @@
 @echo off
 echo ========================================
-echo Uganda Property App - Backend Setup
+echo METRO PROPERTIES App - Backend Setup
 echo ========================================
 
 cd backend

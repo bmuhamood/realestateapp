@@ -1,6 +1,6 @@
 @echo off
 echo ============================================
-echo Uganda Property App - Simple Setup
+echo METRO PROPERTIES App - Simple Setup
 echo ============================================
 echo.
 

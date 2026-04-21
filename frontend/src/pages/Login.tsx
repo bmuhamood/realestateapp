@@ -81,8 +81,8 @@ const Login: React.FC = () => {
                     </svg>
                   </div>
                   <div>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: '#fff', fontFamily: "'Sora', sans-serif" }}>Uganda</div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>Property</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: '#fff', fontFamily: "'Sora', sans-serif" }}>Metro</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>Properties</div>
                   </div>
                 </div>
                 <h2 style={{ fontSize: 28, fontWeight: 800, color: '#fff', fontFamily: "'Sora', sans-serif", margin: '0 0 12px', lineHeight: 1.2 }}>
