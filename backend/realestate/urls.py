@@ -2,11 +2,39 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.http import JsonResponse
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from users.views import StatusViewSet
 
+def api_root(request):
+    return JsonResponse({
+        'name': 'Metro Properties API',
+        'version': '1.0.0',
+        'status': 'operational',
+        'endpoints': {
+            'auth': {
+                'login': '/api/auth/login/',
+                'refresh': '/api/auth/refresh/',
+            },
+            'users': '/api/users/',
+            'properties': '/api/properties/',
+            'bookings': '/api/bookings/',
+            'payments': '/api/payments/',
+            'favorites': '/api/favorites/',
+            'reviews': '/api/reviews/',
+            'services': '/api/services/',
+            'chatbot': '/api/chatbot/',
+            'statuses': '/api/statuses/',
+            'admin': '/admin/',
+        },
+        'documentation': 'Contact support@metroproperties.ug for API docs'
+    })
+
 urlpatterns = [
+    # Root route - returns API info
+    path('', api_root, name='api_root'),
+    
     path('admin/', admin.site.urls),
 
     path('api/statuses/', StatusViewSet.as_view({'get': 'list', 'post': 'create'}), name='status-list'),

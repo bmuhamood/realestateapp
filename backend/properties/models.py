@@ -347,3 +347,17 @@ class PropertyInquiry(models.Model):
     
     def __str__(self):
         return f"{self.name} - {self.property.title} - {self.get_inquiry_type_display()}"
+
+class BankRate(models.Model):
+    name = models.CharField(max_length=100)
+    interest_rate = models.DecimalField(max_digits=5, decimal_places=3, help_text="Annual interest rate (e.g., 0.165 for 16.5%)")
+    max_term = models.IntegerField(help_text="Maximum loan term in years")
+    min_down_payment = models.DecimalField(max_digits=5, decimal_places=3, help_text="Minimum down payment as percentage (e.g., 0.15 for 15%)")
+    is_active = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['interest_rate']
+    
+    def __str__(self):
+        return f"{self.name} - {self.interest_rate * 100}%"

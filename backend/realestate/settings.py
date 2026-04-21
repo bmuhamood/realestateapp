@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from datetime import timedelta
+import dj_database_url 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -73,6 +74,7 @@ SOCIALACCOUNT_PROVIDERS = {
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware', 
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -105,12 +107,11 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'realestate.wsgi.application'
 
-# Database
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.config(
+        default='postgresql://postgres:postgres@localhost:5432/realestate',
+        conn_max_age=600
+    )
 }
 
 AUTH_USER_MODEL = 'users.User'
@@ -180,6 +181,12 @@ ACCOUNT_LOGOUT_REDIRECT_URL = '/'
 
 # Email Settings (for password reset - configure with your email provider)
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+if not DEBUG:
+    # Tell Django to copy static assets into a path called `staticfiles` (this is specific to Render)
+    STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Logging
 LOGGING = {

@@ -14,7 +14,7 @@ from decimal import Decimal
 User = get_user_model()
 
 class Command(BaseCommand):
-    help = 'Load sample data for the Uganda Property App'
+    help = 'Load sample data for the METRO PROPERTIES App'
 
     def handle(self, *args, **kwargs):
         self.stdout.write('Loading sample data...')

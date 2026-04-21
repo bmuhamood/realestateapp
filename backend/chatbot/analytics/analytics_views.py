@@ -1,4 +1,4 @@
-# chatbot/analytics/analytics_views.py
+# chatbot/analytics/analytics_views.py - FULLY FIXED
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -9,10 +9,15 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Try to import models, but don't fail if they don't exist
+# Import models directly from chatbot.models
 try:
-    from chatbot.models import ChatSession, ChatMessage, ConversationAnalytics
-    from chatbot.analytics.agent_analytics import AgentUsage, UserFeedback
+    from chatbot.models import (
+        ChatSession, 
+        ChatMessage, 
+        ConversationAnalytics,
+        AgentUsage,
+        UserFeedback
+    )
     MODELS_AVAILABLE = True
 except ImportError as e:
     logger.warning(f"Analytics models not available: {e}")

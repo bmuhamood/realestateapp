@@ -1,4 +1,4 @@
-# chatbot/agents/dynamic_data.py - OPTIMIZED VERSION
+# chatbot/agents/dynamic_data.py - ADD THE MISSING METHOD
 from django.db.models import Q, Count, Avg, Min, Max
 from django.utils import timezone
 from django.core.cache import cache
@@ -44,26 +44,44 @@ class DynamicDataProvider:
         return locations
     
     @classmethod
-    def get_property_types(cls) -> list:
-        """Get property types from cache"""
-        cache_key = 'property_types'
-        types = cache.get(cache_key)
+    def get_popular_locations(cls, limit: int = 5) -> list:
+        """Get most popular locations based on property count"""
+        cache_key = f'popular_locations_{limit}'
+        popular = cache.get(cache_key)
         
-        if types is None:
-            type_set = set()
-            property_types = Property.objects.filter(
+        if popular is None:
+            # Count properties per location
+            location_counts = {}
+            
+            # Count by city
+            city_counts = Property.objects.filter(
                 is_available=True,
-                property_type__isnull=False
-            ).exclude(property_type__exact='').values_list('property_type', flat=True).distinct()
+                expires_at__gt=timezone.now(),
+                city__isnull=False
+            ).exclude(city__exact='').values('city').annotate(count=Count('id'))
             
-            for pt in property_types:
-                if pt:
-                    type_set.add(pt)
+            for item in city_counts:
+                if item['city']:
+                    location_counts[item['city']] = location_counts.get(item['city'], 0) + item['count']
             
-            types = sorted(list(type_set))
-            cache.set(cache_key, types, 300)
+            # Count by district
+            district_counts = Property.objects.filter(
+                is_available=True,
+                expires_at__gt=timezone.now(),
+                district__isnull=False
+            ).exclude(district__exact='').values('district').annotate(count=Count('id'))
+            
+            for item in district_counts:
+                if item['district']:
+                    location_counts[item['district']] = location_counts.get(item['district'], 0) + item['count']
+            
+            # Sort by count and get top locations
+            sorted_locations = sorted(location_counts.items(), key=lambda x: x[1], reverse=True)
+            popular = [loc for loc, count in sorted_locations[:limit]]
+            
+            cache.set(cache_key, popular, 300)  # 5 minutes
         
-        return types
+        return popular
     
     @classmethod
     def get_location_stats(cls, location: str) -> dict:
@@ -96,25 +114,26 @@ class DynamicDataProvider:
         return stats
     
     @classmethod
-    def get_popular_locations(cls, limit: int = 5) -> list:
-        """Get popular locations from cache"""
-        cache_key = f'popular_locations_{limit}'
-        popular = cache.get(cache_key)
+    def get_property_types(cls) -> list:
+        """Get property types from cache"""
+        cache_key = 'property_types'
+        types = cache.get(cache_key)
         
-        if popular is None:
-            counter = Counter()
-            properties = Property.objects.filter(is_available=True, expires_at__gt=timezone.now())
+        if types is None:
+            type_set = set()
+            property_types = Property.objects.filter(
+                is_available=True,
+                property_type__isnull=False
+            ).exclude(property_type__exact='').values_list('property_type', flat=True).distinct()
             
-            for prop in properties:
-                if prop.city:
-                    counter[prop.city] += 1
-                if prop.district:
-                    counter[prop.district] += 1
+            for pt in property_types:
+                if pt:
+                    type_set.add(pt)
             
-            popular = [loc for loc, count in counter.most_common(limit)]
-            cache.set(cache_key, popular, 300)
+            types = sorted(list(type_set))
+            cache.set(cache_key, types, 300)
         
-        return popular
+        return types
     
     @classmethod
     def extract_locations_from_text(cls, text: str) -> list:
@@ -147,3 +166,49 @@ class DynamicDataProvider:
                 num *= 1_000_000
             return num
         return None
+    
+    @classmethod
+    def get_nearby_areas(cls, location: str) -> list:
+        """Get nearby areas based on property data"""
+        cache_key = f'nearby_areas_{location.lower()}'
+        nearby = cache.get(cache_key)
+        
+        if nearby is None:
+            location_lower = location.lower()
+            nearby_set = set()
+            
+            # Find properties in same district/city cluster
+            city_props = Property.objects.filter(
+                Q(city__icontains=location_lower) | Q(district__icontains=location_lower),
+                is_available=True
+            ).values_list('city', 'district').distinct()
+            
+            for city, district in city_props:
+                if city and city.lower() != location_lower:
+                    nearby_set.add(city)
+                if district and district.lower() != location_lower:
+                    nearby_set.add(district)
+            
+            # Get other areas with similar price range
+            avg_price = Property.objects.filter(
+                Q(city__icontains=location_lower) | Q(district__icontains=location_lower)
+            ).aggregate(avg=Avg('price'))['avg']
+            
+            if avg_price:
+                nearby_price = Property.objects.filter(
+                    price__between=(avg_price * 0.7, avg_price * 1.3),
+                    is_available=True
+                ).exclude(
+                    Q(city__icontains=location_lower) | Q(district__icontains=location_lower)
+                ).values_list('city', 'district').distinct()[:3]
+                
+                for city, district in nearby_price:
+                    if city:
+                        nearby_set.add(city)
+                    if district:
+                        nearby_set.add(district)
+            
+            nearby = list(nearby_set)[:5]
+            cache.set(cache_key, nearby, 3600)
+        
+        return nearby

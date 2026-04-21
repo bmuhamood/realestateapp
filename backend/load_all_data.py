@@ -609,7 +609,7 @@ def print_summary():
 def main():
     """Main function to load all sample data"""
     print("\n" + "="*60)
-    print("🏢 UGANDA PROPERTY APP - SAMPLE DATA LOADER")
+    print("🏢 METRO PROPERTIES APP - SAMPLE DATA LOADER")
     print("="*60)
     
     try:

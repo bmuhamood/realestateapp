@@ -1,130 +1,121 @@
-# chatbot/agents/property_agent.py
+# chatbot/agents/property_agent.py - FULLY DYNAMIC
 from typing import Dict, Any, Tuple
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.utils import timezone
 from properties.models import Property
 from .base_agent import BaseAgent
 from .dynamic_data import DynamicDataProvider
+import re
 
 class PropertyAgent(BaseAgent):
-    """Specialized agent for finding properties - FULLY DYNAMIC"""
+    """Fully dynamic property search agent"""
     
     def __init__(self):
-        super().__init__(name="Property Finder", expertise="Finding properties based on user criteria")
-        self.search_keywords = ['find', 'search', 'looking for', 'property', 'house', 
-                                'apartment', 'home', 'show me', 'need a', 'want a']
+        super().__init__(name="Property Finder", expertise="Finding properties using real data")
     
     def can_handle(self, context: Dict[str, Any]) -> Tuple[bool, float]:
-        """Check if this is a property search query"""
-        message = context.get('original', '').lower()
-        
-        score = 0
-        for keyword in self.search_keywords:
-            if keyword in message:
-                score += 0.2
-        
-        if context.get('property_types') or context.get('bedrooms'):
-            score += 0.3
-        
-        confidence = min(score, 1.0)
-        return (confidence > self.confidence_threshold, confidence)
+        return (True, 0.8)  # This agent can handle most queries
     
     def process(self, context: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute property search using dynamic data"""
+        """Execute dynamic property search"""
         queryset = Property.objects.filter(
             is_available=True,
             expires_at__gt=timezone.now()
         )
         
-        # Apply dynamic location filters
-        locations = context.get('locations', [])
-        if locations:
+        # Apply location filter (dynamic)
+        if context.get('locations'):
             location_q = Q()
-            for loc in locations:
+            for loc in context['locations']:
                 location_q |= Q(city__icontains=loc) | Q(district__icontains=loc)
             queryset = queryset.filter(location_q)
         
         # Apply property type filter
-        property_type = context.get('property_type')
-        if property_type:
-            queryset = queryset.filter(property_type=property_type)
+        if context.get('property_type'):
+            queryset = queryset.filter(property_type=context['property_type'])
         
         # Apply transaction type filter
-        transaction_type = context.get('transaction_type')
-        if transaction_type:
-            queryset = queryset.filter(transaction_type=transaction_type)
+        if context.get('transaction_type'):
+            queryset = queryset.filter(transaction_type=context['transaction_type'])
         
         # Apply bedroom filter
-        bedrooms = context.get('bedrooms')
-        if bedrooms:
-            queryset = queryset.filter(bedrooms__gte=bedrooms)
+        if context.get('bedrooms'):
+            queryset = queryset.filter(bedrooms__gte=context['bedrooms'])
         
-        # Apply price filters
+        # Apply price filter
         if context.get('price_max'):
             queryset = queryset.filter(price__lte=context['price_max'])
-        
-        if context.get('price_min'):
-            queryset = queryset.filter(price__gte=context['price_min'])
         
         count = queryset.count()
         
         if count > 0:
             properties = list(queryset.order_by('-is_boosted', '-views_count')[:5])
-            properties_data = self._serialize_properties(properties)
             
-            location_text = f" in {locations[0]}" if locations else ""
+            # If no results in exact location, suggest nearby areas
+            if count == 0 and context.get('locations'):
+                nearby = DynamicDataProvider.get_nearby_areas(context['locations'][0])
+                if nearby:
+                    return {
+                        'reply': f"I don't have properties in {context['locations'][0]} right now. But we have great options in {', '.join(nearby[:3])}! 🏠\n\nWhich area would you like to explore?",
+                        'agent_used': self.name,
+                        'quick_replies': [f'Show {area}' for area in nearby[:3]] + ['Browse all'],
+                        'suggestions': nearby[:3]
+                    }
             
-            if count == 1:
-                reply = f"🏠 I found **1 property**{location_text}! Here it is:"
-            elif count <= 3:
-                reply = f"🏠 I found **{count} properties**{location_text}:"
-            else:
-                reply = f"🏠 Great news! I found **{count} properties**{location_text}. Here are the top {min(5, count)}:"
+            # Build response
+            location_text = f" in {context['locations'][0]}" if context.get('locations') else ""
+            bedrooms_text = f" with {context['bedrooms']}+ bedrooms" if context.get('bedrooms') else ""
+            price_text = f" under UGX {context['price_max']:,.0f}" if context.get('price_max') else ""
+            
+            reply = f"🏠 Found **{count} properties**{location_text}{bedrooms_text}{price_text}!\n\n"
+            
+            if count > 3:
+                reply += f"Here are the top {min(5, count)} matches:\n\n"
             
             return {
-                'success': True,
                 'reply': reply,
-                'properties': properties_data,
+                'properties': self._serialize_properties(properties),
                 'agent_used': self.name,
-                'suggestions': ['Filter by price', 'See more', 'Book viewing'],
-                'quick_replies': ['Show more 📱', 'Filter by price 💰', 'Schedule viewing 📅']
+                'quick_replies': ['Show more', 'Filter by price', 'Book viewing'],
+                'suggestions': ['See more properties', 'Adjust search', 'Popular areas']
             }
         else:
-            # No properties - suggest popular locations from database
-            popular = DynamicDataProvider.get_popular_locations(3)
-            if popular:
-                reply = f"I couldn't find properties matching your criteria. Try popular areas like {', '.join(popular)}. 🏠"
-            else:
-                reply = "I couldn't find properties matching your criteria. Try adjusting your search. 🔍"
-            
-            return {
-                'success': True,
-                'reply': reply,
-                'agent_used': self.name,
-                'suggestions': ['Browse all properties', 'Check prices', 'Popular areas'],
-                'quick_replies': ['Browse all', 'Price guide', 'Popular areas']
-            }
+            return self._suggest_alternatives(context)
     
     def _serialize_properties(self, properties) -> list:
         """Serialize properties for response"""
         data = []
         for prop in properties:
-            prop_data = {
+            data.append({
                 'id': prop.id,
-                'title': prop.title,
+                'title': prop.title[:50],
                 'price': float(prop.price),
                 'transaction_type': prop.transaction_type,
                 'district': prop.district,
                 'city': prop.city,
                 'bedrooms': prop.bedrooms,
                 'bathrooms': prop.bathrooms,
-            }
-            try:
-                first_image = prop.images.first()
-                if first_image and first_image.image:
-                    prop_data['image'] = first_image.image.url
-            except:
-                pass
-            data.append(prop_data)
+                'square_meters': prop.square_meters,
+                'property_type': prop.property_type,
+            })
         return data
     
+    def _suggest_alternatives(self, context: Dict) -> Dict:
+        """Suggest alternatives when no properties found"""
+        popular = DynamicDataProvider.get_popular_locations(5)
+        
+        reply = "I couldn't find properties matching your exact criteria. 🔍\n\n"
+        reply += "**Popular areas with active listings:**\n"
+        
+        for loc in popular[:3]:
+            stats = DynamicDataProvider.get_location_stats(loc)
+            reply += f"• **{loc}** - {stats['count']} properties\n"
+        
+        reply += "\nWhich area would you like to explore?"
+        
+        return {
+            'reply': reply,
+            'agent_used': self.name,
+            'quick_replies': [f'Show {loc}' for loc in popular[:3]],
+            'suggestions': popular[:3]
+        }
