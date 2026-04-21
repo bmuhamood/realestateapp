@@ -155,6 +155,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:8080",
     "http://127.0.0.1:3000",
     "http://127.0.0.1:8080",
+    "https://realestate-frontend.onrender.com",
 ]
 CORS_ALLOW_CREDENTIALS = True
 
