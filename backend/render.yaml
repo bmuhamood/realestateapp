@@ -1,22 +1,47 @@
-databases:
-  - name: metro_propertiesdb
-    plan: free
-    databaseName: metro_properties
-    user: Metro Properties
+# render.yaml - Root of your repository
 
 services:
+  # Backend API Service
   - type: web
-    plan: free
-    name: metro-properties-backend
+    name: metro-properties-api
     runtime: python
-    buildCommand: './build.sh'
-    startCommand: 'python -m gunicorn mysite.asgi:application -k uvicorn.workers.UvicornWorker'
+    repo: https://github.com/bmuhamood/realestateapp
+    branch: master
+    rootDir: backend
+    buildCommand: |
+      pip install -r requirements.txt
+      python manage.py migrate
+      python manage.py collectstatic --noinput
+    startCommand: gunicorn realestate.asgi:application -k uvicorn.workers.UvicornWorker
     envVars:
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DJANGO_SETTINGS_MODULE
+        value: realestate.settings
+      - key: DEBUG
+        value: false
+      - key: ALLOWED_HOSTS
+        value: .onrender.com
       - key: DATABASE_URL
         fromDatabase:
-          name: metro_propertiesdb
+          name: metro-properties-db
           property: connectionString
-      - key: SECRET_KEY
-        generateValue: true
-      - key: WEB_CONCURRENCY
-        value: 4
+
+  # PostgreSQL Database
+  - type: postgresql
+    name: metro-properties-db
+    database: metro_properties
+    user: metro_user
+    plan: free
+    ipAllowList: []
+    postgresqlMajorVersion: 15
+
+  # Frontend Static Site (if you have React/Vue build output)
+  - type: static
+    name: metro-properties-frontend
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: build
+    envVars:
+      - key: REACT_APP_API_URL
+        value: https://metro-properties-api.onrender.com
