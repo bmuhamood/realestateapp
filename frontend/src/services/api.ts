@@ -1,15 +1,22 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'https://realestateapp-sc4i.onrender.com/api';
+// ─── Base URL ─────────────────────────────────────────────────────────────────
+// Reads from .env.production / .env.development at build time.
+// Falls back to the production backend if the env var is missing.
+const API_BASE_URL =
+  process.env.REACT_APP_API_URL || 'https://realestateapp-sc4i.onrender.com/api';
 
+// ─── Axios Instance ───────────────────────────────────────────────────────────
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+  // Give Render's free tier a bit more time to wake up
+  timeout: 30000,
 });
 
-// Add token to requests
+// ─── Request Interceptor — attach JWT ────────────────────────────────────────
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('access_token');
@@ -21,27 +28,86 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Handle token refresh
+// ─── Response Interceptor — auto-refresh on 401 ───────────────────────────────
+let isRefreshing = false;
+let failedQueue: { resolve: (v: any) => void; reject: (e: any) => void }[] = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach((p) => {
+    if (error) {
+      p.reject(error);
+    } else {
+      p.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+
+    // Only attempt refresh on 401 and only once per request
     if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        // Queue any further requests while a refresh is in flight
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return api(originalRequest);
+          })
+          .catch((err) => Promise.reject(err));
+      }
+
       originalRequest._retry = true;
-      try {
-        const refreshToken = localStorage.getItem('refresh_token');
-        const response = await axios.post(`${API_BASE_URL}/auth/token/refresh/`, {
-          refresh: refreshToken,
-        });
-        localStorage.setItem('access_token', response.data.access);
-        originalRequest.headers.Authorization = `Bearer ${response.data.access}`;
-        return api(originalRequest);
-      } catch (refreshError) {
+      isRefreshing = true;
+
+      const refreshToken = localStorage.getItem('refresh_token');
+
+      if (!refreshToken) {
+        // No refresh token — send user to login
+        isRefreshing = false;
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
         window.location.href = '/login';
+        return Promise.reject(error);
+      }
+
+      try {
+        // ✅ FIXED: correct endpoint matches your Django URL /api/auth/refresh/
+        const { data } = await axios.post(
+          `${API_BASE_URL}/auth/refresh/`,
+          { refresh: refreshToken },
+          { headers: { 'Content-Type': 'application/json' } }
+        );
+
+        const newAccessToken = data.access;
+        localStorage.setItem('access_token', newAccessToken);
+
+        // If rotation is on, also update the refresh token
+        if (data.refresh) {
+          localStorage.setItem('refresh_token', data.refresh);
+        }
+
+        api.defaults.headers.common.Authorization = `Bearer ${newAccessToken}`;
+        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+
+        processQueue(null, newAccessToken);
+        return api(originalRequest);
+      } catch (refreshError) {
+        processQueue(refreshError, null);
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
       }
     }
+
     return Promise.reject(error);
   }
 );
