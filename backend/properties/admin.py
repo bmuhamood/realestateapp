@@ -1,30 +1,64 @@
-# properties/admin.py
+# properties/admin.py - UPDATED WITH CLOUDINARY PREVIEW
+
 from django.contrib import admin
+from django.utils.html import format_html
+from django.urls import reverse
 from .models import (
     Property, PropertyImage, PropertyVideo, PropertyDocument,
     PropertyLike, PropertyView, PropertyReview, PropertyInquiry
 )
 
+
 class PropertyImageInline(admin.TabularInline):
     model = PropertyImage
     extra = 1
-    fields = ('image', 'is_main', 'order')
+    fields = ('image_preview', 'image', 'is_main', 'order')
+    readonly_fields = ('image_preview',)
+    
+    def image_preview(self, obj):
+        """Show image preview in admin"""
+        if obj.image:
+            if hasattr(obj.image, 'url'):
+                return format_html('<img src="{}" style="width: 100px; height: auto; border-radius: 4px;" />', obj.image.url)
+            return format_html('<img src="{}" style="width: 100px; height: auto; border-radius: 4px;" />', str(obj.image))
+        return "-"
+    image_preview.short_description = 'Preview'
+
 
 class PropertyVideoInline(admin.TabularInline):
     model = PropertyVideo
     extra = 1
-    fields = ('video_file', 'video_url', 'thumbnail', 'title', 'is_main', 'order')
+    fields = ('video_preview', 'video_file', 'video_url', 'thumbnail', 'title', 'is_main', 'order')
+    readonly_fields = ('video_preview',)
+    
+    def video_preview(self, obj):
+        if obj.video_file and hasattr(obj.video_file, 'url'):
+            return format_html('<video width="100" controls><source src="{}" type="video/mp4"></video>', obj.video_file.url)
+        if obj.video_url:
+            return format_html('<a href="{}" target="_blank">Watch Video</a>', obj.video_url)
+        return "-"
+    video_preview.short_description = 'Preview'
+
 
 class PropertyDocumentInline(admin.TabularInline):
     model = PropertyDocument
     extra = 1
-    fields = ('document_type', 'file', 'title', 'description')
+    fields = ('document_type', 'file_link', 'title', 'description')
+    readonly_fields = ('file_link',)
+    
+    def file_link(self, obj):
+        if obj.file and hasattr(obj.file, 'url'):
+            return format_html('<a href="{}" target="_blank">Download</a>', obj.file.url)
+        return "-"
+    file_link.short_description = 'File'
+
 
 class PropertyReviewInline(admin.TabularInline):
     model = PropertyReview
     extra = 0
     fields = ('user', 'rating', 'comment', 'created_at')
     readonly_fields = ('created_at',)
+
 
 class PropertyInquiryInline(admin.TabularInline):
     model = PropertyInquiry
@@ -35,10 +69,11 @@ class PropertyInquiryInline(admin.TabularInline):
 
 @admin.register(Property)
 class PropertyAdmin(admin.ModelAdmin):
-    list_display = ('id', 'title', 'property_type', 'transaction_type', 'price', 'city', 'is_available', 'is_verified', 'is_boosted', 'views_count')
+    list_display = ('id', 'title', 'property_type', 'transaction_type', 'price', 'city', 
+                   'is_available', 'is_verified', 'is_boosted', 'views_count', 'image_thumb')
     list_filter = ('property_type', 'transaction_type', 'city', 'is_available', 'is_verified', 'is_boosted')
     search_fields = ('title', 'description', 'address', 'city', 'district')
-    readonly_fields = ('created_at', 'expires_at', 'views_count', 'likes_count', 'shares_count')
+    readonly_fields = ('created_at', 'expires_at', 'views_count', 'likes_count', 'shares_count', 'image_thumb')
     inlines = [PropertyImageInline, PropertyVideoInline, PropertyDocumentInline, PropertyReviewInline, PropertyInquiryInline]
     fieldsets = (
         ('Basic Information', {
@@ -51,7 +86,7 @@ class PropertyAdmin(admin.ModelAdmin):
             'fields': ('bedrooms', 'bathrooms', 'square_meters', 'year_built', 'furnishing_status', 'parking_type', 'parking_spaces')
         }),
         ('Media', {
-            'fields': ('video_url', 'video_file', 'video_thumbnail', 'virtual_tour_url'),
+            'fields': ('image_thumb', 'video_url', 'video_file', 'video_thumbnail', 'virtual_tour_url'),
             'classes': ('collapse',)
         }),
         ('Neighborhood', {
@@ -106,13 +141,32 @@ class PropertyAdmin(admin.ModelAdmin):
             'fields': ('is_available', 'is_verified', 'is_boosted', 'boost_level', 'boosted_until', 'views_count', 'likes_count', 'shares_count', 'created_at', 'expires_at')
         }),
     )
+    
+    def image_thumb(self, obj):
+        """Show property image in admin list"""
+        main_image = obj.images.filter(is_main=True).first()
+        if not main_image:
+            main_image = obj.images.first()
+        if main_image and main_image.image:
+            if hasattr(main_image.image, 'url'):
+                return format_html('<img src="{}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;" />', main_image.image.url)
+            return format_html('<img src="{}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;" />', str(main_image.image))
+        return "-"
+    image_thumb.short_description = 'Image'
 
 
 @admin.register(PropertyImage)
 class PropertyImageAdmin(admin.ModelAdmin):
-    list_display = ('id', 'property', 'image', 'is_main', 'order')
+    list_display = ('id', 'property', 'image_preview', 'is_main', 'order', 'created_at')
     list_filter = ('is_main',)
     search_fields = ('property__title',)
+    readonly_fields = ('image_preview',)
+    
+    def image_preview(self, obj):
+        if obj.image and hasattr(obj.image, 'url'):
+            return format_html('<img src="{}" style="width: 150px; height: auto; border-radius: 4px;" />', obj.image.url)
+        return "-"
+    image_preview.short_description = 'Preview'
 
 
 @admin.register(PropertyVideo)

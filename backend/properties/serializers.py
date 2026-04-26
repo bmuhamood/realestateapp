@@ -1,4 +1,4 @@
-# properties/serializers.py - FIXED VERSION WITH OWNER ASSIGNMENT
+# properties/serializers.py - COMPLETE CLOUDINARY VERSION
 
 from rest_framework import serializers
 from .models import (
@@ -10,28 +10,78 @@ import json
 
 
 class PropertyImageSerializer(serializers.ModelSerializer):
+    """Serializer for property images with Cloudinary support"""
+    image_url = serializers.SerializerMethodField()
+    thumbnail_url = serializers.SerializerMethodField()
+    
     class Meta:
         model = PropertyImage
-        fields = ('id', 'image', 'is_main', 'order')
+        fields = ('id', 'image', 'image_url', 'thumbnail_url', 'is_main', 'order', 'created_at')
+        read_only_fields = ('id', 'created_at')
+    
+    def get_image_url(self, obj):
+        """Get the full Cloudinary URL for the image"""
+        if obj.image:
+            # CloudinaryField returns a CloudinaryResource object
+            if hasattr(obj.image, 'url'):
+                return obj.image.url
+            # If it's a string (already migrated), return as is
+            return str(obj.image)
+        return None
+    
+    def get_thumbnail_url(self, obj):
+        """Get a thumbnail version of the image (optimized for lists)"""
+        if obj.image and hasattr(obj.image, 'url'):
+            # Add Cloudinary transformations for thumbnail
+            # This creates a 300x200 thumbnail with quality optimization
+            base_url = obj.image.url
+            # Insert transformations before the upload path
+            if 'cloudinary.com' in base_url:
+                parts = base_url.split('/upload/')
+                if len(parts) == 2:
+                    return f"{parts[0]}/upload/c_fill,g_auto,w_300,h_200,q_auto,f_auto/{parts[1]}"
+            return base_url
+        return None
 
 
 class PropertyVideoSerializer(serializers.ModelSerializer):
+    video_url_display = serializers.SerializerMethodField()
+    thumbnail_url = serializers.SerializerMethodField()
+    
     class Meta:
         model = PropertyVideo
-        fields = ('id', 'video_file', 'video_url', 'thumbnail', 'title', 'order', 'is_main', 'created_at')
+        fields = ('id', 'video_file', 'video_url', 'video_url_display', 'thumbnail', 'thumbnail_url', 'title', 'order', 'is_main', 'created_at')
         read_only_fields = ('id', 'created_at')
+    
+    def get_video_url_display(self, obj):
+        """Get the actual video URL (Cloudinary or direct)"""
+        if obj.video_file and hasattr(obj.video_file, 'url'):
+            return obj.video_file.url
+        return obj.video_url
+    
+    def get_thumbnail_url(self, obj):
+        """Get video thumbnail URL"""
+        if obj.thumbnail and hasattr(obj.thumbnail, 'url'):
+            return obj.thumbnail.url
+        return None
 
 
 class PropertyDocumentSerializer(serializers.ModelSerializer):
     document_type_display = serializers.SerializerMethodField()
+    file_url = serializers.SerializerMethodField()
     
     class Meta:
         model = PropertyDocument
-        fields = ('id', 'document_type', 'document_type_display', 'file', 'title', 'description', 'uploaded_at')
+        fields = ('id', 'document_type', 'document_type_display', 'file', 'file_url', 'title', 'description', 'uploaded_at')
         read_only_fields = ('id', 'uploaded_at')
     
     def get_document_type_display(self, obj):
         return obj.get_document_type_display()
+    
+    def get_file_url(self, obj):
+        if obj.file and hasattr(obj.file, 'url'):
+            return obj.file.url
+        return None
 
 
 class PropertyReviewSerializer(serializers.ModelSerializer):
@@ -48,7 +98,9 @@ class PropertyReviewSerializer(serializers.ModelSerializer):
     
     def get_user_avatar(self, obj):
         if obj.user.profile_picture:
-            return obj.user.profile_picture.url
+            if hasattr(obj.user.profile_picture, 'url'):
+                return obj.user.profile_picture.url
+            return str(obj.user.profile_picture)
         return None
 
 
@@ -71,12 +123,17 @@ class PropertyInquirySerializer(serializers.ModelSerializer):
 
 
 class PropertySerializer(serializers.ModelSerializer):
+    """Main Property serializer with Cloudinary image support"""
     images = PropertyImageSerializer(many=True, read_only=True)
     videos = PropertyVideoSerializer(many=True, read_only=True)
     documents = PropertyDocumentSerializer(many=True, read_only=True)
     reviews = PropertyReviewSerializer(many=True, read_only=True)
     owner = UserSerializer(read_only=True)
     is_liked = serializers.SerializerMethodField()
+    
+    # Image helper fields
+    main_image_url = serializers.SerializerMethodField()
+    all_image_urls = serializers.SerializerMethodField()
     
     amenities_list = serializers.SerializerMethodField()
     nearby_schools_list = serializers.SerializerMethodField()
@@ -99,6 +156,35 @@ class PropertySerializer(serializers.ModelSerializer):
         if request and request.user.is_authenticated:
             return PropertyLike.objects.filter(user=request.user, property=obj).exists()
         return False
+    
+    def get_main_image_url(self, obj):
+        """Get the main/primary image URL for the property"""
+        # Try to get the main image from gallery
+        main_image = obj.images.filter(is_main=True).first()
+        if main_image and main_image.image:
+            if hasattr(main_image.image, 'url'):
+                return main_image.image.url
+            return str(main_image.image)
+        
+        # Fallback to first image
+        first_image = obj.images.first()
+        if first_image and first_image.image:
+            if hasattr(first_image.image, 'url'):
+                return first_image.image.url
+            return str(first_image.image)
+        
+        return None
+    
+    def get_all_image_urls(self, obj):
+        """Get all image URLs for the property"""
+        urls = []
+        for img in obj.images.all():
+            if img.image:
+                if hasattr(img.image, 'url'):
+                    urls.append(img.image.url)
+                else:
+                    urls.append(str(img.image))
+        return urls
     
     def get_amenities_list(self, obj):
         amenities = obj.get_amenities_list()
@@ -182,6 +268,7 @@ class PropertySerializer(serializers.ModelSerializer):
 
 
 class PropertyCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating properties with Cloudinary support"""
     images = serializers.ListField(
         child=serializers.ImageField(),
         write_only=True,
@@ -214,13 +301,12 @@ class PropertyCreateSerializer(serializers.ModelSerializer):
         nearby_schools_data = validated_data.pop('nearby_schools', '')
         nearby_roads_data = validated_data.pop('nearby_roads', '')
         
-        # ========== CRITICAL FIX: SET OWNER FROM REQUEST ==========
+        # Set owner from request
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             validated_data['owner'] = request.user
         else:
             raise serializers.ValidationError({"owner": "User must be authenticated to create a property"})
-        # ========== END FIX ==========
         
         # Set JSON fields
         if amenities_data:
@@ -233,12 +319,12 @@ class PropertyCreateSerializer(serializers.ModelSerializer):
         # Create property
         property_obj = Property.objects.create(**validated_data)
         
-        # Handle video file
+        # Handle video file (will go to Cloudinary automatically)
         if video_file and hasattr(video_file, 'name'):
             property_obj.video_file = video_file
             property_obj.save(update_fields=['video_file'])
         
-        # Create image records
+        # Create image records (will go to Cloudinary automatically)
         for i, image in enumerate(images_data):
             PropertyImage.objects.create(
                 property=property_obj,
@@ -291,4 +377,3 @@ class PropertyCreateSerializer(serializers.ModelSerializer):
     
     def to_representation(self, instance):
         return PropertySerializer(instance, context=self.context).data
-    

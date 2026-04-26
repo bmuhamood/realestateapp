@@ -4,6 +4,7 @@ from django.conf import settings
 from django.utils import timezone
 from datetime import timedelta
 from django.core.validators import MinValueValidator, MaxValueValidator, FileExtensionValidator
+from cloudinary.models import CloudinaryField
 
 class Property(models.Model):
     PROPERTY_TYPES = [
@@ -231,7 +232,8 @@ class Property(models.Model):
 
 class PropertyImage(models.Model):
     property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='images')
-    image = models.ImageField(upload_to='properties/%Y/%m/')
+    # image = models.ImageField(upload_to='properties/%Y/%m/')
+    image = CloudinaryField('image', folder='properties/%Y/%m/')
     is_main = models.BooleanField(default=False)
     order = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -250,7 +252,7 @@ class PropertyVideo(models.Model):
         validators=[FileExtensionValidator(allowed_extensions=['mp4', 'mov', 'avi', 'webm'])]
     )
     video_url = models.URLField(blank=True, null=True)
-    thumbnail = models.ImageField(upload_to='properties/videos/thumbnails/%Y/%m/', null=True, blank=True)
+    thumbnail = CloudinaryField('thumbnail', folder='properties/videos/thumbnails/%Y/%m/', null=True, blank=True)
     title = models.CharField(max_length=200, blank=True)
     order = models.IntegerField(default=0)
     is_main = models.BooleanField(default=False)
