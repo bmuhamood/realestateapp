@@ -1,10 +1,11 @@
-# properties/urls.py - COMPLETE UPGRADED VERSION
+# properties/urls.py - CORRECTED FOR UUID SUPPORT
 from django.urls import path
 from .views import (
     PropertyImageView, PropertyListView, PropertyDetailView, PropertyLikeView, 
     MyPropertiesView, BoostPropertyView, PropertyRecommendationsView, UserFavoritesView,
     # New imports for upgraded features
-    PropertyVideoView, PropertyDocumentView, PropertyReviewView, PropertyInquiryView
+    PropertyVideoView, PropertyDocumentView, PropertyReviewView, PropertyInquiryView,
+    BulkPropertyImageUploadView  # Add this import
 )
 from .boost_views import (
     BoostPackageListView, InitiateBoostPaymentView, 
@@ -18,31 +19,37 @@ urlpatterns = [
     path('recommendations/', PropertyRecommendationsView.as_view(), name='property-recommendations'),
     path('favorites/', UserFavoritesView.as_view(), name='user-favorites'),
     
-    # ========== SINGLE PROPERTY ENDPOINTS ==========
-    path('<int:pk>/', PropertyDetailView.as_view(), name='property-detail'),
-    path('<int:pk>/recommendations/', PropertyRecommendationsView.as_view(), name='property-recommendations-detail'),
-    path('<int:pk>/like/', PropertyLikeView.as_view(), name='property-like'),
-    path('<int:pk>/boost/', BoostPropertyView.as_view(), name='property-boost'),
+    # ========== SINGLE PROPERTY ENDPOINTS (Using UUID) ==========
+    path('<uuid:pk>/', PropertyDetailView.as_view(), name='property-detail'),
+    path('<uuid:pk>/recommendations/', PropertyRecommendationsView.as_view(), name='property-recommendations-detail'),
+    path('<uuid:pk>/like/', PropertyLikeView.as_view(), name='property-like'),
+    path('<uuid:pk>/boost/', BoostPropertyView.as_view(), name='property-boost'),
     
     # ========== BOOST/FEATURED ENDPOINTS ==========
     path('boost-packages/', BoostPackageListView.as_view(), name='boost-packages'),
-    path('<int:property_id>/initiate-boost/', InitiateBoostPaymentView.as_view(), name='initiate-boost'),
+    path('<uuid:property_id>/initiate-boost/', InitiateBoostPaymentView.as_view(), name='initiate-boost'),
     path('verify-boost/', VerifyBoostPaymentView.as_view(), name='verify-boost'),
     path('boosted/', BoostedPropertiesView.as_view(), name='boosted-properties'),
     path('my/boosted/', MyBoostedPropertiesView.as_view(), name='my-boosted-properties'),
     
-    # ========== NEW: VIDEO ENDPOINTS ==========
-    path('<int:property_id>/videos/', PropertyVideoView.as_view(), name='property-videos'),
-    path('<int:property_id>/videos/<int:video_id>/', PropertyVideoView.as_view(), name='property-video-detail'),
+    # ========== IMAGE ENDPOINTS (Using UUID) ==========
+    path('<uuid:property_id>/images/', PropertyImageView.as_view(), name='property-images'),
+    path('<uuid:property_id>/upload/bulk-images/', BulkPropertyImageUploadView.as_view(), name='bulk-upload-images'),
+    path('images/<uuid:image_id>/', PropertyImageView.as_view(), name='property-image-delete'),
     
-    # ========== NEW: DOCUMENT ENDPOINTS ==========
-    path('<int:property_id>/documents/', PropertyDocumentView.as_view(), name='property-documents'),
-    path('<int:property_id>/documents/<int:document_id>/', PropertyDocumentView.as_view(), name='property-document-detail'),
+    # ========== VIDEO ENDPOINTS (Using UUID) ==========
+    path('<uuid:property_id>/videos/', PropertyVideoView.as_view(), name='property-videos'),
+    path('<uuid:property_id>/videos/<uuid:video_id>/', PropertyVideoView.as_view(), name='property-video-detail'),
     
-    # ========== NEW: REVIEW ENDPOINTS ==========
-    path('<int:property_id>/reviews/', PropertyReviewView.as_view(), name='property-reviews'),
+    # ========== DOCUMENT ENDPOINTS (Using UUID) ==========
+    path('<uuid:property_id>/documents/', PropertyDocumentView.as_view(), name='property-documents'),
+    path('<uuid:property_id>/documents/<uuid:document_id>/', PropertyDocumentView.as_view(), name='property-document-detail'),
     
-    # ========== NEW: INQUIRY ENDPOINTS ==========
-    path('<int:property_id>/inquiries/', PropertyInquiryView.as_view(), name='property-inquiries'),
-    path('images/<int:image_id>/', PropertyImageView.as_view(), name='property-image-delete'),
+    # ========== REVIEW ENDPOINTS (Using UUID) ==========
+    path('<uuid:property_id>/reviews/', PropertyReviewView.as_view(), name='property-reviews'),
+    path('<uuid:property_id>/reviews/<uuid:review_id>/', PropertyReviewView.as_view(), name='property-review-detail'),
+    
+    # ========== INQUIRY ENDPOINTS (Using UUID) ==========
+    path('<uuid:property_id>/inquiries/', PropertyInquiryView.as_view(), name='property-inquiries'),
+    path('<uuid:property_id>/inquiries/<uuid:inquiry_id>/', PropertyInquiryView.as_view(), name='property-inquiry-detail'),
 ]

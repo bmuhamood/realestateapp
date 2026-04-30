@@ -1,16 +1,19 @@
+# bookings/admin.py - SIMPLIFIED VERSION
+
 from django.contrib import admin
-from .models import Booking
+from .models import Booking, BookingHistory
+
 
 @admin.register(Booking)
 class BookingAdmin(admin.ModelAdmin):
-    list_display = ('user', 'property', 'visit_date', 'status', 'booking_fee', 'created_at')
-    list_filter = ('status', 'visit_date', 'created_at')
+    list_display = ('id', 'user', 'property', 'visit_date', 'status', 'booking_fee', 'created_at')
+    list_filter = ('status', 'created_at')
     search_fields = ('user__username', 'property__title')
-    readonly_fields = ('booking_fee', 'created_at', 'updated_at')
+    readonly_fields = ('id', 'booking_fee', 'created_at', 'updated_at')
     
     fieldsets = (
         ('Booking Info', {
-            'fields': ('user', 'property', 'visit_date', 'message')
+            'fields': ('id', 'user', 'property', 'visit_date', 'message')
         }),
         ('Status & Payment', {
             'fields': ('status', 'booking_fee')
@@ -24,11 +27,25 @@ class BookingAdmin(admin.ModelAdmin):
     actions = ['confirm_bookings', 'cancel_bookings']
     
     def confirm_bookings(self, request, queryset):
-        queryset.update(status='confirmed')
-        self.message_user(request, f"{queryset.count()} bookings confirmed")
+        updated = queryset.update(status='confirmed')
+        self.message_user(request, f"{updated} bookings confirmed")
     confirm_bookings.short_description = "Confirm selected bookings"
     
     def cancel_bookings(self, request, queryset):
-        queryset.update(status='cancelled')
-        self.message_user(request, f"{queryset.count()} bookings cancelled")
+        updated = queryset.update(status='cancelled')
+        self.message_user(request, f"{updated} bookings cancelled")
     cancel_bookings.short_description = "Cancel selected bookings"
+
+
+@admin.register(BookingHistory)
+class BookingHistoryAdmin(admin.ModelAdmin):
+    list_display = ('booking', 'action', 'created_at')
+    list_filter = ('action', 'created_at')
+    search_fields = ('booking__user__username', 'notes')
+    readonly_fields = ('id', 'created_at')
+    
+    def has_add_permission(self, request):
+        return False
+    
+    def has_change_permission(self, request, obj=None):
+        return False

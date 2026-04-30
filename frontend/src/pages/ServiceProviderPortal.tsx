@@ -1,4 +1,5 @@
-// ServiceProviderPortal.tsx - Fixed update functionality
+// ServiceProviderPortal.tsx - Full Cloudinary Support
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -13,8 +14,9 @@ interface Service {
   description: string;
   price: number;
   price_unit: string;
-  image: string;
-  gallery_images?: Array<{ id: number; image: string; order: number; is_main: boolean }>;
+  image?: string;
+  image_url?: string;
+  gallery_images?: Array<{ id: number; image: string; image_url?: string; order: number; is_main: boolean }>;
   duration: string;
   is_featured: boolean;
   is_active: boolean;
@@ -64,7 +66,7 @@ const ServiceProviderPortal: React.FC = () => {
   
   const [galleryImages, setGalleryImages] = useState<File[]>([]);
   const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
-  const [existingGalleryImages, setExistingGalleryImages] = useState<Array<{ id: number; image: string }>>([]);
+  const [existingGalleryImages, setExistingGalleryImages] = useState<Array<{ id: number; image: string; image_url?: string }>>([]);
   
   const [video, setVideo] = useState<File | null>(null);
   const [videoPreview, setVideoPreview] = useState<string | null>(null);
@@ -78,35 +80,54 @@ const ServiceProviderPortal: React.FC = () => {
     fetchData();
   }, [isAuthenticated]);
 
-    const fetchData = async () => {
+  const getImageUrl = (image: any): string | null => {
+    if (!image) return null;
+    if (typeof image === 'string') {
+      if (image.startsWith('http')) return image;
+      if (image.includes('cloudinary')) return image;
+      return `https://res.cloudinary.com/${process.env.REACT_APP_CLOUDINARY_CLOUD_NAME}/image/upload/${image}`;
+    }
+    if (image.url) return image.url;
+    if (image.image_url) return image.image_url;
+    return null;
+  };
+
+  const fetchData = async () => {
     try {
-        setError(null);
-        const categoriesRes = await api.get('/services/categories/');
-        let categoriesData = categoriesRes.data.results || categoriesRes.data;
-        if (Array.isArray(categoriesData)) {
+      setError(null);
+      const categoriesRes = await api.get('/services/categories/');
+      let categoriesData = categoriesRes.data.results || categoriesRes.data;
+      if (Array.isArray(categoriesData)) {
         setCategories(categoriesData);
-        }
-        
-        // Fetch all services (since filtering by provider might not work)
-        const servicesRes = await api.get('/services/');
-        const allServices = servicesRes.data.results || servicesRes.data;
-        
-        // Filter services by current user as provider (based on provider email or username)
-        const userServices = allServices.filter((s: Service) => 
+      }
+      
+      // Fetch all services (since filtering by provider might not work)
+      const servicesRes = await api.get('/services/');
+      const allServices = servicesRes.data.results || servicesRes.data;
+      
+      // Filter services by current user as provider
+      const userServices = allServices.filter((s: Service) => 
         s.provider_email === user?.email || 
         s.provider === user?.username ||
         s.provider === `${user?.first_name} ${user?.last_name}`.trim()
-        );
-        
-        console.log('User services:', userServices);
-        setServices(userServices);
+      ).map((service: Service) => ({
+        ...service,
+        image_url: getImageUrl(service.image || service.image_url),
+        gallery_images: service.gallery_images?.map(img => ({
+          ...img,
+          image_url: getImageUrl(img.image || img.image_url)
+        }))
+      }));
+      
+      console.log('User services:', userServices);
+      setServices(userServices);
     } catch (error) {
-        console.error('Error fetching data:', error);
-        setError('Failed to load data. Please refresh the page.');
+      console.error('Error fetching data:', error);
+      setError('Failed to load data. Please refresh the page.');
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
-    };
+  };
 
   const fetchServiceDetails = async (serviceId: number) => {
     try {
@@ -126,14 +147,15 @@ const ServiceProviderPortal: React.FC = () => {
         provider_email: service.provider_email || '',
       });
       
-      if (service.image) {
-        setExistingMainImage(service.image);
+      if (service.image_url || service.image) {
+        setExistingMainImage(getImageUrl(service.image_url || service.image));
       }
       
       if (service.gallery_images && Array.isArray(service.gallery_images)) {
         setExistingGalleryImages(service.gallery_images.map((img: any) => ({
           id: img.id,
-          image: img.image
+          image: img.image,
+          image_url: getImageUrl(img.image || img.image_url)
         })));
       }
       
@@ -236,7 +258,6 @@ const ServiceProviderPortal: React.FC = () => {
       
       let response;
       if (editingService) {
-        // Use PUT for update with multipart form data
         response = await api.put(`/services/${editingService.id}/`, formDataToSend, {
           headers: {
             'Content-Type': 'multipart/form-data',
@@ -357,32 +378,63 @@ const ServiceProviderPortal: React.FC = () => {
             </button>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: 20 }}>
             {services.map(service => (
               <div key={service.id} style={{ backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', border: '1px solid #eef2f7' }}>
-                {service.image && (
-                  <img src={service.image} alt={service.name} style={{ width: '100%', height: 200, objectFit: 'cover' }} />
+                {(service.image_url) && (
+                  <img 
+                    src={service.image_url} 
+                    alt={service.name} 
+                    style={{ width: '100%', height: 200, objectFit: 'cover' }}
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
                 )}
                 <div style={{ padding: 16 }}>
                   <h3 style={{ fontSize: 18, fontWeight: 700, color: NAVY, marginBottom: 8 }}>{service.name}</h3>
-                  <p style={{ fontSize: 13, color: '#64748b', marginBottom: 12 }}>{service.description.substring(0, 100)}...</p>
+                  <p style={{ fontSize: 13, color: '#64748b', marginBottom: 12, lineHeight: 1.5 }}>
+                    {service.description.substring(0, 100)}...
+                  </p>
+                  <div style={{ marginBottom: 12 }}>
+                    <span style={{ display: 'inline-block', backgroundColor: '#f4f7fb', padding: '4px 10px', borderRadius: 20, fontSize: 11 }}>
+                      {service.category_name || 'Service'}
+                    </span>
+                    {service.duration && (
+                      <span style={{ display: 'inline-block', backgroundColor: '#f4f7fb', padding: '4px 10px', borderRadius: 20, fontSize: 11, marginLeft: 8 }}>
+                        ⏱️ {service.duration}
+                      </span>
+                    )}
+                  </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 18, fontWeight: 800, color: TEAL }}>UGX {service.price.toLocaleString()}</span>
+                    <div>
+                      <span style={{ fontSize: 18, fontWeight: 800, color: TEAL }}>
+                        UGX {service.price.toLocaleString()}
+                      </span>
+                      {service.price_unit && (
+                        <span style={{ fontSize: 11, color: '#94a3b8' }}> /{service.price_unit}</span>
+                      )}
+                    </div>
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button
                         onClick={() => handleEdit(service)}
-                        style={{ padding: '6px 12px', backgroundColor: TEAL, color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}
+                        style={{ padding: '6px 14px', backgroundColor: TEAL, color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
                       >
                         Edit
                       </button>
                       <button
                         onClick={() => handleDelete(service.id)}
-                        style={{ padding: '6px 12px', backgroundColor: '#ef4444', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}
+                        style={{ padding: '6px 14px', backgroundColor: '#ef4444', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
                       >
                         Delete
                       </button>
                     </div>
                   </div>
+                  {(service.rating > 0 || service.reviews_count > 0) && (
+                    <div style={{ marginTop: 8, fontSize: 12, color: '#f59e0b' }}>
+                      ★ {service.rating?.toFixed(1) || '0'} ({service.reviews_count || 0} reviews)
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -501,7 +553,7 @@ const ServiceProviderPortal: React.FC = () => {
                       <button
                         type="button"
                         onClick={removeMainImage}
-                        style={{ position: 'absolute', top: -6, right: -6, width: 24, height: 24, borderRadius: '50%', backgroundColor: '#ef4444', color: '#fff', border: 'none', cursor: 'pointer' }}
+                        style={{ position: 'absolute', top: -6, right: -6, width: 24, height: 24, borderRadius: '50%', backgroundColor: '#ef4444', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 14 }}
                       >
                         ×
                       </button>
@@ -522,11 +574,11 @@ const ServiceProviderPortal: React.FC = () => {
                   <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
                     {existingGalleryImages.map((img, idx) => (
                       <div key={`existing-${img.id}`} style={{ position: 'relative' }}>
-                        <img src={img.image} alt={`Gallery ${idx}`} style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8 }} />
+                        <img src={img.image_url || img.image} alt={`Gallery ${idx}`} style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8 }} />
                         <button
                           type="button"
                           onClick={() => removeExistingGalleryImage(img.id)}
-                          style={{ position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: '50%', backgroundColor: '#ef4444', color: '#fff', border: 'none', cursor: 'pointer' }}
+                          style={{ position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: '50%', backgroundColor: '#ef4444', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 12 }}
                         >
                           ×
                         </button>
@@ -538,13 +590,16 @@ const ServiceProviderPortal: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => removeGalleryImage(idx)}
-                          style={{ position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: '50%', backgroundColor: '#ef4444', color: '#fff', border: 'none', cursor: 'pointer' }}
+                          style={{ position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: '50%', backgroundColor: '#ef4444', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 12 }}
                         >
                           ×
                         </button>
                       </div>
                     ))}
                   </div>
+                  <small style={{ color: '#94a3b8', marginTop: 8, display: 'block' }}>
+                    You can upload multiple images. First image will be used as main after saving.
+                  </small>
                 </div>
 
                 {/* Video */}
@@ -563,6 +618,9 @@ const ServiceProviderPortal: React.FC = () => {
                       style={{ width: '100%', maxHeight: 200, marginTop: 8, borderRadius: 8 }} 
                     />
                   )}
+                  <small style={{ color: '#94a3b8', marginTop: 8, display: 'block' }}>
+                    Supported formats: MP4, MOV, AVI, WEBM (max 100MB)
+                  </small>
                 </div>
 
                 <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
@@ -607,6 +665,13 @@ const ServiceProviderPortal: React.FC = () => {
           </>
         )}
       </div>
+      <style>
+        {`
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}
+      </style>
     </div>
   );
 };

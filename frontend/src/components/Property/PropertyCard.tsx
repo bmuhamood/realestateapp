@@ -1,4 +1,5 @@
-// src/components/Property/PropertyCard.tsx - FULLY FIXED
+// src/components/Property/PropertyCard.tsx - FIXED WITH CLOUDINARY URL SUPPORT
+
 import React, { useState } from 'react';
 import {
   Card,
@@ -31,6 +32,32 @@ interface PropertyCardProps {
   variant?: 'horizontal' | 'vertical';
 }
 
+// Helper function to get full Cloudinary URL
+const getImageUrl = (image: any): string => {
+  // If image is null/undefined, return placeholder
+  if (!image) return '/placeholder-property.svg';
+  
+  // If it's a string and already a full URL
+  if (typeof image === 'string') {
+    if (image.startsWith('http://') || image.startsWith('https://')) {
+      return image;
+    }
+    // If it's a Cloudinary public ID, construct URL
+    if (image.includes('/')) {
+      const cloudName = 'drcy2xxkg';
+      return `https://res.cloudinary.com/${cloudName}/${image}`;
+    }
+    return image;
+  }
+  
+  // If it's a PropertyImage object with URL fields
+  if (typeof image === 'object') {
+    return image.image_url || image.thumbnail_url || image.medium_url || '/placeholder-property.svg';
+  }
+  
+  return '/placeholder-property.svg';
+};
+
 const PropertyCard: React.FC<PropertyCardProps> = ({ 
   property, 
   onLike, 
@@ -39,6 +66,10 @@ const PropertyCard: React.FC<PropertyCardProps> = ({
   const navigate = useNavigate();
   const { user } = useAuth();
   const [imageLoaded, setImageLoaded] = useState(false);
+
+  // Get the main image URL using the helper
+  const mainImage = property.images?.[0];
+  const imageUrl = getImageUrl(mainImage);
 
   const formatShortPrice = (price: number) => {
     if (price >= 1_000_000_000) return `${(price / 1_000_000_000).toFixed(1)}B`;
@@ -135,9 +166,12 @@ const PropertyCard: React.FC<PropertyCardProps> = ({
               objectFit: 'cover',
               opacity: imageLoaded ? 1 : 0,
             }}
-            image={property.images?.[0]?.image || '/placeholder-property.svg'}
+            image={imageUrl}
             alt={property.title}
             onLoad={() => setImageLoaded(true)}
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = '/placeholder-property.svg';
+            }}
           />
           
           {/* Property Type Badge */}
@@ -386,9 +420,12 @@ const PropertyCard: React.FC<PropertyCardProps> = ({
             objectFit: 'cover',
             opacity: imageLoaded ? 1 : 0,
           }}
-          image={property.images?.[0]?.image || '/placeholder-property.svg'}
+          image={imageUrl}
           alt={property.title}
           onLoad={() => setImageLoaded(true)}
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = '/placeholder-property.svg';
+          }}
         />
 
         {/* Property Type Badge */}

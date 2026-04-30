@@ -141,8 +141,8 @@ const AgentCardVertical: React.FC<{
       {/* Cover band with optional cover photo */}
       <div style={{
         height: 100, position: 'relative',
-        background: agent.cover_photo 
-          ? `url(${agent.cover_photo}) center/cover no-repeat`
+        background: agent.cover_photo_url  
+          ? `url(${agent.cover_photo_url }) center/cover no-repeat`
           : `linear-gradient(135deg, ${NAVY} 0%, #1a3a5c 100%)`,
       }}>
         {agent.is_verified && (
@@ -163,23 +163,23 @@ const AgentCardVertical: React.FC<{
       <div style={{ padding: '0 18px 18px' }}>
         {/* Avatar — overlaps cover */}
         <div style={{ position: 'relative', display: 'inline-block', marginTop: -30, marginBottom: 10 }}>
-          {agent.profile_picture ? (
-            <img src={agent.profile_picture} alt={agent.username} style={{
-              width: 60, height: 60, borderRadius: 30, objectFit: 'cover',
-              border: '3px solid #fff', boxShadow: '0 2px 8px rgba(0,0,0,0.12)', display: 'block',
-            }} />
-          ) : (
-            <div style={{
-              width: 60, height: 60, borderRadius: 30,
-              background: `linear-gradient(135deg, ${RED} 0%, #c1121f 100%)`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 20, fontWeight: 800, color: '#fff',
-              fontFamily: "'Sora', sans-serif",
-              border: '3px solid #fff', boxShadow: '0 2px 8px rgba(230,57,70,0.25)',
-            }}>
-              {initials}
-            </div>
-          )}
+        {agent.profile_picture_url ? (
+          <img src={agent.profile_picture_url} alt={agent.username} style={{
+            width: 60, height: 60, borderRadius: 30, objectFit: 'cover',
+            border: '3px solid #fff', boxShadow: '0 2px 8px rgba(0,0,0,0.12)', display: 'block',
+          }} />
+        ) : (
+          <div style={{
+            width: 60, height: 60, borderRadius: 30,
+            background: `linear-gradient(135deg, ${RED} 0%, #c1121f 100%)`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 20, fontWeight: 800, color: '#fff',
+            fontFamily: "'Sora', sans-serif",
+            border: '3px solid #fff', boxShadow: '0 2px 8px rgba(230,57,70,0.25)',
+          }}>
+            {initials}
+          </div>
+        )}
         </div>
 
         {/* Name & handle */}
@@ -297,15 +297,15 @@ const AgentCardHorizontal: React.FC<{
       {/* Left panel with cover photo as background */}
       <div style={{
         width: 170, minWidth: 170, flexShrink: 0,
-        background: agent.cover_photo 
-          ? `url(${agent.cover_photo}) center/cover no-repeat`
+        background: agent.cover_photo_url 
+          ? `url(${agent.cover_photo_url}) center/cover no-repeat`
           : `linear-gradient(160deg, ${NAVY} 0%, #1a3a5c 100%)`,
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center', gap: 10,
         padding: '20px 14px', position: 'relative',
       }}>
-        {agent.profile_picture ? (
-          <img src={agent.profile_picture} alt={agent.username} style={{
+        {agent.profile_picture_url ? (
+          <img src={agent.profile_picture_url} alt={agent.username} style={{
             width: 68, height: 68, borderRadius: 34, objectFit: 'cover',
             border: '3px solid rgba(255,255,255,0.18)',
           }} />

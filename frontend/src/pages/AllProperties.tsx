@@ -163,7 +163,23 @@ const SkeletonCard: React.FC<{ mode: 'list'|'grid' }> = ({ mode }) => {
 const ListCard: React.FC<{ property: Property; onLike: () => void }> = ({ property, onLike }) => {
   const navigate = useNavigate();
   const [hov, setHov] = useState(false);
-  const img = property.images?.find(i => i.is_main)?.image || property.images?.[0]?.image;
+  const getCloudinaryUrl = (url: string | null | undefined): string | undefined => {
+    if (!url) return undefined;
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    if (url.includes('/')) {
+      const cloudName = 'drcy2xxkg';
+      return `https://res.cloudinary.com/${cloudName}/${url}`;
+    }
+    return url;
+  };
+
+  const img = (() => {
+    const mainImg = property.images?.find(i => i.is_main);
+    const firstImg = property.images?.[0];
+    const rawUrl = mainImg?.image_url || mainImg?.image || firstImg?.image_url || firstImg?.image;
+    return getCloudinaryUrl(rawUrl);
+  })();
+
   const isBoosted = (property as any).is_boosted;
 
   return (
@@ -867,6 +883,20 @@ const AllProperties: React.FC = () => {
                   eventHandlers={{ click: () => { setMapCenter([p.latitude, p.longitude]); setMapZoom(15); setSelectedProp(p); } }}>
                   <Popup>
                     <div style={{ padding: 8, minWidth: 160, fontFamily: FONT }}>
+                      {/* Add image thumbnail to popup */}
+                      {(() => {
+                        const imgUrl = (() => {
+                          const mainImg = p.images?.find(i => i.is_main);
+                          const firstImg = p.images?.[0];
+                          const rawUrl = mainImg?.image_url || mainImg?.image || firstImg?.image_url || firstImg?.image;
+                          if (!rawUrl) return null;
+                          if (rawUrl.startsWith('http')) return rawUrl;
+                          return `https://res.cloudinary.com/drcy2xxkg/${rawUrl}`;
+                        })();
+                        return imgUrl ? (
+                          <img src={imgUrl} alt={p.title} style={{ width: '100%', height: 100, objectFit: 'cover', borderRadius: 8, marginBottom: 8 }} />
+                        ) : null;
+                      })()}
                       <div style={{ fontWeight: 900, color: C.red, fontSize: 15 }}>{fmtPrice(p.price)}</div>
                       <div style={{ fontSize: 12, color: C.navy, fontWeight: 700, margin: '3px 0' }}>{p.title}</div>
                       <div style={{ fontSize: 11, color: C.muted }}>{p.district}</div>

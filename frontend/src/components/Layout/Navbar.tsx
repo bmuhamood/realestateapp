@@ -1,3 +1,5 @@
+// src/components/Navbar/Navbar.tsx - COMPLETE FIXED VERSION
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -12,6 +14,13 @@ const SLATE = '#475569';
 const SLATE_LIGHT = '#94a3b8';
 const RED = '#e63946';
 const BORDER = '#eef2f7';
+
+// ─── NavLink Interface ────────────────────────────────────────────────────────
+interface NavLink {
+  label: string;
+  path: string;
+  icon: React.ReactNode;
+}
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 const Icon = {
@@ -91,9 +100,7 @@ const Icon = {
   ),
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-interface NavLink { label: string; path: string; icon: React.ReactNode; }
-
+// ─── Base Navigation Links ────────────────────────────────────────────────────
 const BASE_NAV: NavLink[] = [
   { label: 'Home', path: '/', icon: <Icon.Home /> },
   { label: 'Properties', path: '/properties', icon: <Icon.Grid /> },
@@ -101,9 +108,28 @@ const BASE_NAV: NavLink[] = [
   { label: 'Agents', path: '/agents', icon: <Icon.Users /> },
 ];
 
-const getAvatarSrc = (user: any) =>
-  user?.profile_picture ||
-  `https://ui-avatars.com/api/?background=0d1b2e&color=25a882&name=${encodeURIComponent(`${user?.first_name ?? ''} ${user?.last_name ?? ''}`)}&bold=true&size=64`;
+
+// ─── Helper to get full Cloudinary URL ────────────────────────────────────────
+const getImageUrl = (url: string | null | undefined): string => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  if (url.includes('/')) {
+    const cloudName = 'drcy2xxkg';
+    return `https://res.cloudinary.com/${cloudName}/${url}`;
+  }
+  return url;
+};
+
+// ─── Get avatar source with Cloudinary URL support ────────────────────────────
+const getAvatarSrc = (user: any) => {
+  const profilePic = user?.profile_picture_url || user?.profile_picture;
+  const fullUrl = getImageUrl(profilePic);
+  if (fullUrl) return fullUrl;
+  
+  // Fallback to UI Avatars
+  const name = encodeURIComponent(`${user?.first_name ?? ''} ${user?.last_name ?? ''}`);
+  return `https://ui-avatars.com/api/?background=0d1b2e&color=25a882&name=${name || 'U'}&bold=true&size=64`;
+};
 
 const getUserRole = (user: any) => {
   if (user?.is_agent) return 'Agent';
@@ -178,7 +204,7 @@ const Navbar: React.FC = () => {
               </svg>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
-              <span style={{ fontSize: 17, fontWeight: 800, color: NAVY, letterSpacing: '-0.03em', fontFamily: "'Sora', sans-serif" }}>Metro</span>
+              <span style={{ fontSize: 17, fontWeight: 800, color: NAVY, letterSpacing: '-0.03em', fontFamily: "'Sora', sans-serif" }}>Metro Care</span>
               <span style={{ fontSize: 9.5, fontWeight: 700, color: TEAL, letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: 1 }}>Properties</span>
             </div>
           </a>

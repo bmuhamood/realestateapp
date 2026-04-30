@@ -1,7 +1,4 @@
-// src/pages/ServiceProvidersList.tsx — Redesigned to match AgentsList/Metro Properties design system
-// Colors: RED #e63946 · NAVY #0d1b2e · TEAL #25a882
-// Fonts: Sora (headings) · DM Sans (body)
-// Patterns: Bayut-inspired sticky filter bar, card styles, badges, animations
+// src/pages/ServiceProvidersList.tsx — Full Cloudinary Support
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -81,6 +78,19 @@ const s: Record<string, React.CSSProperties> = {
   retryBtn:     { marginTop: 16, padding: '10px 28px', borderRadius: 10, border: 'none', backgroundColor: RED, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' },
 };
 
+// ─── Helper: Get Cloudinary Image URL ────────────────────────────────────────
+const getCloudinaryUrl = (image: any): string | null => {
+  if (!image) return null;
+  if (typeof image === 'string') {
+    if (image.startsWith('http')) return image;
+    if (image.includes('cloudinary')) return image;
+    return `https://res.cloudinary.com/${process.env.REACT_APP_CLOUDINARY_CLOUD_NAME}/image/upload/${image}`;
+  }
+  if (image.url) return image.url;
+  if (image.image_url) return image.image_url;
+  return null;
+};
+
 // ─── SVG icons ────────────────────────────────────────────────────────────────
 const IconSearch = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" style={{ flexShrink: 0 }}>
@@ -130,6 +140,7 @@ const ServiceProviderCardVertical: React.FC<{
 }> = ({ provider, currentUserId, followingId, onFollow, onNavigate }) => {
   const [hov, setHov] = useState(false);
   const initials = ((provider.first_name?.[0] || '') + (provider.last_name?.[0] || '') || provider.username?.[0] || '?').toUpperCase();
+  const profileImageUrl = getCloudinaryUrl(provider.profile_picture || provider.profile_picture_url);
 
   return (
     <div
@@ -165,11 +176,16 @@ const ServiceProviderCardVertical: React.FC<{
       <div style={{ padding: '0 18px 18px' }}>
         {/* Avatar */}
         <div style={{ position: 'relative', display: 'inline-block', marginTop: -22, marginBottom: 10 }}>
-          {provider.profile_picture ? (
-            <img src={provider.profile_picture} alt={provider.username} style={{
-              width: 52, height: 52, borderRadius: 13, objectFit: 'cover',
-              border: '3px solid #fff', boxShadow: '0 2px 8px rgba(0,0,0,0.12)', display: 'block',
-            }} />
+          {profileImageUrl ? (
+            <img 
+              src={profileImageUrl} 
+              alt={provider.username} 
+              style={{
+                width: 52, height: 52, borderRadius: 13, objectFit: 'cover',
+                border: '3px solid #fff', boxShadow: '0 2px 8px rgba(0,0,0,0.12)', display: 'block',
+              }}
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+            />
           ) : (
             <div style={{
               width: 52, height: 52, borderRadius: 13,
@@ -287,6 +303,7 @@ const ServiceProviderCardHorizontal: React.FC<{
 }> = ({ provider, currentUserId, followingId, onFollow, onNavigate }) => {
   const [hov, setHov] = useState(false);
   const initials = ((provider.first_name?.[0] || '') + (provider.last_name?.[0] || '') || provider.username?.[0] || '?').toUpperCase();
+  const profileImageUrl = getCloudinaryUrl(provider.profile_picture || provider.profile_picture_url);
 
   return (
     <div
@@ -309,11 +326,16 @@ const ServiceProviderCardHorizontal: React.FC<{
         alignItems: 'center', justifyContent: 'center', gap: 10,
         padding: '20px 14px', position: 'relative',
       }}>
-        {provider.profile_picture ? (
-          <img src={provider.profile_picture} alt={provider.username} style={{
-            width: 68, height: 68, borderRadius: 18, objectFit: 'cover',
-            border: '3px solid rgba(255,255,255,0.18)',
-          }} />
+        {profileImageUrl ? (
+          <img 
+            src={profileImageUrl} 
+            alt={provider.username} 
+            style={{
+              width: 68, height: 68, borderRadius: 18, objectFit: 'cover',
+              border: '3px solid rgba(255,255,255,0.18)',
+            }}
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          />
         ) : (
           <div style={{
             width: 68, height: 68, borderRadius: 18,
@@ -494,7 +516,15 @@ const ServiceProvidersList: React.FC = () => {
     try {
       setLoading(true);
       const response = await api.get('/users/?is_service_provider=true');
-      setProviders(response.data.results || response.data);
+      let providersData = response.data.results || response.data;
+      
+      // Process profile picture URLs for Cloudinary
+      providersData = providersData.map((provider: any) => ({
+        ...provider,
+        profile_picture_url: getCloudinaryUrl(provider.profile_picture || provider.profile_picture_url)
+      }));
+      
+      setProviders(providersData);
       setError(null);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to load service providers');

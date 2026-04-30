@@ -1,39 +1,89 @@
-# services/admin.py
+# services/admin.py - WITH CLOUDINARY SUPPORT
+
 from django.contrib import admin
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.db.models import Count, Avg, Q
 from .models import ServiceCategory, Service, ServiceGalleryImage, ServiceBooking, ServiceReview
+import uuid
+
 
 # Inline for Gallery Images
 class ServiceGalleryImageInline(admin.TabularInline):
     model = ServiceGalleryImage
     extra = 1
-    fields = ('image', 'order', 'is_main')
-    readonly_fields = ('preview',)
+    fields = ('image_preview', 'image', 'order', 'is_main', 'cloudinary_id')
+    readonly_fields = ('image_preview', 'cloudinary_id')
     
-    def preview(self, obj):
+    def image_preview(self, obj):
+        """Show image preview with Cloudinary optimization"""
         if obj.image:
-            return format_html('<img src="{}" style="max-height: 50px; max-width: 50px;" />', obj.image.url)
+            try:
+                if hasattr(obj.image, 'url'):
+                    url = obj.image.url
+                    if 'cloudinary.com' in url and '/upload/' in url:
+                        parts = url.split('/upload/')
+                        optimized_url = f"{parts[0]}/upload/w_100,h_100,c_fill,q_auto,f_auto/{parts[1]}"
+                        return format_html('<img src="{}" style="max-height: 50px; max-width: 50px; border-radius: 4px;" />', optimized_url)
+                    return format_html('<img src="{}" style="max-height: 50px; max-width: 50px; border-radius: 4px;" />', url)
+                return format_html('<img src="{}" style="max-height: 50px; max-width: 50px; border-radius: 4px;" />', str(obj.image))
+            except Exception as e:
+                return format_html('<span style="color: red;">Error: {}</span>', str(e))
         return "-"
-    preview.short_description = 'Preview'
+    image_preview.short_description = 'Preview'
+    
+    def cloudinary_id(self, obj):
+        """Display Cloudinary public ID for debugging"""
+        if obj.image and hasattr(obj.image, 'public_id'):
+            return format_html('<code style="font-size: 10px;">{}</code>', obj.image.public_id)
+        return "-"
+    cloudinary_id.short_description = 'Cloudinary ID'
 
 
 @admin.register(ServiceCategory)
 class ServiceCategoryAdmin(admin.ModelAdmin):
-    list_display = ('name', 'icon', 'service_count', 'order', 'is_active', 'created_at')
+    list_display = ('id_short', 'name', 'icon', 'service_count', 'order', 'is_active', 'created_at')
     list_filter = ('is_active', 'created_at')
     search_fields = ('name', 'description')
     list_editable = ('order', 'is_active')
     list_per_page = 20
+    readonly_fields = ('id', 'created_at', 'image_preview')
+    
     fieldsets = (
         ('Basic Information', {
-            'fields': ('name', 'icon', 'description', 'image')
+            'fields': ('id', 'name', 'icon', 'description', 'image', 'image_preview')
         }),
         ('Display Settings', {
             'fields': ('order', 'is_active')
         }),
+        ('Timestamps', {
+            'fields': ('created_at',),
+            'classes': ('collapse',)
+        }),
     )
+    
+    def id_short(self, obj):
+        """Display shortened UUID"""
+        return str(obj.id)[:8]
+    id_short.short_description = 'ID'
+    id_short.admin_order_field = 'id'
+    
+    def image_preview(self, obj):
+        """Show image preview in detail view"""
+        if obj.image:
+            try:
+                if hasattr(obj.image, 'url'):
+                    url = obj.image.url
+                    if 'cloudinary.com' in url and '/upload/' in url:
+                        parts = url.split('/upload/')
+                        optimized_url = f"{parts[0]}/upload/w_200,h_200,c_fill,q_auto,f_auto/{parts[1]}"
+                        return format_html('<img src="{}" style="max-height: 100px; border-radius: 8px;" />', optimized_url)
+                    return format_html('<img src="{}" style="max-height: 100px; border-radius: 8px;" />', url)
+                return format_html('<img src="{}" style="max-height: 100px; border-radius: 8px;" />', str(obj.image))
+            except:
+                pass
+        return "No Image"
+    image_preview.short_description = 'Image Preview'
     
     def service_count(self, obj):
         count = obj.services.filter(is_active=True).count()
@@ -51,37 +101,77 @@ class ServiceCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Service)
 class ServiceAdmin(admin.ModelAdmin):
-    list_display = ('name', 'category', 'service_type_display', 'price_display', 'provider', 
-                   'rating_display', 'is_featured', 'is_active', 'bookings_count')
+    list_display = ('id_short', 'name', 'category', 'service_type_display', 'price_display', 
+                   'provider', 'rating_display', 'is_featured', 'is_active', 'bookings_count')
     list_filter = ('category', 'service_type', 'is_featured', 'is_active', 'created_at')
     search_fields = ('name', 'description', 'provider', 'provider_phone', 'provider_email')
     list_editable = ('is_featured', 'is_active')
     list_per_page = 20
-    readonly_fields = ('rating', 'reviews_count', 'created_at', 'updated_at', 'preview_image')
+    readonly_fields = ('id', 'rating', 'reviews_count', 'created_at', 'updated_at', 'image_preview', 'cloudinary_details')
     
     # Add the inline for gallery images
     inlines = [ServiceGalleryImageInline]
     
     fieldsets = (
         ('Basic Information', {
-            'fields': ('category', 'service_type', 'name', 'description', 'image', 'preview_image')
+            'fields': ('id', 'category', 'service_type', 'name', 'description', 'image', 'image_preview')
         }),
         ('Pricing & Duration', {
             'fields': ('price', 'price_unit', 'duration'),
             'classes': ('wide',)
         }),
         ('Provider Information', {
-            'fields': ('provider', 'provider_phone', 'provider_email'),
+            'fields': ('provider', 'provider_phone', 'provider_email', 'provider_user'),
             'classes': ('collapse',)
         }),
         ('Display Settings', {
             'fields': ('is_featured', 'is_active'),
+        }),
+        ('Cloudinary Details', {
+            'fields': ('cloudinary_details',),
+            'classes': ('collapse',)
         }),
         ('Statistics', {
             'fields': ('rating', 'reviews_count', 'created_at', 'updated_at'),
             'classes': ('collapse',)
         }),
     )
+    
+    def id_short(self, obj):
+        """Display shortened UUID"""
+        return str(obj.id)[:8]
+    id_short.short_description = 'ID'
+    id_short.admin_order_field = 'id'
+    
+    def image_preview(self, obj):
+        """Show image preview in detail view"""
+        if obj.image:
+            try:
+                if hasattr(obj.image, 'url'):
+                    url = obj.image.url
+                    if 'cloudinary.com' in url and '/upload/' in url:
+                        parts = url.split('/upload/')
+                        optimized_url = f"{parts[0]}/upload/w_200,h_200,c_fill,q_auto,f_auto/{parts[1]}"
+                        return format_html('<img src="{}" style="max-height: 100px; border-radius: 8px;" />', optimized_url)
+                    return format_html('<img src="{}" style="max-height: 100px; border-radius: 8px;" />', url)
+                return format_html('<img src="{}" style="max-height: 100px; border-radius: 8px;" />', str(obj.image))
+            except:
+                pass
+        return "No Image"
+    image_preview.short_description = 'Image Preview'
+    
+    def cloudinary_details(self, obj):
+        """Display Cloudinary details for debugging"""
+        if obj.image and hasattr(obj.image, 'public_id'):
+            return format_html('''
+                <div style="background: #f0f0f0; padding: 10px; border-radius: 5px;">
+                    <strong>Public ID:</strong> <code>{}</code><br>
+                    <strong>Format:</strong> {}<br>
+                    <strong>Resource Type:</strong> image
+                </div>
+            ''', obj.image.public_id, getattr(obj.image, 'format', 'N/A'))
+        return format_html('<span style="color: #999;">No Cloudinary image</span>')
+    cloudinary_details.short_description = 'Cloudinary Details'
     
     def service_type_display(self, obj):
         type_labels = {
@@ -122,15 +212,6 @@ class ServiceAdmin(admin.ModelAdmin):
         return 'No ratings'
     rating_display.short_description = 'Rating'
     
-    def preview_image(self, obj):
-        if obj.image:
-            return format_html(
-                '<img src="{}" style="max-height: 80px; max-width: 80px; border-radius: 8px;" />',
-                obj.image.url
-            )
-        return "No Image"
-    preview_image.short_description = 'Preview'
-    
     def bookings_count(self, obj):
         count = obj.bookings.count()
         return mark_safe(f'<span style="background-color: #2196f3; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px;">{count}</span>')
@@ -141,7 +222,7 @@ class ServiceAdmin(admin.ModelAdmin):
             bookings_count=Count('bookings')
         )
     
-    actions = ['mark_as_featured', 'mark_as_active', 'mark_as_inactive']
+    actions = ['mark_as_featured', 'mark_as_active', 'mark_as_inactive', 'delete_cloudinary_images']
     
     def mark_as_featured(self, request, queryset):
         updated = queryset.update(is_featured=True)
@@ -157,21 +238,46 @@ class ServiceAdmin(admin.ModelAdmin):
         updated = queryset.update(is_active=False)
         self.message_user(request, f"{updated} services deactivated.")
     mark_as_inactive.short_description = "Deactivate selected services"
+    
+    def delete_cloudinary_images(self, request, queryset):
+        """Delete Cloudinary images for selected services"""
+        import cloudinary.uploader
+        deleted_count = 0
+        
+        for service in queryset:
+            if service.image and hasattr(service.image, 'public_id'):
+                try:
+                    cloudinary.uploader.destroy(service.image.public_id)
+                    deleted_count += 1
+                except:
+                    pass
+            
+            # Delete gallery images
+            for img in service.gallery_images.all():
+                if img.image and hasattr(img.image, 'public_id'):
+                    try:
+                        cloudinary.uploader.destroy(img.image.public_id)
+                        deleted_count += 1
+                    except:
+                        pass
+        
+        self.message_user(request, f'Deleted {deleted_count} images from Cloudinary.')
+    delete_cloudinary_images.short_description = 'Delete Cloudinary images'
 
 
 @admin.register(ServiceBooking)
 class ServiceBookingAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user_display', 'service_display', 'booking_date_display', 
+    list_display = ('id_short', 'user_display', 'service_display', 'booking_date_display', 
                    'status_display', 'total_price_display', 'created_at')
     list_filter = ('status', 'created_at', 'booking_date')
     search_fields = ('user__username', 'user__email', 'service__name', 'address')
-    readonly_fields = ('created_at', 'updated_at', 'total_price')
+    readonly_fields = ('id', 'created_at', 'updated_at', 'total_price')
     list_per_page = 20
     date_hierarchy = 'booking_date'
     
     fieldsets = (
         ('Booking Information', {
-            'fields': ('user', 'service', 'booking_date', 'address', 'special_instructions')
+            'fields': ('id', 'user', 'service', 'booking_date', 'address', 'special_instructions')
         }),
         ('Payment & Status', {
             'fields': ('status', 'total_price')
@@ -181,6 +287,12 @@ class ServiceBookingAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
+    
+    def id_short(self, obj):
+        """Display shortened UUID"""
+        return str(obj.id)[:8]
+    id_short.short_description = 'ID'
+    id_short.admin_order_field = 'id'
     
     def user_display(self, obj):
         return mark_safe(f'<strong>{obj.user.username}</strong><br/><span style="color: #64748b; font-size: 11px;">{obj.user.email}</span>')
@@ -238,22 +350,28 @@ class ServiceBookingAdmin(admin.ModelAdmin):
 
 @admin.register(ServiceReview)
 class ServiceReviewAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user_display', 'service_display', 'rating_stars', 
+    list_display = ('id_short', 'user_display', 'service_display', 'rating_stars', 
                    'comment_preview', 'created_at')
     list_filter = ('rating', 'created_at')
     search_fields = ('user__username', 'service__name', 'comment')
-    readonly_fields = ('created_at',)
+    readonly_fields = ('id', 'created_at')
     list_per_page = 20
     
     fieldsets = (
         ('Review Information', {
-            'fields': ('user', 'service', 'rating', 'comment')
+            'fields': ('id', 'user', 'service', 'rating', 'comment')
         }),
         ('Timestamps', {
             'fields': ('created_at',),
             'classes': ('collapse',)
         }),
     )
+    
+    def id_short(self, obj):
+        """Display shortened UUID"""
+        return str(obj.id)[:8]
+    id_short.short_description = 'ID'
+    id_short.admin_order_field = 'id'
     
     def user_display(self, obj):
         return mark_safe(f'<strong>{obj.user.username}</strong><br/><span style="color: #64748b;">{obj.user.email}</span>')

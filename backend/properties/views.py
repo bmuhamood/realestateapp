@@ -1,4 +1,4 @@
-# properties/views.py - COMPLETE WORKING VERSION
+# properties/views.py - UPDATED FOR UUID SUPPORT
 from datetime import timedelta
 from rest_framework import generics, permissions, filters, status
 from rest_framework.response import Response
@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import F, Q
 from django.utils import timezone
+from django.shortcuts import get_object_or_404
 from .models import (
     Property, PropertyImage, PropertyLike, PropertyView, 
     PropertyVideo, PropertyDocument, PropertyReview, PropertyInquiry
@@ -18,16 +19,22 @@ from .serializers import (
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 import json
 from django_filters import rest_framework as django_filters
+import cloudinary.uploader
+import cloudinary.api
+import uuid
 
 # Import BoostPackage from payments.models
-from payments.models import BoostPackage
+try:
+    from payments.models import BoostPackage
+except ImportError:
+    BoostPackage = None
 
 
 # ========== FILTER CLASS ==========
 class PropertyFilter(django_filters.FilterSet):
-    owner = django_filters.NumberFilter(field_name='owner__id')
-    user = django_filters.NumberFilter(field_name='owner__id')
-    agent = django_filters.NumberFilter(field_name='owner__id')
+    owner = django_filters.UUIDFilter(field_name='owner__id')  # Changed to UUIDFilter
+    user = django_filters.UUIDFilter(field_name='owner__id')
+    agent = django_filters.UUIDFilter(field_name='owner__id')
     
     # New filters for upgraded features
     min_price = django_filters.NumberFilter(field_name='price', lookup_expr='gte')
@@ -66,6 +73,9 @@ class PropertyRecommendationsView(APIView):
         try:
             if pk:
                 try:
+                    # Handle UUID string conversion
+                    if isinstance(pk, str):
+                        pk = uuid.UUID(pk)
                     current_property = Property.objects.get(pk=pk, is_available=True)
                     price_range = 0.3
                     min_price = float(current_property.price) * (1 - price_range)
@@ -90,7 +100,7 @@ class PropertyRecommendationsView(APIView):
                     
                     serializer = PropertySerializer(queryset, many=True, context={'request': request})
                     return Response(serializer.data, status=status.HTTP_200_OK)
-                except Property.DoesNotExist:
+                except (Property.DoesNotExist, ValueError):
                     pass
             
             queryset = Property.objects.filter(
@@ -151,10 +161,19 @@ class PropertyListView(generics.ListCreateAPIView):
             expires_at__gt=timezone.now()
         )
         
-        # Filter by owner
+        # Filter by owner (handle UUID string)
         owner_id = self.request.query_params.get('owner')
         if owner_id:
-            queryset = queryset.filter(owner_id=owner_id)
+            try:
+                owner_uuid = uuid.UUID(owner_id)
+                queryset = queryset.filter(owner_id=owner_uuid)
+            except ValueError:
+                pass
+        
+        # Filter by authenticated user's properties
+        my_properties = self.request.query_params.get('my_properties')
+        if my_properties == 'true' and self.request.user.is_authenticated:
+            queryset = queryset.filter(owner=self.request.user)
         
         # Location filters
         city = self.request.query_params.get('city')
@@ -242,6 +261,10 @@ class PropertyListView(generics.ListCreateAPIView):
         if self.request.method == 'POST':
             return PropertyCreateSerializer
         return PropertySerializer
+    
+    def perform_create(self, serializer):
+        """Create property with Cloudinary upload handling"""
+        serializer.save(owner=self.request.user)
 
 
 # ========== PROPERTY DETAIL VIEW ==========
@@ -250,6 +273,7 @@ class PropertyDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Property.objects.all()
     permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
     parser_classes = (MultiPartParser, FormParser, JSONParser)
+    lookup_field = 'pk'
     
     def get_serializer_class(self):
         if self.request.method in ['PUT', 'PATCH']:
@@ -260,12 +284,14 @@ class PropertyDetailView(generics.RetrieveUpdateDestroyAPIView):
         try:
             instance = self.get_object()
             
+            # Track view
             PropertyView.objects.create(
                 property=instance,
                 user=request.user if request.user.is_authenticated else None,
                 ip_address=request.META.get('REMOTE_ADDR', '0.0.0.0')
             )
             
+            # Increment view count
             instance.views_count = F('views_count') + 1
             instance.save(update_fields=['views_count'])
             instance.refresh_from_db()
@@ -295,7 +321,16 @@ class PropertyDetailView(generics.RetrieveUpdateDestroyAPIView):
             if existing_images:
                 try:
                     existing_image_ids = json.loads(existing_images)
-                    instance.images.exclude(id__in=existing_image_ids).delete()
+                    # Delete images that are no longer in the list
+                    images_to_delete = instance.images.exclude(id__in=existing_image_ids)
+                    for img in images_to_delete:
+                        # Delete from Cloudinary
+                        if img.image:
+                            try:
+                                cloudinary.uploader.destroy(img.image.public_id)
+                            except:
+                                pass
+                        img.delete()
                 except (json.JSONDecodeError, TypeError) as e:
                     print(f"Error parsing existing_images: {e}")
             
@@ -307,17 +342,28 @@ class PropertyDetailView(generics.RetrieveUpdateDestroyAPIView):
             else:
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
             
-            # Handle main image after save
+            # Handle main image after save (UUID handling)
             main_image_id = request.data.get('main_image_id')
             if main_image_id and main_image_id != 'new':
                 try:
-                    instance.images.filter(id=int(main_image_id)).update(is_main=True)
-                    instance.images.exclude(id=int(main_image_id)).update(is_main=False)
-                except (ValueError, TypeError) as e:
+                    # Convert string to UUID if needed
+                    if isinstance(main_image_id, str):
+                        main_image_uuid = uuid.UUID(main_image_id)
+                    else:
+                        main_image_uuid = main_image_id
+                    instance.images.filter(id=main_image_uuid).update(is_main=True)
+                    instance.images.exclude(id=main_image_uuid).update(is_main=False)
+                except (ValueError, TypeError, AttributeError) as e:
                     print(f"Error setting main image: {e}")
             
             # Handle video file if uploaded
             if 'video_file' in request.FILES:
+                # Delete old video from Cloudinary if exists
+                if instance.video_file:
+                    try:
+                        cloudinary.uploader.destroy(instance.video_file.public_id, resource_type='video')
+                    except:
+                        pass
                 instance.video_file = request.FILES['video_file']
                 instance.save(update_fields=['video_file'])
             
@@ -349,17 +395,43 @@ class PropertyDetailView(generics.RetrieveUpdateDestroyAPIView):
                 )
             
             # Check for active bookings
-            from bookings.models import Booking
-            active_bookings = Booking.objects.filter(
-                property=instance,
-                status__in=['pending', 'confirmed']
-            ).exists()
+            try:
+                from bookings.models import Booking
+                active_bookings = Booking.objects.filter(
+                    property=instance,
+                    status__in=['pending', 'confirmed']
+                ).exists()
+                
+                if active_bookings:
+                    return Response(
+                        {'error': 'Cannot delete property with active bookings'}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            except ImportError:
+                pass
             
-            if active_bookings:
-                return Response(
-                    {'error': 'Cannot delete property with active bookings'}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+            # Delete all associated images from Cloudinary
+            for image in instance.images.all():
+                if image.image:
+                    try:
+                        cloudinary.uploader.destroy(image.image.public_id)
+                    except:
+                        pass
+            
+            # Delete video from Cloudinary
+            if instance.video_file:
+                try:
+                    cloudinary.uploader.destroy(instance.video_file.public_id, resource_type='video')
+                except:
+                    pass
+            
+            # Delete documents from Cloudinary
+            for doc in instance.documents.all():
+                if doc.file:
+                    try:
+                        cloudinary.uploader.destroy(doc.file.public_id, resource_type='raw')
+                    except:
+                        pass
             
             instance.delete()
             return Response(
@@ -382,6 +454,9 @@ class PropertyLikeView(APIView):
     
     def post(self, request, pk):
         try:
+            # Handle UUID conversion
+            if isinstance(pk, str):
+                pk = uuid.UUID(pk)
             property_obj = Property.objects.get(pk=pk, is_available=True)
             like, created = PropertyLike.objects.get_or_create(
                 user=request.user,
@@ -406,7 +481,7 @@ class PropertyLikeView(APIView):
                     'likes_count': property_obj.likes_count
                 }, status=status.HTTP_200_OK)
                 
-        except Property.DoesNotExist:
+        except (Property.DoesNotExist, ValueError):
             return Response(
                 {'error': 'Property not found'}, 
                 status=status.HTTP_404_NOT_FOUND
@@ -445,6 +520,8 @@ class BoostPropertyView(APIView):
     
     def post(self, request, pk):
         try:
+            if isinstance(pk, str):
+                pk = uuid.UUID(pk)
             property_obj = Property.objects.get(pk=pk, owner=request.user, is_available=True)
             property_obj.is_boosted = True
             property_obj.boosted_until = timezone.now() + timedelta(days=7)
@@ -454,7 +531,7 @@ class BoostPropertyView(APIView):
                 'message': 'Property boosted successfully',
                 'boosted_until': property_obj.boosted_until
             }, status=status.HTTP_200_OK)
-        except Property.DoesNotExist:
+        except (Property.DoesNotExist, ValueError):
             return Response(
                 {'error': 'Property not found or you don\'t have permission'}, 
                 status=status.HTTP_404_NOT_FOUND
@@ -474,6 +551,15 @@ class BoostPackageListView(APIView):
     
     def get(self, request):
         try:
+            if BoostPackage is None:
+                # Return default packages if model doesn't exist yet
+                default_packages = [
+                    {'id': 1, 'name': 'Standard', 'duration_days': 7, 'price': 29.99, 'priority': 1},
+                    {'id': 2, 'name': 'Premium', 'duration_days': 14, 'price': 49.99, 'priority': 2},
+                    {'id': 3, 'name': 'VIP', 'duration_days': 30, 'price': 99.99, 'priority': 3},
+                ]
+                return Response(default_packages, status=status.HTTP_200_OK)
+            
             packages = BoostPackage.objects.filter(is_active=True).order_by('price')
             
             if not packages.exists():
@@ -526,14 +612,19 @@ class UserFavoritesView(generics.ListAPIView):
             return Response({'count': 0, 'results': []}, status=status.HTTP_200_OK)
 
 
-# ========== NEW: PROPERTY VIDEO VIEWS ==========
+# ========== PROPERTY VIDEO VIEWS ==========
 class PropertyVideoView(APIView):
     """Handle video uploads for properties"""
     permission_classes = (permissions.IsAuthenticated,)
     
     def post(self, request, property_id):
         try:
-            property_obj = Property.objects.get(id=property_id, owner=request.user)
+            # Handle UUID conversion
+            if isinstance(property_id, str):
+                property_uuid = uuid.UUID(property_id)
+            else:
+                property_uuid = property_id
+            property_obj = Property.objects.get(id=property_uuid, owner=request.user)
             serializer = PropertyVideoSerializer(data=request.data)
             
             if serializer.is_valid():
@@ -541,26 +632,42 @@ class PropertyVideoView(APIView):
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
             
-        except Property.DoesNotExist:
+        except (Property.DoesNotExist, ValueError):
             return Response({'error': 'Property not found'}, status=status.HTTP_404_NOT_FOUND)
     
     def delete(self, request, property_id, video_id):
         try:
-            video = PropertyVideo.objects.get(id=video_id, property_id=property_id, property__owner=request.user)
+            if isinstance(video_id, str):
+                video_uuid = uuid.UUID(video_id)
+            else:
+                video_uuid = video_id
+            video = PropertyVideo.objects.get(id=video_uuid, property__owner=request.user)
+            
+            # Delete from Cloudinary
+            if video.video_file:
+                try:
+                    cloudinary.uploader.destroy(video.video_file.public_id, resource_type='video')
+                except:
+                    pass
+            
             video.delete()
             return Response({'message': 'Video deleted'}, status=status.HTTP_200_OK)
-        except PropertyVideo.DoesNotExist:
+        except (PropertyVideo.DoesNotExist, ValueError):
             return Response({'error': 'Video not found'}, status=status.HTTP_404_NOT_FOUND)
 
 
-# ========== NEW: PROPERTY DOCUMENT VIEWS ==========
+# ========== PROPERTY DOCUMENT VIEWS ==========
 class PropertyDocumentView(APIView):
     """Handle document uploads for properties"""
     permission_classes = (permissions.IsAuthenticated,)
     
     def post(self, request, property_id):
         try:
-            property_obj = Property.objects.get(id=property_id, owner=request.user)
+            if isinstance(property_id, str):
+                property_uuid = uuid.UUID(property_id)
+            else:
+                property_uuid = property_id
+            property_obj = Property.objects.get(id=property_uuid, owner=request.user)
             serializer = PropertyDocumentSerializer(data=request.data)
             
             if serializer.is_valid():
@@ -568,19 +675,31 @@ class PropertyDocumentView(APIView):
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
             
-        except Property.DoesNotExist:
+        except (Property.DoesNotExist, ValueError):
             return Response({'error': 'Property not found'}, status=status.HTTP_404_NOT_FOUND)
     
     def delete(self, request, property_id, document_id):
         try:
-            doc = PropertyDocument.objects.get(id=document_id, property_id=property_id, property__owner=request.user)
+            if isinstance(document_id, str):
+                doc_uuid = uuid.UUID(document_id)
+            else:
+                doc_uuid = document_id
+            doc = PropertyDocument.objects.get(id=doc_uuid, property__owner=request.user)
+            
+            # Delete from Cloudinary
+            if doc.file:
+                try:
+                    cloudinary.uploader.destroy(doc.file.public_id, resource_type='raw')
+                except:
+                    pass
+            
             doc.delete()
             return Response({'message': 'Document deleted'}, status=status.HTTP_200_OK)
-        except PropertyDocument.DoesNotExist:
+        except (PropertyDocument.DoesNotExist, ValueError):
             return Response({'error': 'Document not found'}, status=status.HTTP_404_NOT_FOUND)
 
 
-# ========== NEW: PROPERTY REVIEW VIEWS ==========
+# ========== PROPERTY REVIEW VIEWS ==========
 class PropertyReviewView(generics.ListCreateAPIView):
     """List and create reviews for properties"""
     serializer_class = PropertyReviewSerializer
@@ -588,11 +707,22 @@ class PropertyReviewView(generics.ListCreateAPIView):
     
     def get_queryset(self):
         property_id = self.kwargs.get('property_id')
-        return PropertyReview.objects.filter(property_id=property_id).order_by('-created_at')
+        try:
+            if isinstance(property_id, str):
+                property_uuid = uuid.UUID(property_id)
+            else:
+                property_uuid = property_id
+            return PropertyReview.objects.filter(property_id=property_uuid).order_by('-created_at')
+        except ValueError:
+            return PropertyReview.objects.none()
     
     def perform_create(self, serializer):
         property_id = self.kwargs.get('property_id')
-        property_obj = Property.objects.get(id=property_id)
+        if isinstance(property_id, str):
+            property_uuid = uuid.UUID(property_id)
+        else:
+            property_uuid = property_id
+        property_obj = Property.objects.get(id=property_uuid)
         serializer.save(user=self.request.user, property=property_obj)
         
         # Update property average rating
@@ -600,9 +730,14 @@ class PropertyReviewView(generics.ListCreateAPIView):
         avg_rating = sum(r.rating for r in reviews) / reviews.count()
         property_obj.school_rating = avg_rating
         property_obj.save(update_fields=['school_rating'])
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
 
 
-# ========== NEW: PROPERTY INQUIRY VIEW ==========
+# ========== PROPERTY INQUIRY VIEW ==========
 class PropertyInquiryView(generics.CreateAPIView):
     """Create an inquiry about a property"""
     serializer_class = PropertyInquirySerializer
@@ -610,7 +745,11 @@ class PropertyInquiryView(generics.CreateAPIView):
     
     def perform_create(self, serializer):
         property_id = self.kwargs.get('property_id')
-        property_obj = Property.objects.get(id=property_id)
+        if isinstance(property_id, str):
+            property_uuid = uuid.UUID(property_id)
+        else:
+            property_uuid = property_id
+        property_obj = Property.objects.get(id=property_uuid)
         
         if self.request.user.is_authenticated:
             serializer.save(
@@ -630,7 +769,11 @@ class PropertyImageView(APIView):
     
     def delete(self, request, image_id):
         try:
-            image = PropertyImage.objects.get(id=image_id)
+            if isinstance(image_id, str):
+                image_uuid = uuid.UUID(image_id)
+            else:
+                image_uuid = image_id
+            image = PropertyImage.objects.get(id=image_uuid)
             # Check if user owns the property
             if image.property.owner != request.user and not request.user.is_staff:
                 return Response(
@@ -638,14 +781,92 @@ class PropertyImageView(APIView):
                     status=status.HTTP_403_FORBIDDEN
                 )
             
+            # Delete from Cloudinary
+            if image.image:
+                try:
+                    cloudinary.uploader.destroy(image.image.public_id)
+                except Exception as e:
+                    print(f"Error deleting from Cloudinary: {e}")
+            
             # If this was the main image, set another image as main
             if image.is_main:
-                other_image = image.property.images.exclude(id=image_id).first()
+                other_image = image.property.images.exclude(id=image_uuid).first()
                 if other_image:
                     other_image.is_main = True
                     other_image.save()
             
             image.delete()
             return Response({'message': 'Image deleted successfully'}, status=status.HTTP_200_OK)
-        except PropertyImage.DoesNotExist:
+        except (PropertyImage.DoesNotExist, ValueError):
             return Response({'error': 'Image not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+# ========== BULK IMAGE UPLOAD VIEW ==========
+class BulkPropertyImageUploadView(APIView):
+    """Upload multiple images at once"""
+    permission_classes = (permissions.IsAuthenticated,)
+    parser_classes = (MultiPartParser,)
+    
+    def post(self, request, property_id):
+        try:
+            if isinstance(property_id, str):
+                property_uuid = uuid.UUID(property_id)
+            else:
+                property_uuid = property_id
+            property_obj = Property.objects.get(id=property_uuid, owner=request.user)
+            images = request.FILES.getlist('images')
+            
+            if not images:
+                return Response(
+                    {'error': 'No images provided'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            if len(images) > 20:
+                return Response(
+                    {'error': 'Maximum 20 images per upload'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            uploaded_images = []
+            current_count = property_obj.images.count()
+            
+            for i, image in enumerate(images):
+                # Validate file size (max 10MB)
+                if image.size > 10 * 1024 * 1024:
+                    return Response(
+                        {'error': f'Image {image.name} exceeds 10MB limit'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                is_main = (i == 0 and current_count == 0)
+                prop_image = PropertyImage.objects.create(
+                    property=property_obj,
+                    image=image,
+                    is_main=is_main,
+                    order=current_count + i
+                )
+                
+                uploaded_images.append({
+                    'id': str(prop_image.id),  # Convert UUID to string
+                    'url': prop_image.image.url if prop_image.image else None,
+                    'is_main': prop_image.is_main,
+                    'order': prop_image.order
+                })
+            
+            return Response({
+                'message': f'Successfully uploaded {len(uploaded_images)} images',
+                'images': uploaded_images
+            }, status=status.HTTP_201_CREATED)
+            
+        except (Property.DoesNotExist, ValueError):
+            return Response(
+                {'error': 'Property not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            print(f"Error in bulk upload: {e}")
+            return Response(
+                {'error': f'Upload failed: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

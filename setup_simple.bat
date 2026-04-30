@@ -1,6 +1,6 @@
 @echo off
 echo ============================================
-echo METRO PROPERTIES App - Simple Setup
+echo METRO CARE PROPERTIES App - Simple Setup
 echo ============================================
 echo.
 

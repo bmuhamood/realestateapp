@@ -1,9 +1,13 @@
-# chatbot/models.py - COMPLETE FIXED VERSION
+# chatbot/models.py - WITH UUID PRIMARY KEYS ONLY
+
 from django.db import models
 from django.conf import settings
 import uuid
 
 class ChatSession(models.Model):
+    # Add UUID primary key
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='chat_sessions', null=True, blank=True)
     session_id = models.UUIDField(default=uuid.uuid4)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -26,6 +30,9 @@ class ChatSession(models.Model):
 
 
 class ChatMessage(models.Model):
+    # Add UUID primary key
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
     MESSAGE_TYPES = [
         ('user', 'User'),
         ('bot', 'Bot'),
@@ -67,6 +74,9 @@ class ChatMessage(models.Model):
 
 
 class UserChatPreference(models.Model):
+    # Add UUID primary key
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='chat_preferences')
     
     # Learned preferences
@@ -89,6 +99,9 @@ class UserChatPreference(models.Model):
 
 class ConversationAnalytics(models.Model):
     """Track conversation patterns for improvement"""
+    # Add UUID primary key
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
     session = models.ForeignKey(ChatSession, on_delete=models.CASCADE)
     user_message = models.TextField()
     bot_response = models.TextField()
@@ -103,6 +116,9 @@ class ConversationAnalytics(models.Model):
 
 class AgentUsage(models.Model):
     """Track agent usage for analytics"""
+    # Add UUID primary key
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
     session_id = models.CharField(max_length=100)
     agent_name = models.CharField(max_length=50)
     user_message = models.TextField()
@@ -124,6 +140,9 @@ class AgentUsage(models.Model):
 
 class UserFeedback(models.Model):
     """Store user feedback for training"""
+    # Add UUID primary key
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
     FEEDBACK_TYPES = [
         ('helpful', 'Helpful'),
         ('not_helpful', 'Not Helpful'),

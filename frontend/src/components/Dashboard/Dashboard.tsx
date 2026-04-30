@@ -1,8 +1,4 @@
-/**
- * Dashboard.tsx — Agent Dashboard · Metro Properties design system
- * Colors: RED #e63946 · NAVY #0d1b2e · TEAL #25a882
- * Fonts:  Sora (headings) · DM Sans (body)
- */
+// src/components/Dashboard/Dashboard.tsx - WITH CLOUDINARY IMAGE SUPPORT
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -12,19 +8,42 @@ import { Property, Booking, PropertyImage } from '../../types';
 import BoostModal from '../Boost/BoostModal';
 
 // ─── Brand tokens ─────────────────────────────────────────────────────────────
-const RED      = '#e63946';
-const RED_BG   = 'rgba(230,57,70,0.07)';
-const RED_DARK = '#c1121f';
-const NAVY     = '#0d1b2e';
-const TEAL     = '#25a882';
-const TEAL_BG  = 'rgba(37,168,130,0.08)';
-const SLATE    = '#475569';
-const AMBER    = '#f59e0b';
+const RED = '#e63946';
+const RED_BG = 'rgba(230,57,70,0.07)';
+const NAVY = '#0d1b2e';
+const TEAL = '#25a882';
+const TEAL_BG = 'rgba(37,168,130,0.08)';
+const SLATE = '#475569';
+const AMBER = '#f59e0b';
 const AMBER_BG = 'rgba(245,158,11,0.08)';
-const GREEN    = '#16a34a';
+const GREEN = '#16a34a';
 const GREEN_BG = 'rgba(22,163,74,0.08)';
-const ORANGE   = '#f97316';
+const ORANGE = '#f97316';
 const ORANGE_BG = 'rgba(249,115,22,0.08)';
+
+// ─── Cloudinary Configuration ────────────────────────────────────────────────
+const CLOUDINARY_CLOUD_NAME = 'drcy2xxkg';
+
+const getCloudinaryUrl = (image: string | null | undefined): string => {
+  if (!image) return '';
+  if (image.startsWith('http://') || image.startsWith('https://')) {
+    // If it's a Cloudinary URL, add auto format optimization
+    if (image.includes('cloudinary.com') && !image.includes('f_auto')) {
+      const parts = image.split('/upload/');
+      if (parts.length === 2) {
+        return `${parts[0]}/upload/f_auto,q_auto/${parts[1]}`;
+      }
+    }
+    return image;
+  }
+  // Remove any existing 'image/upload/' to prevent duplication
+  let cleanUrl = image;
+  if (cleanUrl.includes('image/upload/')) {
+    cleanUrl = cleanUrl.replace('image/upload/', '');
+  }
+  cleanUrl = cleanUrl.replace(/^\/+/, '');
+  return `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/f_auto,q_auto/${cleanUrl}`;
+};
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface UploadImage { file: File; preview: string; is_main: boolean; }
@@ -47,12 +66,12 @@ const getInitials = (user: any) =>
 
 // ─── Status Badge ─────────────────────────────────────────────────────────────
 const STATUS_STYLES: Record<string, { bg: string; color: string; dot: string }> = {
-  pending:     { bg: '#fef3c7', color: '#92400e', dot: AMBER },
-  confirmed:   { bg: '#dcfce7', color: '#166534', dot: GREEN },
-  completed:   { bg: '#dbeafe', color: '#1e40af', dot: '#3b82f6' },
-  cancelled:   { bg: '#fee2e2', color: '#991b1b', dot: '#ef4444' },
+  pending: { bg: '#fef3c7', color: '#92400e', dot: AMBER },
+  confirmed: { bg: '#dcfce7', color: '#166534', dot: GREEN },
+  completed: { bg: '#dbeafe', color: '#1e40af', dot: '#3b82f6' },
+  cancelled: { bg: '#fee2e2', color: '#991b1b', dot: '#ef4444' },
   in_progress: { bg: '#fed7aa', color: '#9b2c1d', dot: ORANGE },
-  available:   { bg: TEAL_BG,   color: '#166534', dot: TEAL },
+  available: { bg: TEAL_BG, color: '#166534', dot: TEAL },
   unavailable: { bg: '#fee2e2', color: '#991b1b', dot: '#ef4444' },
 };
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
@@ -68,34 +87,33 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 const StatCard: React.FC<{ icon: string; label: string; value: string | number; color: string; bg: string; sub?: string; delay?: string }> =
   ({ icon, label, value, color, bg, sub, delay = '0s' }) => {
-  const [hov, setHov] = useState(false);
-  return (
-    <div
-      onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-      style={{
-        backgroundColor: '#fff', borderRadius: 18, padding: '20px 20px',
-        border: `1.5px solid ${hov ? color : '#eef2f7'}`,
-        boxShadow: hov ? `0 10px 28px rgba(0,0,0,0.09)` : '0 1px 4px rgba(0,0,0,0.04)',
-        transition: 'all 0.22s', animation: `dbFadeUp 0.4s ease-out ${delay} both`,
-        transform: hov ? 'translateY(-4px)' : 'none',
-        position: 'relative', overflow: 'hidden',
-      }}
-    >
-      {/* Decorative arc */}
-      <div style={{ position: 'absolute', top: -24, right: -24, width: 90, height: 90, borderRadius: '50%', backgroundColor: `${color}12`, pointerEvents: 'none' }} />
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>{label}</div>
-          <div style={{ fontSize: 28, fontWeight: 900, color, fontFamily: "'Sora', sans-serif", lineHeight: 1, letterSpacing: '-0.03em' }}>{value}</div>
-          {sub && <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 5 }}>{sub}</div>}
-        </div>
-        <div style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
-          {icon}
+    const [hov, setHov] = useState(false);
+    return (
+      <div
+        onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+        style={{
+          backgroundColor: '#fff', borderRadius: 18, padding: '20px 20px',
+          border: `1.5px solid ${hov ? color : '#eef2f7'}`,
+          boxShadow: hov ? `0 10px 28px rgba(0,0,0,0.09)` : '0 1px 4px rgba(0,0,0,0.04)',
+          transition: 'all 0.22s', animation: `dbFadeUp 0.4s ease-out ${delay} both`,
+          transform: hov ? 'translateY(-4px)' : 'none',
+          position: 'relative', overflow: 'hidden',
+        }}
+      >
+        <div style={{ position: 'absolute', top: -24, right: -24, width: 90, height: 90, borderRadius: '50%', backgroundColor: `${color}12`, pointerEvents: 'none' }} />
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>{label}</div>
+            <div style={{ fontSize: 28, fontWeight: 900, color, fontFamily: "'Sora', sans-serif", lineHeight: 1, letterSpacing: '-0.03em' }}>{value}</div>
+            {sub && <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 5 }}>{sub}</div>}
+          </div>
+          <div style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
+            {icon}
+          </div>
         </div>
       </div>
-    </div>
-  );
-};
+    );
+  };
 
 // ─── Nav Tab ──────────────────────────────────────────────────────────────────
 const NavTab: React.FC<{ icon: string; label: string; count?: number; active: boolean; onClick: () => void }> = ({ icon, label, count, active, onClick }) => (
@@ -118,6 +136,28 @@ const NavTab: React.FC<{ icon: string; label: string; count?: number; active: bo
   </button>
 );
 
+// ─── Action Button ────────────────────────────────────────────────────────────
+const ActionBtn: React.FC<{ color: string; bg: string; label: string; title: string; onClick: () => void; disabled?: boolean }> =
+  ({ color, bg, label, title, onClick, disabled }) => {
+    const [hov, setHov] = useState(false);
+    return (
+      <button
+        onClick={onClick} title={title} disabled={disabled}
+        onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+        style={{
+          padding: '6px 10px', borderRadius: 8,
+          border: `1.5px solid ${color}33`,
+          backgroundColor: hov ? color : bg,
+          fontSize: 13, cursor: disabled ? 'not-allowed' : 'pointer',
+          transition: 'all 0.15s', opacity: disabled ? 0.45 : 1,
+          lineHeight: 1,
+        }}
+      >
+        {label}
+      </button>
+    );
+  };
+
 // ─── Property Row (table row with thumbnail) ──────────────────────────────────
 const PropertyRow: React.FC<{
   property: Property;
@@ -129,7 +169,16 @@ const PropertyRow: React.FC<{
   onBoost: () => void;
 }> = ({ property, bookingCount, hasActiveBookings, onView, onEdit, onDelete, onBoost }) => {
   const [hov, setHov] = useState(false);
-  const img = property.images?.find(i => i.is_main)?.image || property.images?.[0]?.image;
+  const [imgError, setImgError] = useState(false);
+  
+  const getImageUrl = () => {
+    if (imgError) return '';
+    const img = property.images?.find(i => i.is_main)?.image_url || property.images?.find(i => i.is_main)?.image || property.images?.[0]?.image_url || property.images?.[0]?.image;
+    if (!img) return '';
+    return getCloudinaryUrl(img);
+  };
+  
+  const imageUrl = getImageUrl();
   const hasVideo = !!(property.has_video || property.video_url || property.video_file);
 
   return (
@@ -137,12 +186,11 @@ const PropertyRow: React.FC<{
       onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
       style={{ borderBottom: '1px solid #f1f5f9', backgroundColor: hov ? '#fafcff' : '#fff', transition: 'background-color 0.12s' }}
     >
-      {/* Title + image */}
       <td style={{ padding: '14px 16px', verticalAlign: 'middle' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ width: 56, height: 44, borderRadius: 10, overflow: 'hidden', flexShrink: 0, backgroundColor: '#f1f5f9' }}>
-            {img
-              ? <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            {imageUrl
+              ? <img src={imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={() => setImgError(true)} />
               : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🏠</div>
             }
           </div>
@@ -156,69 +204,36 @@ const PropertyRow: React.FC<{
           </div>
         </div>
       </td>
-
-      {/* Price */}
       <td style={{ padding: '14px 16px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
         <span style={{ fontSize: 14, fontWeight: 800, color: RED, fontFamily: "'Sora', sans-serif" }}>{fmtPrice(property.price)}</span>
         {property.transaction_type === 'rent' && <span style={{ fontSize: 10, color: '#94a3b8', display: 'block' }}>/month</span>}
       </td>
-
-      {/* Type */}
       <td style={{ padding: '14px 16px', verticalAlign: 'middle' }}>
         <span style={{ fontSize: 11, backgroundColor: '#f4f7fb', color: SLATE, padding: '4px 10px', borderRadius: 20, fontWeight: 600, textTransform: 'capitalize', whiteSpace: 'nowrap' }}>
           {property.property_type}
         </span>
       </td>
-
-      {/* Status */}
       <td style={{ padding: '14px 16px', verticalAlign: 'middle' }}>
         <StatusBadge status={property.is_available ? 'available' : 'unavailable'} />
       </td>
-
-      {/* Bookings */}
       <td style={{ padding: '14px 16px', verticalAlign: 'middle', textAlign: 'center' }}>
         <span style={{ fontSize: 14, fontWeight: 700, color: bookingCount > 0 ? AMBER : '#94a3b8' }}>{bookingCount}</span>
       </td>
-
-      {/* Views */}
       <td style={{ padding: '14px 16px', verticalAlign: 'middle', textAlign: 'center' }}>
         <span style={{ fontSize: 13, color: SLATE }}>{(property.views_count || 0).toLocaleString()}</span>
       </td>
-
-      {/* Actions */}
       <td style={{ padding: '14px 16px', verticalAlign: 'middle' }}>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <ActionBtn color={RED}    bg={RED_BG}    label="✏️" title="Edit"   onClick={onEdit} />
-          <ActionBtn color="#b91c1c" bg="#fee2e2"  label="🗑️" title={hasActiveBookings ? 'Active bookings exist' : 'Delete'} onClick={onDelete} disabled={hasActiveBookings} />
-          <ActionBtn color="#92400e" bg="#fef3c7"  label="⚡" title="Boost"  onClick={onBoost} />
+          <ActionBtn color={RED} bg={RED_BG} label="✏️" title="Edit" onClick={onEdit} />
+          <ActionBtn color="#b91c1c" bg="#fee2e2" label="🗑️" title={hasActiveBookings ? 'Active bookings exist' : 'Delete'} onClick={onDelete} disabled={hasActiveBookings} />
+          <ActionBtn color="#92400e" bg="#fef3c7" label="⚡" title="Boost" onClick={onBoost} />
         </div>
       </td>
     </tr>
   );
 };
 
-const ActionBtn: React.FC<{ color: string; bg: string; label: string; title: string; onClick: () => void; disabled?: boolean }> =
-  ({ color, bg, label, title, onClick, disabled }) => {
-  const [hov, setHov] = useState(false);
-  return (
-    <button
-      onClick={onClick} title={title} disabled={disabled}
-      onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-      style={{
-        padding: '6px 10px', borderRadius: 8,
-        border: `1.5px solid ${color}33`,
-        backgroundColor: hov ? color : bg,
-        fontSize: 13, cursor: disabled ? 'not-allowed' : 'pointer',
-        transition: 'all 0.15s', opacity: disabled ? 0.45 : 1,
-        lineHeight: 1,
-      }}
-    >
-      {label}
-    </button>
-  );
-};
-
-// ─── Booking Row ──────────────────────────────────────────────────────────────
+// ─── Booking Row (unchanged) ──────────────────────────────────────────────────
 const BookingRow: React.FC<{
   booking: Booking;
   updating: boolean;
@@ -227,61 +242,49 @@ const BookingRow: React.FC<{
   onComplete: () => void;
 }> = ({ booking, updating, onConfirm, onCancel, onComplete }) => {
   const [hov, setHov] = useState(false);
+  const property = typeof booking.property === 'object' ? booking.property : booking.property_detail;
+  
   return (
     <tr
       onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
       style={{ borderBottom: '1px solid #f1f5f9', backgroundColor: hov ? '#fafcff' : '#fff', transition: 'background 0.12s' }}
     >
-      {/* Property */}
       <td style={{ padding: '14px 16px', verticalAlign: 'middle' }}>
-        <div style={{ fontWeight: 700, color: NAVY, fontSize: 13, marginBottom: 2 }}>{booking.property?.title}</div>
-        <div style={{ fontSize: 11, color: '#94a3b8' }}>{booking.property?.address}</div>
+        <div style={{ fontWeight: 700, color: NAVY, fontSize: 13, marginBottom: 2 }}>{property?.title || 'Property'}</div>
+        <div style={{ fontSize: 11, color: '#94a3b8' }}>{property?.address || ''}</div>
       </td>
-
-      {/* Client */}
       <td style={{ padding: '14px 16px', verticalAlign: 'middle' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 34, height: 34, borderRadius: '50%', backgroundColor: RED_BG, border: `1.5px solid ${RED}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: RED, flexShrink: 0 }}>
-            {(booking.user?.first_name?.[0] || booking.user?.username?.[0] || 'U').toUpperCase()}
+            {(booking.user_detail?.first_name?.[0] || booking.user_detail?.username?.[0] || 'U').toUpperCase()}
           </div>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: NAVY }}>{booking.user?.first_name || booking.user?.username}</div>
-            <div style={{ fontSize: 11, color: '#94a3b8' }}>{booking.user?.phone || 'No phone'}</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: NAVY }}>{booking.user_detail?.first_name || booking.user_detail?.username}</div>
+            <div style={{ fontSize: 11, color: '#94a3b8' }}>{booking.user_detail?.phone || 'No phone'}</div>
           </div>
         </div>
       </td>
-
-      {/* Visit date */}
       <td style={{ padding: '14px 16px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: NAVY }}>{fmtDate(booking.visit_date)}</div>
         <div style={{ fontSize: 11, color: '#94a3b8' }}>{fmtTime(booking.visit_date)}</div>
       </td>
-
-      {/* Status */}
       <td style={{ padding: '14px 16px', verticalAlign: 'middle' }}>
         <StatusBadge status={booking.status} />
       </td>
-
-      {/* Actions */}
       <td style={{ padding: '14px 16px', verticalAlign: 'middle' }}>
         {updating ? (
           <div style={{ width: 20, height: 20, border: '2px solid #eef2f7', borderTop: `2px solid ${RED}`, borderRadius: '50%', animation: 'dbSpin 0.7s linear infinite' }} />
         ) : booking.status === 'pending' ? (
           <div style={{ display: 'flex', gap: 6 }}>
-            <button onClick={onConfirm} style={bk.confirmBtn}>✓ Confirm</button>
-            <button onClick={onCancel}  style={bk.cancelBtn}>✗ Cancel</button>
+            <button onClick={onConfirm} style={{ padding: '6px 13px', borderRadius: 8, border: 'none', backgroundColor: GREEN, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>✓ Confirm</button>
+            <button onClick={onCancel} style={{ padding: '6px 13px', borderRadius: 8, border: 'none', backgroundColor: '#ef4444', color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>✗ Cancel</button>
           </div>
         ) : booking.status === 'confirmed' ? (
-          <button onClick={onComplete} style={bk.completeBtn}>✓ Complete</button>
+          <button onClick={onComplete} style={{ padding: '6px 13px', borderRadius: 8, border: 'none', backgroundColor: RED, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>✓ Complete</button>
         ) : null}
       </td>
     </tr>
   );
-};
-const bk: Record<string, React.CSSProperties> = {
-  confirmBtn:  { padding: '6px 13px', borderRadius: 8, border: 'none', backgroundColor: GREEN, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' },
-  cancelBtn:   { padding: '6px 13px', borderRadius: 8, border: 'none', backgroundColor: '#ef4444', color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' },
-  completeBtn: { padding: '6px 13px', borderRadius: 8, border: 'none', backgroundColor: RED, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' },
 };
 
 // ─── Empty State ──────────────────────────────────────────────────────────────
@@ -314,13 +317,23 @@ const ConfirmModal: React.FC<{ title: string; desc: string; onConfirm: () => voi
   </>
 );
 
-// ─── Property Detail Modal ────────────────────────────────────────────────────
+// ─── Property Detail Modal with Cloudinary images ─────────────────────────────
 const PropertyDetailModal: React.FC<{ property: Property | null; onClose: () => void }> = ({ property, onClose }) => {
+  const [imgError, setImgError] = useState<Record<string, boolean>>({});
+  
   if (!property) return null;
+  
+  const getModalImageUrl = (image: any) => {
+    if (!image) return '';
+    const url = image.image_url || image.image;
+    return getCloudinaryUrl(url);
+  };
+  
   const mainImage = property.images?.find(i => i.is_main) || property.images?.[0];
   const otherImages = property.images?.filter(i => i.id !== mainImage?.id) || [];
   const amenities = property.amenities_list || property.amenities || [];
   const schools = property.nearby_schools_list || [];
+  
   return (
     <>
       <div onClick={onClose} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(13,27,46,0.5)', backdropFilter: 'blur(5px)', zIndex: 1000 }} />
@@ -330,8 +343,14 @@ const PropertyDetailModal: React.FC<{ property: Property | null; onClose: () => 
           <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, background: '#f4f7fb', border: 'none', cursor: 'pointer', fontSize: 16, color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
         </div>
         <div style={{ padding: '22px 24px', overflowY: 'auto', flex: 1 }}>
-          {mainImage && <img src={mainImage.image} alt={property.title} style={{ width: '100%', height: 280, objectFit: 'cover', borderRadius: 16, marginBottom: 20 }} />}
-
+          {mainImage && (
+            <img 
+              src={getModalImageUrl(mainImage)} 
+              alt={property.title} 
+              style={{ width: '100%', height: 280, objectFit: 'cover', borderRadius: 16, marginBottom: 20 }}
+              onError={(e) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/880x280?text=No+Image'; }}
+            />
+          )}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 18 }}>
             <div>
               <h2 style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 800, color: NAVY, fontFamily: "'Sora', sans-serif" }}>{property.title}</h2>
@@ -342,15 +361,13 @@ const PropertyDetailModal: React.FC<{ property: Property | null; onClose: () => 
               {property.transaction_type === 'rent' && <div style={{ fontSize: 12, color: '#94a3b8' }}>/month</div>}
             </div>
           </div>
-
-          {/* Specs grid */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10, backgroundColor: '#f8faff', padding: 16, borderRadius: 14, marginBottom: 20 }}>
             {[
-              { label: 'Type',        val: property.property_type },
+              { label: 'Type', val: property.property_type },
               { label: 'Transaction', val: property.transaction_type === 'sale' ? 'For Sale' : property.transaction_type === 'rent' ? 'For Rent' : 'Shortlet' },
-              { label: 'Bedrooms',    val: property.bedrooms ?? 0 },
-              { label: 'Bathrooms',   val: property.bathrooms ?? 0 },
-              { label: 'Area',        val: `${property.square_meters ?? 0} m²` },
+              { label: 'Bedrooms', val: property.bedrooms ?? 0 },
+              { label: 'Bathrooms', val: property.bathrooms ?? 0 },
+              { label: 'Area', val: `${property.square_meters ?? 0} m²` },
               ...(property.parking_spaces ? [{ label: 'Parking', val: `${property.parking_spaces} spaces` }] : []),
               ...(property.furnishing_status && property.furnishing_status !== 'unfurnished' ? [{ label: 'Furnishing', val: property.furnishing_status.replace(/_/g, ' ') }] : []),
             ].map(s => (
@@ -360,39 +377,57 @@ const PropertyDetailModal: React.FC<{ property: Property | null; onClose: () => 
               </div>
             ))}
           </div>
-
-          <SectionBlock title="📝 Description"><p style={{ margin: 0, color: SLATE, fontSize: 14, lineHeight: 1.7 }}>{property.description}</p></SectionBlock>
-          {amenities.length > 0 && <SectionBlock title="✨ Amenities"><TagList items={amenities} bg={RED_BG} color={RED} /></SectionBlock>}
-          {schools.length > 0 && <SectionBlock title="🎓 Nearby Schools"><TagList items={schools} bg="#fef3c7" color="#92400e" /></SectionBlock>}
+          <div style={{ marginBottom: 20 }}>
+            <h4 style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 700, color: NAVY }}>📝 Description</h4>
+            <p style={{ margin: 0, color: SLATE, fontSize: 14, lineHeight: 1.7 }}>{property.description}</p>
+          </div>
+          {amenities.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <h4 style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 700, color: NAVY }}>✨ Amenities</h4>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {amenities.map((a, i) => <span key={i} style={{ padding: '4px 12px', backgroundColor: RED_BG, color: RED, borderRadius: 20, fontSize: 12, fontWeight: 600 }}>{a}</span>)}
+              </div>
+            </div>
+          )}
+          {schools.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <h4 style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 700, color: NAVY }}>🎓 Nearby Schools</h4>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {schools.map((s, i) => <span key={i} style={{ padding: '4px 12px', backgroundColor: '#fef3c7', color: '#92400e', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>{s}</span>)}
+              </div>
+            </div>
+          )}
           {(property.has_security || property.has_cctv || property.has_gated_community) && (
-            <SectionBlock title="🔒 Security">
-              <TagList items={[property.has_security && '🔒 Security Guard', property.has_cctv && '📹 CCTV', property.has_gated_community && '🏘️ Gated Community'].filter(Boolean) as string[]} bg="#dcfce7" color="#166534" />
-            </SectionBlock>
+            <div style={{ marginBottom: 20 }}>
+              <h4 style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 700, color: NAVY }}>🔒 Security</h4>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {property.has_security && <span style={{ padding: '4px 12px', backgroundColor: '#dcfce7', color: '#166534', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>🔒 Security Guard</span>}
+                {property.has_cctv && <span style={{ padding: '4px 12px', backgroundColor: '#dcfce7', color: '#166534', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>📹 CCTV</span>}
+                {property.has_gated_community && <span style={{ padding: '4px 12px', backgroundColor: '#dcfce7', color: '#166534', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>🏘️ Gated Community</span>}
+              </div>
+            </div>
           )}
           {otherImages.length > 0 && (
-            <SectionBlock title="📷 More Photos">
+            <div style={{ marginBottom: 20 }}>
+              <h4 style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 700, color: NAVY }}>📷 More Photos</h4>
               <div style={{ display: 'flex', gap: 10, overflowX: 'auto' }}>
-                {otherImages.map(img => <img key={img.id} src={img.image} alt="" style={{ width: 110, height: 80, objectFit: 'cover', borderRadius: 10, flexShrink: 0 }} />)}
+                {otherImages.map(img => (
+                  <img 
+                    key={img.id} 
+                    src={getModalImageUrl(img)} 
+                    alt="" 
+                    style={{ width: 110, height: 80, objectFit: 'cover', borderRadius: 10, flexShrink: 0 }}
+                    onError={(e) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/110x80?text=No+Image'; }}
+                  />
+                ))}
               </div>
-            </SectionBlock>
+            </div>
           )}
         </div>
       </div>
     </>
   );
 };
-
-const SectionBlock: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-  <div style={{ marginBottom: 20 }}>
-    <h4 style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 700, color: NAVY }}>{title}</h4>
-    {children}
-  </div>
-);
-const TagList: React.FC<{ items: string[]; bg: string; color: string }> = ({ items, bg, color }) => (
-  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-    {items.map((a, i) => <span key={i} style={{ padding: '4px 12px', backgroundColor: bg, color, borderRadius: 20, fontSize: 12, fontWeight: 600 }}>{a}</span>)}
-  </div>
-);
 
 // ─── Section Header ───────────────────────────────────────────────────────────
 const TabHead: React.FC<{ title: string; count: number; action?: React.ReactNode }> = ({ title, count, action }) => (
@@ -424,7 +459,7 @@ const Dashboard: React.FC = () => {
   const [boostProp, setBoostProp] = useState<Property | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [submitLoading, setSubmitLoading] = useState(false);
-  const [updatingBookingId, setUpdatingBookingId] = useState<number | null>(null);
+  const [updatingBookingId, setUpdatingBookingId] = useState<string | null>(null);
 
   const showToast = (msg: string, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 3500); };
 
@@ -433,17 +468,29 @@ const Dashboard: React.FC = () => {
   const fetchData = async () => {
     try {
       const [pr, br] = await Promise.all([api.get('/properties/my/'), api.get('/bookings/agent/')]);
-      setProperties(pr.data.results || pr.data);
+      const propertiesData = pr.data.results || pr.data;
+      // Process image URLs for Cloudinary
+      const processedProperties = propertiesData.map((p: Property) => ({
+        ...p,
+        images: p.images?.map((img: any) => ({
+          ...img,
+          image_url: getCloudinaryUrl(img.image || img.image_url)
+        }))
+      }));
+      setProperties(processedProperties);
       setBookings(br.data.results || br.data);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
 
-  const hasBookings = (id: number) => bookings.some(b => b.property?.id === id);
-  const getPropBookings = (id: number) => bookings.filter(b => b.property?.id === id);
-  const hasActiveBookings = (id: number) => getPropBookings(id).some(b => b.status === 'pending' || b.status === 'confirmed');
+  // UUID-based helper functions (IDs are strings)
+  const getPropBookings = (id: string) => bookings.filter(b => {
+    const prop = b.property_detail;
+    return prop?.id === id;
+  });
 
-  // Navigate to edit page instead of modal
+  const hasActiveBookings = (id: string) => getPropBookings(id).some(b => b.status === 'pending' || b.status === 'confirmed');
+  
   const openEdit = (property: Property) => {
     navigate(`/dashboard/properties/edit/${property.id}`);
   };
@@ -459,7 +506,7 @@ const Dashboard: React.FC = () => {
     finally { setSubmitLoading(false); }
   };
 
-  const updateBookingStatus = async (id: number, status: string) => {
+  const updateBookingStatus = async (id: string, status: string) => {
     setUpdatingBookingId(id);
     try {
       await api.post(`/bookings/${id}/agent-status/`, { status });
@@ -476,7 +523,6 @@ const Dashboard: React.FC = () => {
     totalViews: properties.reduce((s, p) => s + (p.views_count || 0), 0),
   };
 
-  // Loading screen
   if (loading) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f4f7fb', marginTop: 64 }}>
       <div style={{ textAlign: 'center' }}>
@@ -488,8 +534,6 @@ const Dashboard: React.FC = () => {
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f4f7fb', fontFamily: "'DM Sans', 'Sora', system-ui, sans-serif", marginTop: 64 }}>
-
-      {/* Toast */}
       {toast && (
         <div style={{ position: 'fixed', top: 78, left: '50%', transform: 'translateX(-50%)', zIndex: 2000, backgroundColor: toast.ok ? '#1a3a2e' : '#3a1a1e', color: toast.ok ? '#4ade80' : '#f87171', border: `1px solid ${toast.ok ? TEAL : RED}33`, padding: '12px 20px', borderRadius: 12, fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.22)', animation: 'dbFadeDown 0.3s ease-out', whiteSpace: 'nowrap' }}>
           <span>{toast.ok ? '✓' : '⚠'}</span>
@@ -497,14 +541,11 @@ const Dashboard: React.FC = () => {
           <button onClick={() => setToast(null)} style={{ background: 'none', border: 'none', color: 'currentColor', cursor: 'pointer', marginLeft: 4, opacity: 0.7, fontSize: 15, padding: 0 }}>×</button>
         </div>
       )}
-
       <div style={{ maxWidth: 1400, margin: '0 auto', padding: '28px 20px 60px' }}>
-
-        {/* Header banner */}
+        {/* Header section remains the same */}
         <div style={{ background: `linear-gradient(135deg, ${NAVY} 0%, #1a3a5c 60%, ${RED}22 100%)`, borderRadius: 20, padding: '24px 28px', marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16, animation: 'dbFadeUp 0.4s ease-out both', position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', top: -40, right: -40, width: 180, height: 180, borderRadius: '50%', background: `${RED}18`, pointerEvents: 'none' }} />
           <div style={{ position: 'absolute', bottom: -50, left: '40%', width: 140, height: 140, borderRadius: '50%', background: `${TEAL}12`, pointerEvents: 'none' }} />
-
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, zIndex: 1 }}>
             <div style={{ width: 60, height: 60, borderRadius: 18, background: RED_BG, border: `2.5px solid ${RED}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: RED, fontFamily: "'Sora', sans-serif", fontSize: 22, fontWeight: 800, flexShrink: 0 }}>
               {getInitials(user)}
@@ -517,16 +558,12 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 10, zIndex: 1 }}>
-            <button onClick={() => navigate('/properties')} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderRadius: 10, border: '1.5px solid rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.08)', color: '#f0f6ff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-              🔍 Browse
-            </button>
-            <button onClick={() => navigate('/dashboard/properties/add')} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 18px', borderRadius: 10, border: 'none', backgroundColor: RED, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 14px rgba(230,57,70,0.35)' }}>
-              + Add Property
-            </button>
+            <button onClick={() => navigate('/properties')} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderRadius: 10, border: '1.5px solid rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.08)', color: '#f0f6ff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>🔍 Browse</button>
+            <button onClick={() => navigate('/dashboard/properties/add')} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 18px', borderRadius: 10, border: 'none', backgroundColor: RED, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 14px rgba(230,57,70,0.35)' }}>+ Add Property</button>
           </div>
         </div>
 
-        {/* Stats grid */}
+        {/* Stats Cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 14, marginBottom: 24 }}>
           <StatCard icon="🏠" label="Total Properties" value={stats.totalProperties} color={RED} bg={RED_BG} sub={`${properties.filter(p => p.is_available).length} available`} delay="0s" />
           <StatCard icon="📅" label="Total Bookings" value={stats.totalBookings} color={AMBER} bg={AMBER_BG} sub="all time" delay="0.07s" />
@@ -534,20 +571,14 @@ const Dashboard: React.FC = () => {
           <StatCard icon="👁️" label="Total Views" value={stats.totalViews.toLocaleString()} color={GREEN} bg={GREEN_BG} sub="across all listings" delay="0.21s" />
         </div>
 
-        {/* Main panel: sidebar + content */}
+        {/* Main Panel */}
         <div style={{ display: 'grid', gridTemplateColumns: '210px 1fr', gap: 16, alignItems: 'start' }}>
-
-          {/* Sidebar */}
+          {/* Sidebar Navigation */}
           <div style={{ backgroundColor: '#fff', borderRadius: 16, padding: '16px 12px', border: '1px solid #eef2f7', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', position: 'sticky', top: 88, animation: 'dbFadeUp 0.4s ease-out 0.1s both' }}>
             <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8, padding: '0 4px' }}>Menu</div>
-            {[
-              { icon: '🏠', label: 'My Properties', count: properties.length },
-              { icon: '📅', label: 'Bookings', count: bookings.length },
-            ].map((t, i) => <NavTab key={i} {...t} active={activeTab === i} onClick={() => setActiveTab(i)} />)}
-
+            <NavTab icon="🏠" label="My Properties" count={properties.length} active={activeTab === 0} onClick={() => setActiveTab(0)} />
+            <NavTab icon="📅" label="Bookings" count={bookings.length} active={activeTab === 1} onClick={() => setActiveTab(1)} />
             <div style={{ height: 1, background: '#f1f5f9', margin: '14px 0' }} />
-
-            {/* Quick stats in sidebar */}
             {[
               { label: 'Available', val: properties.filter(p => p.is_available).length, color: TEAL },
               { label: 'Boosted', val: properties.filter(p => p.is_boosted).length, color: AMBER },
@@ -560,20 +591,14 @@ const Dashboard: React.FC = () => {
             ))}
           </div>
 
-          {/* Content */}
+          {/* Content Area */}
           <div style={{ minWidth: 0 }}>
-
-            {/* Properties Tab */}
             {activeTab === 0 && (
               <div style={{ backgroundColor: '#fff', borderRadius: 16, border: '1px solid #eef2f7', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden', animation: 'dbFadeUp 0.35s ease-out both' }}>
                 <TabHead
                   title="My Properties"
                   count={properties.length}
-                  action={
-                    <button onClick={() => navigate('/dashboard/properties/add')} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10, border: 'none', backgroundColor: RED, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-                      + Add New
-                    </button>
-                  }
+                  action={<button onClick={() => navigate('/dashboard/properties/add')} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10, border: 'none', backgroundColor: RED, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>+ Add New</button>}
                 />
                 {properties.length === 0 ? (
                   <EmptyState icon="🏚️" title="No properties yet" desc="Add your first property to start receiving bookings from clients." btnLabel="Add Property" onClick={() => navigate('/dashboard/properties/add')} />
@@ -612,7 +637,6 @@ const Dashboard: React.FC = () => {
               </div>
             )}
 
-            {/* Bookings Tab */}
             {activeTab === 1 && (
               <div style={{ backgroundColor: '#fff', borderRadius: 16, border: '1px solid #eef2f7', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden', animation: 'dbFadeUp 0.35s ease-out both' }}>
                 <TabHead title="Property Bookings" count={bookings.length} />
@@ -649,7 +673,6 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Modals */}
       {deleteOpen && propToDelete && (
         <ConfirmModal
           title="Delete Property?"
@@ -665,7 +688,7 @@ const Dashboard: React.FC = () => {
       <BoostModal
         open={boostOpen}
         onClose={() => { setBoostOpen(false); setBoostProp(null); }}
-        propertyId={boostProp?.id || 0}
+        propertyId={boostProp?.id || ''}
         propertyTitle={boostProp?.title || ''}
         onBoostSuccess={() => { fetchData(); showToast('Property boosted successfully!'); }}
       />

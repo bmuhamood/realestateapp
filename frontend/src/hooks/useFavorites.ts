@@ -1,4 +1,5 @@
-// src/hooks/useFavorites.ts - FIXED
+// src/hooks/useFavorites.ts - FIXED WITH UUID SUPPORT
+
 import { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 import { Property } from '../types'; // Use Property directly, not Favorite
@@ -28,8 +29,8 @@ export const useFavorites = () => {
     fetchFavorites();
   }, [fetchFavorites]);
 
-  // ✅ FIXED: Use the like endpoint (POST toggles like/unlike)
-  const addFavorite = async (propertyId: number) => {
+  // ✅ FIXED: propertyId as string (UUID)
+  const addFavorite = async (propertyId: string) => {  // Changed from number to string
     try {
       const response = await api.post(`/properties/${propertyId}/like/`);
       const { liked } = response.data;
@@ -47,8 +48,8 @@ export const useFavorites = () => {
     }
   };
 
-  // ✅ FIXED: Same endpoint - calling it again toggles off
-  const removeFavorite = async (propertyId: number) => {
+  // ✅ FIXED: propertyId as string (UUID)
+  const removeFavorite = async (propertyId: string) => {  // Changed from number to string
     try {
       const response = await api.post(`/properties/${propertyId}/like/`);
       const { liked } = response.data;
@@ -65,13 +66,13 @@ export const useFavorites = () => {
     }
   };
 
-  // ✅ FIXED: Check if property is in favorites array
-  const isFavorite = (propertyId: number): boolean => {
+  // ✅ FIXED: propertyId as string (UUID)
+  const isFavorite = (propertyId: string): boolean => {  // Changed from number to string
     return favorites.some(property => property.id === propertyId);
   };
 
   // ✅ FIXED: Toggle favorite (add if not exists, remove if exists)
-  const toggleFavorite = async (propertyId: number): Promise<boolean> => {
+  const toggleFavorite = async (propertyId: string): Promise<boolean> => {  // Changed from number to string
     const currentlyFavorite = isFavorite(propertyId);
     
     try {

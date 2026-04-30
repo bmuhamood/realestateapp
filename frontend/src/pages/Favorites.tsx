@@ -1,4 +1,5 @@
-// src/pages/FavoritesPage.tsx - FIXED FOR WEB
+// src/pages/Favorites.tsx - FIXED WITH UUID SUPPORT
+
 import React, { useState, useEffect } from 'react';
 import {
   Container,
@@ -12,7 +13,7 @@ import {
 } from '@mui/material';
 import { Delete, Favorite as FavoriteIcon } from '@mui/icons-material';
 import api from '../services/api';
-import { Property } from '../types'; // Use Property directly, not Favorite
+import { Property } from '../types';
 import PropertyCard from '../components/Property/PropertyCard';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -31,7 +32,6 @@ const FavoritesPage: React.FC = () => {
   const fetchFavorites = async () => {
     try {
       setLoading(true);
-      // ✅ FIXED: Use correct endpoint
       const response = await api.get('/properties/favorites/');
       const properties = response.data.results || response.data;
       setFavorites(properties);
@@ -44,11 +44,10 @@ const FavoritesPage: React.FC = () => {
     }
   };
 
-  const removeFavorite = async (propertyId: number) => {
+  // ✅ FIXED: Changed propertyId type from number to string
+  const removeFavorite = async (propertyId: string) => {
     try {
-      // ✅ FIXED: Use POST to the like endpoint (toggles)
       await api.post(`/properties/${propertyId}/like/`);
-      // Update local state
       setFavorites(favorites.filter(property => property.id !== propertyId));
     } catch (error: any) {
       console.error('Error removing favorite:', error);
@@ -105,7 +104,7 @@ const FavoritesPage: React.FC = () => {
                   />
                 </Box>
                 <IconButton
-                  onClick={() => removeFavorite(property.id)}
+                  onClick={() => removeFavorite(property.id)}  // property.id is string
                   sx={{ 
                     color: '#f44336', 
                     mt: 1,

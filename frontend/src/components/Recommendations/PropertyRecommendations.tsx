@@ -1,4 +1,5 @@
-// src/components/Recommendations/PropertyRecommendations.tsx - IMPROVED VERSION
+// src/components/Recommendations/PropertyRecommendations.tsx - FIXED WITH CLOUDINARY URL SUPPORT
+
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -9,8 +10,6 @@ import {
   Chip,
   IconButton,
   CircularProgress,
-  Rating,
-  alpha,
 } from '@mui/material';
 import {
   LocationOn,
@@ -28,8 +27,29 @@ import api from '../../services/api';
 import { Property } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 
+// ─── Helper to get full Cloudinary URL ────────────────────────────────────────
+const getCloudinaryUrl = (url: string | null | undefined): string => {
+  if (!url) return '/placeholder-property.svg';
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  if (url.includes('/')) {
+    const cloudName = 'drcy2xxkg';
+    return `https://res.cloudinary.com/${cloudName}/${url}`;
+  }
+  return url;
+};
+
+// ─── Helper to get the main image URL from property ───────────────────────────
+const getPropertyImage = (property: Property): string => {
+  if (property.images && property.images.length > 0) {
+    const firstImage = property.images[0];
+    // Try to get the full URL from various possible fields
+    return getCloudinaryUrl(firstImage.image_url || firstImage.image);
+  }
+  return '/placeholder-property.svg';
+};
+
 interface PropertyRecommendationsProps {
-  propertyId?: number;
+  propertyId?: string;
   limit?: number;
   title?: string;
   variant?: 'horizontal' | 'vertical';
@@ -74,7 +94,6 @@ const PropertyRecommendations: React.FC<PropertyRecommendationsProps> = ({
     }
     try {
       await api.post(`/properties/${property.id}/like/`);
-      // Update local state
       setRecommendations(prev =>
         prev.map(p =>
           p.id === property.id ? { ...p, is_liked: !p.is_liked } : p
@@ -182,10 +201,12 @@ const PropertyRecommendations: React.FC<PropertyRecommendationsProps> = ({
                 <CardMedia
                   component="img"
                   height="160"
-                  image={property.images?.[0]?.image || '/placeholder-property.svg'}
+                  image={getPropertyImage(property)}
                   alt={property.title}
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/placeholder-property.svg';
+                  }}
                 />
-                {/* Transaction Badge */}
                 <Chip
                   label={getTxLabel(property.transaction_type)}
                   size="small"
@@ -199,7 +220,6 @@ const PropertyRecommendations: React.FC<PropertyRecommendationsProps> = ({
                     fontSize: '0.7rem',
                   }}
                 />
-                {/* Favorite Button */}
                 <IconButton
                   size="small"
                   sx={{
@@ -306,10 +326,12 @@ const PropertyRecommendations: React.FC<PropertyRecommendationsProps> = ({
               <CardMedia
                 component="img"
                 height="160"
-                image={property.images?.[0]?.image || '/placeholder-property.svg'}
+                image={getPropertyImage(property)}
                 alt={property.title}
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/placeholder-property.svg';
+                }}
               />
-              {/* Property Type Emoji Badge */}
               <Box
                 sx={{
                   position: 'absolute',
@@ -329,7 +351,6 @@ const PropertyRecommendations: React.FC<PropertyRecommendationsProps> = ({
               >
                 {getTypeEmoji(property.property_type)} {property.property_type}
               </Box>
-              {/* Transaction Badge */}
               <Chip
                 label={getTxLabel(property.transaction_type)}
                 size="small"
@@ -343,7 +364,6 @@ const PropertyRecommendations: React.FC<PropertyRecommendationsProps> = ({
                   fontSize: '0.65rem',
                 }}
               />
-              {/* Boosted Badge */}
               {property.is_boosted && (
                 <Chip
                   label="⭐ Featured"
@@ -359,7 +379,6 @@ const PropertyRecommendations: React.FC<PropertyRecommendationsProps> = ({
                   }}
                 />
               )}
-              {/* Favorite Button */}
               <IconButton
                 size="small"
                 sx={{

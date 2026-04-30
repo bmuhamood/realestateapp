@@ -1,4 +1,5 @@
-# chatbot/views.py
+# chatbot/views.py - WITH UUID SUPPORT
+
 from ast import Dict
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -8,6 +9,7 @@ from decimal import Decimal
 import random
 import time
 from datetime import datetime
+import uuid
 
 from .models import ChatSession, ChatMessage, UserChatPreference, ConversationAnalytics
 from .intelligence import NaturalLanguageProcessor
@@ -98,17 +100,26 @@ class ChatbotMessageView(APIView):
             'entities': entities
         }
         
-        # Add properties (multiple) if available
+        # Add properties (multiple) if available - convert UUID to string
         if response_data.get('properties'):
+            for prop in response_data['properties']:
+                if 'id' in prop:
+                    prop['id'] = str(prop['id'])
             response['properties'] = response_data['properties']
         
-        # Add single property for backward compatibility
+        # Add single property for backward compatibility - convert UUID to string
         if response_data.get('property'):
-            response['property'] = response_data['property']
+            prop_data = response_data['property']
+            if 'id' in prop_data:
+                prop_data['id'] = str(prop_data['id'])
+            response['property'] = prop_data
         
-        # Add service if available
+        # Add service if available - convert UUID to string
         if response_data.get('service'):
-            response['service'] = response_data['service']
+            service_data = response_data['service']
+            if 'id' in service_data:
+                service_data['id'] = str(service_data['id'])
+            response['service'] = service_data
         
         return Response(response)
     
@@ -223,8 +234,6 @@ class ChatbotMessageView(APIView):
             'quick_replies': ['Find properties', 'Check prices', 'Get help']
         }
     
-# In chatbot/views.py - Update _handle_booking method
-
     def _handle_booking(self, conversation_context: Dict, user) -> Dict:
         """Handle booking requests intelligently"""
         
@@ -234,19 +243,22 @@ class ChatbotMessageView(APIView):
         message = conversation_context.get('last_message', '').lower()
         
         if last_property:
+            # Convert UUID to string for JSON
+            property_id = str(last_property.get('id')) if last_property.get('id') else ''
+            
             return {
                 'reply': f"Great! Let me help you book a viewing for **{last_property.get('title')}** 📅\n\n"
                         f"📍 Location: {last_property.get('district')}, {last_property.get('city')}\n"
                         f"💰 Price: UGX {last_property.get('price'):,.0f}\n\n"
                         f"Click here to schedule your viewing:\n"
-                        f"👉 [Book Now](/property/{last_property['id']})\n\n"
+                        f"👉 [Book Now](/property/{property_id})\n\n"
                         f"Would you like to:\n"
                         f"• See similar properties\n"
                         f"• Check available time slots\n"
                         f"• Contact the agent directly",
                 'suggestions': ['See similar properties', 'Check availability', 'Contact agent'],
                 'quick_replies': ['Yes, book now', 'Show similar', 'Later'],
-                'link': f'/property/{last_property["id"]}'
+                'link': f'/property/{property_id}'
             }
         else:
             # Get dynamic location for suggestion
@@ -486,8 +498,17 @@ What would you like to do? ✨""",
         
         if session_id:
             try:
-                session = ChatSession.objects.get(session_id=session_id, is_active=True)
-                return session
+                # Convert string to UUID if needed
+                if isinstance(session_id, str):
+                    try:
+                        session_uuid = uuid.UUID(session_id)
+                        session = ChatSession.objects.get(session_id=session_uuid, is_active=True)
+                        return session
+                    except ValueError:
+                        pass
+                else:
+                    session = ChatSession.objects.get(session_id=session_id, is_active=True)
+                    return session
             except ChatSession.DoesNotExist:
                 pass
         
@@ -589,7 +610,7 @@ What would you like to do? ✨""",
         return "Just tell me what you're looking for!"
     
     def _serialize_property(self, property) -> Dict:
-        """Serialize property for API response"""
+        """Serialize property for API response - convert UUID to string"""
         price_val = float(property.price) if isinstance(property.price, Decimal) else property.price
         
         image_url = None
@@ -597,8 +618,11 @@ What would you like to do? ✨""",
         if first_image and first_image.image:
             image_url = first_image.image.url
         
+        # Convert UUID to string
+        property_id = str(property.id) if property.id else None
+        
         return {
-            'id': property.id,
+            'id': property_id,
             'title': property.title,
             'price': price_val,
             'transaction_type': property.transaction_type,
@@ -612,11 +636,14 @@ What would you like to do? ✨""",
         }
     
     def _serialize_service(self, service) -> Dict:
-        """Serialize service for API response"""
+        """Serialize service for API response - convert UUID to string"""
         price_val = float(service.price) if service.price else 0
         
+        # Convert UUID to string
+        service_id = str(service.id) if service.id else None
+        
         return {
-            'id': service.id,
+            'id': service_id,
             'name': service.name,
             'description': service.description,
             'price': price_val,

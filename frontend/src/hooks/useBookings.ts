@@ -1,3 +1,5 @@
+// src/hooks/useBookings.ts - FIXED WITH UUID SUPPORT
+
 import { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 import { Booking } from '../types';
@@ -24,8 +26,9 @@ export const useBookings = (agentMode = false) => {
     fetchBookings();
   }, [fetchBookings]);
 
+  // ✅ FIXED: property type changed from number to string (UUID)
   const createBooking = async (data: {
-    property: number;
+    property: string;  // Changed from number to string (UUID)
     visit_date: string;
     message?: string;
   }) => {
@@ -38,7 +41,8 @@ export const useBookings = (agentMode = false) => {
     }
   };
 
-  const updateBookingStatus = async (id: number, status: string) => {
+  // ✅ Already correct - id as string (UUID)
+  const updateBookingStatus = async (id: string, status: string) => { 
     try {
       const response = await api.patch(`/bookings/${id}/`, { status });
       setBookings(prev => prev.map(b => b.id === id ? response.data : b));
@@ -48,5 +52,12 @@ export const useBookings = (agentMode = false) => {
     }
   };
 
-  return { bookings, loading, error, createBooking, updateBookingStatus, refetch: fetchBookings };
+  return { 
+    bookings, 
+    loading, 
+    error, 
+    createBooking, 
+    updateBookingStatus, 
+    refetch: fetchBookings 
+  };
 };

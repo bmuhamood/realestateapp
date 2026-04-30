@@ -390,7 +390,7 @@ const UserDashboard: React.FC = () => {
   };
 
   // ✅ FIXED: Updated to use POST to like endpoint
-  const handleRemoveFav = async (propertyId: number) => {
+  const handleRemoveFav = async (propertyId: string) => {
     try {
       await api.post(`/properties/${propertyId}/like/`);
       await fetchAll();
@@ -582,8 +582,12 @@ const UserDashboard: React.FC = () => {
                         {bookings.map(b => (
                           <tr key={b.id}>
                             <td style={pg.td}>
-                              <div style={{ fontWeight: 700, color: NAVY, fontSize: 13, marginBottom: 2 }}>{b.property?.title || 'Property'}</div>
-                              <div style={{ fontSize: 11, color: '#94a3b8' }}>{b.property?.address}</div>
+                              <div style={{ fontWeight: 700, color: NAVY, fontSize: 13, marginBottom: 2 }}>
+                                {b.property_detail?.title || 'Property'}
+                              </div>
+                              <div style={{ fontSize: 11, color: '#94a3b8' }}>
+                                {b.property_detail?.address}
+                              </div>
                             </td>
                             <td style={pg.td}>
                               <div style={{ fontSize: 13, fontWeight: 600, color: NAVY }}>{fmtDate(b.visit_date)}</div>
@@ -597,9 +601,9 @@ const UserDashboard: React.FC = () => {
                                   <button onClick={() => setCancelBooking(b)} style={pg.dangerBtn}>Cancel</button>
                                 )}
                                 {b.status === 'confirmed' && (
-                                  <button onClick={() => { setReviewProp(b.property); setReviewRating(5); setReviewComment(''); }} style={pg.actionBtn}>⭐ Review</button>
+                                  <button onClick={() => { setReviewProp(b.property_detail); setReviewRating(5); setReviewComment(''); }} style={pg.actionBtn}>⭐ Review</button>
                                 )}
-                                <button onClick={() => navigate(`/property/${b.property?.id}`)} style={pg.viewBtn}>View →</button>
+                                <button onClick={() => navigate(`/property/${b.property_detail?.id}`)} style={pg.viewBtn}>View →</button>
                               </div>
                             </td>
                           </tr>
@@ -794,7 +798,7 @@ const UserDashboard: React.FC = () => {
       {cancelBooking && (
         <ConfirmModal
           title="Cancel Booking?"
-          desc={`Are you sure you want to cancel your viewing of "${cancelBooking.property?.title}"? This action cannot be undone.`}
+          desc={`Are you sure you want to cancel your viewing of "${cancelBooking.property_detail?.title}"? This action cannot be undone.`}
           onConfirm={handleCancelBooking}
           onClose={() => setCancelBooking(null)}
           loading={cancelLoading}

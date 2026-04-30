@@ -66,7 +66,7 @@ interface PropertyFormProps {
   onImagesChange?: (images: UploadImage[]) => void;
   existingImages?: ExistingImage[];
   onExistingImagesChange?: (images: ExistingImage[]) => void;
-  onImageRemove?: (imageId: number) => void;
+  onImageRemove?: (imageId: string) => void;
 }
 
 // ─── Tab config (defined outside — stable reference) ──────────────────────────

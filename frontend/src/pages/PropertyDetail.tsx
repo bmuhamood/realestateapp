@@ -28,6 +28,19 @@ const fmtDate = (d: string) => {
   catch { return d; }
 };
 
+// ─── Helper to get full Cloudinary URL ────────────────────────────────────────
+const getCloudinaryUrl = (url: string | null | undefined): string | undefined => {
+  if (!url) return undefined;
+  // If it's already a full URL, return it as is
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  // If it's a Cloudinary public ID or relative path
+  if (url.includes('/')) {
+    const cloudName = 'drcy2xxkg';
+    return `https://res.cloudinary.com/${cloudName}/${url}`;
+  }
+  return url;
+};
+
 const getInitials = (first?: string, last?: string, username?: string) => {
   if (first && last) return `${first[0]}${last[0]}`.toUpperCase();
   if (first) return first[0].toUpperCase();
@@ -102,27 +115,143 @@ const rv: Record<string, React.CSSProperties> = {
 // ─── VIDEO ────────────────────────────────────────────────────────────────────
 const VideoPlayer: React.FC<{ property: Property }> = ({ property }) => {
   const [showVideo, setShowVideo] = useState(false);
+  const [videoError, setVideoError] = useState(false);
   const hasVideo = property.has_video || property.video_url || property.video_file;
+  
   if (!hasVideo) return null;
-  const videoUrl = property.video_url || property.video_file || undefined;
+  
+  // Get proper video URL from property
+  const getVideoUrl = (): string | undefined => {
+    // First try video_url_display from API
+    if (property.video_url_display) {
+      return property.video_url_display;
+    }
+    // Then try video_url
+    if (property.video_url) {
+      // Check if it's a YouTube/Vimeo URL
+      if (property.video_url.includes('youtube.com') || property.video_url.includes('youtu.be') || property.video_url.includes('vimeo.com')) {
+        return property.video_url;
+      }
+    }
+    // Then try video_file (Cloudinary public_id)
+    if (property.video_file) {
+      // If it's a Cloudinary public_id, construct the URL
+      if (typeof property.video_file === 'string' && !property.video_file.startsWith('http')) {
+        // Remove any existing 'video/upload/' to prevent duplication
+        let cleanId = property.video_file;
+        if (cleanId.includes('video/upload/')) {
+          cleanId = cleanId.replace('video/upload/', '');
+        }
+        if (cleanId.includes('image/upload/')) {
+          cleanId = cleanId.replace('image/upload/', '');
+        }
+        cleanId = cleanId.replace(/^\/+/, '');
+        return `https://res.cloudinary.com/drcy2xxkg/video/upload/f_auto,q_auto/${cleanId}`;
+      }
+      return property.video_file as string;
+    }
+    return undefined;
+  };
+  
+  const videoUrl = getVideoUrl();
+  const isYouTubeVimeo = videoUrl?.includes('youtube.com') || videoUrl?.includes('youtu.be') || videoUrl?.includes('vimeo.com');
+  
+  // Get thumbnail URL
+  const getThumbnailUrl = (): string | undefined => {
+    if (property.video_thumbnail) {
+      return getCloudinaryUrl(property.video_thumbnail);
+    }
+    // Generate thumbnail from video if available
+    if (property.video_file && typeof property.video_file === 'string' && !property.video_file.startsWith('http')) {
+      const cleanId = property.video_file.replace(/^(.*\/)/, '');
+      return `https://res.cloudinary.com/drcy2xxkg/video/upload/f_auto,q_auto/so_0/${cleanId}.jpg`;
+    }
+    return undefined;
+  };
+  
+  const thumbnailUrl = getThumbnailUrl();
+  
+  if (!videoUrl) return null;
+  
+  // For YouTube/Vimeo, use iframe embed
+  if (isYouTubeVimeo) {
+    let embedUrl = videoUrl;
+    if (videoUrl.includes('youtube.com/watch')) {
+      const videoId = videoUrl.split('v=')[1]?.split('&')[0];
+      embedUrl = `https://www.youtube.com/embed/${videoId}`;
+    } else if (videoUrl.includes('youtu.be')) {
+      const videoId = videoUrl.split('/').pop()?.split('?')[0];
+      embedUrl = `https://www.youtube.com/embed/${videoId}`;
+    } else if (videoUrl.includes('vimeo.com')) {
+      const videoId = videoUrl.split('/').pop();
+      embedUrl = `https://player.vimeo.com/video/${videoId}`;
+    }
+    
+    return (
+      <div style={pg.section}>
+        <h2 style={pg.sectionTitle}>🎬 Property Video Tour</h2>
+        <div style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', aspectRatio: '16/9' }}>
+          {!showVideo ? (
+            <div style={{ position: 'relative', cursor: 'pointer', height: '100%' }} onClick={() => setShowVideo(true)}>
+              {thumbnailUrl ? (
+                <img src={thumbnailUrl} alt="thumbnail" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', backgroundColor: '#1e293b', color: '#fff' }}>
+                  <span style={{ fontSize: 48 }}>🎥</span>
+                  <span style={{ marginTop: 12, fontSize: 14, fontWeight: 600 }}>Watch Video Tour</span>
+                </div>
+              )}
+              <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 70, height: 70, borderRadius: '50%', backgroundColor: 'rgba(230,57,70,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, color: '#fff', cursor: 'pointer' }}>▶</div>
+            </div>
+          ) : (
+            <iframe
+              src={embedUrl}
+              title="Video tour"
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}
+            />
+          )}
+        </div>
+      </div>
+    );
+  }
+  
+  // For direct video files (Cloudinary)
   return (
     <div style={pg.section}>
       <h2 style={pg.sectionTitle}>🎬 Property Video Tour</h2>
-      <div style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', backgroundColor: '#000', aspectRatio: '16/9' }}>
+      <div style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', aspectRatio: '16/9', backgroundColor: '#000' }}>
         {!showVideo ? (
           <div style={{ position: 'relative', cursor: 'pointer', height: '100%' }} onClick={() => setShowVideo(true)}>
-            {property.video_thumbnail
-              ? <img src={property.video_thumbnail} alt="thumbnail" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 240, backgroundColor: '#1e293b', color: '#fff' }}><span style={{ fontSize: 48 }}>🎥</span><span style={{ marginTop: 12, fontSize: 14, fontWeight: 600 }}>Watch Video Tour</span></div>
-            }
+            {thumbnailUrl ? (
+              <img src={thumbnailUrl} alt="thumbnail" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', backgroundColor: '#1e293b', color: '#fff' }}>
+                <span style={{ fontSize: 48 }}>🎥</span>
+                <span style={{ marginTop: 12, fontSize: 14, fontWeight: 600 }}>Watch Video Tour</span>
+              </div>
+            )}
             <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 70, height: 70, borderRadius: '50%', backgroundColor: 'rgba(230,57,70,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, color: '#fff', cursor: 'pointer' }}>▶</div>
           </div>
         ) : (
-          <video controls autoPlay style={{ width: '100%', height: '100%', outline: 'none' }}>
+          <video
+            controls
+            autoPlay
+            style={{ width: '100%', height: '100%', outline: 'none' }}
+            onError={() => setVideoError(true)}
+          >
             <source src={videoUrl} type="video/mp4" />
+            Your browser does not support the video tag.
           </video>
         )}
       </div>
+      {videoError && (
+        <div style={{ marginTop: 12, padding: '12px', backgroundColor: RED_BG, borderRadius: 12, color: RED, fontSize: 13, textAlign: 'center' }}>
+          ⚠️ Video failed to load. The video file may be processing or unavailable.
+        </div>
+      )}
     </div>
   );
 };
@@ -654,7 +783,7 @@ const bm: Record<string, React.CSSProperties> = {
 };
 
 // ─── LIGHTBOX ─────────────────────────────────────────────────────────────────
-const Lightbox: React.FC<{ images: { id: number; image: string }[]; index: number; onClose: () => void; onPrev: () => void; onNext: () => void }> = ({ images, index, onClose, onPrev, onNext }) => {
+const Lightbox: React.FC<{ images: { id: string; image: string }[]; index: number; onClose: () => void; onPrev: () => void; onNext: () => void }> = ({ images, index, onClose, onPrev, onNext }) => {
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); if (e.key === 'ArrowLeft') onPrev(); if (e.key === 'ArrowRight') onNext(); };
     window.addEventListener('keydown', h);
@@ -692,7 +821,13 @@ const StickyActionBar: React.FC<{ scrolled: boolean; property: Property; liked: 
 const AgentCard: React.FC<{ property: Property; ownerName: string; avgRating: number; reviewsCount: number; onBook: () => void; onCopy: () => void; copied: boolean }> = ({ property, ownerName, avgRating, reviewsCount, onBook, onCopy, copied }) => (
   <div style={pg.agentCard}>
     <div style={pg.agentHeader}>
-      <div style={pg.agentAvatar}>{property.owner?.profile_picture ? <img src={property.owner.profile_picture} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : getInitials(property.owner?.first_name, property.owner?.last_name, property.owner?.username)}</div>
+<div style={pg.agentAvatar}>
+  {property.owner?.profile_picture ? (
+    <img src={getCloudinaryUrl(property.owner.profile_picture)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+  ) : (
+    getInitials(property.owner?.first_name, property.owner?.last_name, property.owner?.username)
+  )}
+</div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={pg.agentName}>{ownerName}</div>
         <div style={pg.agentMeta}>{property.owner?.is_verified && <span style={pg.agentVerified}>✓ Verified Agent</span>}</div>
@@ -810,9 +945,14 @@ const PropertyDetail: React.FC = () => {
     finally { setBookingLoad(false); }
   }, [user, property, navigate]);
 
-  const images = (property?.images?.length ?? 0) > 0
-    ? property!.images
-    : [{ id: 0, image: 'https://via.placeholder.com/1200x700?text=No+Image', is_main: true, order: 0 }];
+const images = (property?.images?.length ?? 0) > 0
+  ? property!.images.map(img => ({
+      ...img,
+      id: String(img.id),
+      // Use the full URL from the API if available, otherwise construct it
+      image: img.image_url || img.image || getCloudinaryUrl(img.image) || 'https://via.placeholder.com/1200x700?text=No+Image'
+    }))
+  : [{ id: '0', image: 'https://via.placeholder.com/1200x700?text=No+Image', is_main: true, order: 0 }];
 
   const avgRating  = reviews.length ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : 0;
   const ownerName  = property?.owner ? `${property.owner.first_name || ''} ${property.owner.last_name || ''}`.trim() || property.owner.username || 'Agent' : 'Agent';
@@ -920,7 +1060,7 @@ const PropertyDetail: React.FC = () => {
               {property.year_built && <DetailRow label="Year Built" value={property.year_built} />}
               <DetailRow label="Status" value={<span style={{ color: property.is_available ? TEAL : '#ef4444', fontWeight: 700 }}>{property.is_available ? 'Available' : 'Not Available'}</span>} />
               <DetailRow label="Listed" value={fmtDate(property.created_at)} />
-              <DetailRow label="Reference ID" value={`#${property.id}`} />
+              <DetailRow label="Reference ID" value={`#${String(property.id)}`} />
             </div>
 
             {/* Map */}
@@ -962,12 +1102,11 @@ const PropertyDetail: React.FC = () => {
         </div>
 
         <div style={{ marginTop: 48 }}>
-          <PropertyRecommendations propertyId={property.id} limit={3} />
+          <PropertyRecommendations propertyId={String(property.id)} limit={3} />
         </div>
       </div>
 
       {lightboxOpen && <Lightbox images={images} index={currentImg} onClose={() => setLightboxOpen(false)} onPrev={() => setCurrentImg(i => Math.max(0, i - 1))} onNext={() => setCurrentImg(i => Math.min(images.length - 1, i + 1))} />}
-      {bookingOpen && <BookingModal property={property} onClose={() => { setBookingOpen(false); setBookingOk(false); }} onConfirm={handleBooking} loading={bookingLoading} success={bookingSuccess} />}
     </div>
   );
 };

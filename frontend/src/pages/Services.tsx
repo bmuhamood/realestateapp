@@ -10,6 +10,17 @@ const TEAL_BG   = 'rgba(37,168,130,0.08)';
 const NAVY      = '#0d1b2e';
 const PRICE_MAX = 1_000_000;
 
+// ─── Helper to get full Cloudinary URL ────────────────────────────────────────
+const getCloudinaryUrl = (url: string | null | undefined): string => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  if (url.includes('/')) {
+    const cloudName = 'drcy2xxkg';
+    return `https://res.cloudinary.com/${cloudName}/${url}`;
+  }
+  return url;
+};
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Service {
   id: number;
@@ -18,6 +29,7 @@ interface Service {
   price: number;
   price_unit: string;
   image: string;
+  image_url?: string;
   gallery: string[];
   duration: string;
   provider: string;
@@ -89,13 +101,20 @@ const ServiceCard: React.FC<{
   index: number;
 }> = ({ service, onBook, onViewDetails, index }) => {
   const [hovered, setHovered] = useState(false);
+  const [imgError, setImgError] = useState(false);
+
+  const imageUrl = useMemo(() => {
+    if (imgError) return '';
+    const rawUrl = service.image_url || service.image;
+    return getCloudinaryUrl(rawUrl);
+  }, [service.image_url, service.image, imgError]);
 
   const handleCardClick = () => {
     onViewDetails(service);
   };
 
   const handleBookClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevents card click from firing
+    e.stopPropagation();
     onBook(service);
   };
 
@@ -115,29 +134,40 @@ const ServiceCard: React.FC<{
       onMouseLeave={() => setHovered(false)}
       onClick={handleCardClick}
     >
-      {/* Image */}
       <div style={c.cardImgWrap}>
-        <img
-          src={service.image || `https://via.placeholder.com/400x220/f4f7fb/94a3b8?text=${encodeURIComponent(service.name)}`}
-          alt={service.name}
-          style={{
-            ...c.cardImg,
-            transform: hovered ? 'scale(1.05)' : 'scale(1)',
-          }}
-        />
-        {/* Featured badge */}
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt={service.name}
+            style={{
+              ...c.cardImg,
+              transform: hovered ? 'scale(1.05)' : 'scale(1)',
+            }}
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <div
+            style={{
+              ...c.cardImg,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: '#f4f7fb',
+              fontSize: 48,
+            }}
+          >
+            🔧
+          </div>
+        )}
         {service.is_featured && (
           <div style={c.featuredBadge}>⭐ Featured</div>
         )}
-        {/* Category pill */}
         <div style={c.categoryPill}>
           {service.category_icon || getCatEmoji(service.category_name)} {service.category_name}
         </div>
       </div>
 
-      {/* Content */}
       <div style={c.cardBody}>
-        {/* Name + rating */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
           <div style={{ minWidth: 0 }}>
             <h3 style={c.cardTitle}>{service.name}</h3>
@@ -149,17 +179,14 @@ const ServiceCard: React.FC<{
           </div>
         </div>
 
-        {/* Description */}
         <p style={c.cardDesc}>
           {service.description.length > 90
             ? service.description.slice(0, 90) + '…'
             : service.description}
         </p>
 
-        {/* Divider */}
         <div style={c.cardDivider} />
 
-        {/* Footer */}
         <div style={c.cardFooter}>
           <div>
             <div style={c.cardPrice}>From {formatPrice(service.price)}</div>
@@ -207,20 +234,24 @@ const BookingModal: React.FC<{
   loading: boolean;
   success: boolean;
 }> = ({ service, onClose, onConfirm, loading, success }) => {
-  const [date, setDate]         = useState('');
-  const [address, setAddress]   = useState('');
-  const [notes, setNotes]       = useState('');
+  const [date, setDate] = useState('');
+  const [address, setAddress] = useState('');
+  const [notes, setNotes] = useState('');
+  const [imgError, setImgError] = useState(false);
 
   if (!service) return null;
 
+  const imageUrl = useMemo(() => {
+    if (imgError) return '';
+    const rawUrl = service.image_url || service.image;
+    return getCloudinaryUrl(rawUrl);
+  }, [service.image_url, service.image, imgError]);
+
   return (
     <>
-      {/* Backdrop */}
       <div style={m.backdrop} onClick={onClose} />
 
-      {/* Modal */}
       <div style={m.modal}>
-        {/* Header */}
         <div style={m.header}>
           <div>
             <h2 style={m.headerTitle}>Book Service</h2>
@@ -235,7 +266,6 @@ const BookingModal: React.FC<{
 
         <div style={m.body}>
           {success ? (
-            /* Success state */
             <div style={m.successBox}>
               <div style={m.successIcon}>✅</div>
               <h3 style={m.successTitle}>Booking Confirmed!</h3>
@@ -246,13 +276,19 @@ const BookingModal: React.FC<{
             </div>
           ) : (
             <>
-              {/* Service summary card */}
               <div style={m.summaryCard}>
-                <img
-                  src={service.image || 'https://via.placeholder.com/60x60'}
-                  alt={service.name}
-                  style={m.summaryImg}
-                />
+                {imageUrl ? (
+                  <img
+                    src={imageUrl}
+                    alt={service.name}
+                    style={m.summaryImg}
+                    onError={() => setImgError(true)}
+                  />
+                ) : (
+                  <div style={{ ...m.summaryImg, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f4f7fb', fontSize: 24 }}>
+                    🔧
+                  </div>
+                )}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={m.summaryName}>{service.name}</div>
                   <div style={m.summaryProvider}>by {service.provider}</div>
@@ -266,7 +302,6 @@ const BookingModal: React.FC<{
                 </div>
               </div>
 
-              {/* Provider contact */}
               {(service.provider_phone || service.provider_email) && (
                 <div style={m.contactRow}>
                   {service.provider_phone && (
@@ -282,7 +317,6 @@ const BookingModal: React.FC<{
                 </div>
               )}
 
-              {/* Form */}
               <div style={m.formGrid}>
                 <div style={m.formGroup}>
                   <label style={m.formLabel}>Date & Time *</label>
@@ -322,7 +356,6 @@ const BookingModal: React.FC<{
           )}
         </div>
 
-        {/* Footer */}
         {!success && (
           <div style={m.footer}>
             <button onClick={onClose} style={m.cancelBtn}>Cancel</button>
@@ -349,19 +382,48 @@ const BookingModal: React.FC<{
 // ─── Main Component ───────────────────────────────────────────────────────────
 const Services: React.FC = () => {
   const navigate = useNavigate();
-  const [services, setServices]           = useState<Service[]>([]);
-  const [categories, setCategories]       = useState<ServiceCategory[]>([]);
-  const [loading, setLoading]             = useState(true);
-  const [selectedCategory, setCategory]   = useState('');
-  const [search, setSearch]               = useState('');
-  const [sortBy, setSortBy]               = useState('featured');
-  const [minPrice, setMinPrice]           = useState(0);
-  const [maxPrice, setMaxPrice]           = useState(PRICE_MAX);
-  const [selectedService, setService]     = useState<Service | null>(null);
-  const [bookingLoading, setBookingLoad]  = useState(false);
-  const [bookingSuccess, setBookingOk]    = useState(false);
+  const [services, setServices] = useState<Service[]>([]);
+  const [categories, setCategories] = useState<ServiceCategory[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedCategory, setCategory] = useState('');
+  const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState('featured');
+  const [minPrice, setMinPrice] = useState(0);
+  const [maxPrice, setMaxPrice] = useState(PRICE_MAX);
+  const [selectedService, setService] = useState<Service | null>(null);
+  const [bookingLoading, setBookingLoad] = useState(false);
+  const [bookingSuccess, setBookingOk] = useState(false);
   const { user } = useAuth();
 
+  // ✅ ALL useMemo hooks are called BEFORE any conditional return
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    let list = services.filter(s => {
+      const mCat = !selectedCategory || s.category_name === selectedCategory;
+      const mSearch = !q || s.name.toLowerCase().includes(q) || s.description.toLowerCase().includes(q) || s.provider.toLowerCase().includes(q);
+      const mPrice = s.price >= minPrice && s.price <= maxPrice;
+      return mCat && mSearch && mPrice;
+    });
+    if (sortBy === 'price_low') list.sort((a, b) => a.price - b.price);
+    if (sortBy === 'price_high') list.sort((a, b) => b.price - a.price);
+    if (sortBy === 'rating') list.sort((a, b) => b.rating - a.rating);
+    if (sortBy === 'featured') list.sort((a, b) => (b.is_featured ? 1 : 0) - (a.is_featured ? 1 : 0));
+    return list;
+  }, [services, selectedCategory, search, minPrice, maxPrice, sortBy]);
+
+  const featured = useMemo(() => services.filter(s => s.is_featured).slice(0, 4), [services]);
+
+  const actualMinPrice = useMemo(() => {
+    if (services.length === 0) return 0;
+    return Math.min(...services.map(s => s.price));
+  }, [services]);
+
+  const actualMaxPrice = useMemo(() => {
+    if (services.length === 0) return PRICE_MAX;
+    return Math.max(...services.map(s => s.price));
+  }, [services]);
+
+  // ✅ useEffect hooks
   useEffect(() => {
     (async () => {
       try {
@@ -369,7 +431,14 @@ const Services: React.FC = () => {
           api.get('/services/'),
           api.get('/services/categories/'),
         ]);
-        setServices(sr.data.results ?? sr.data);
+        
+        // Process services to add image_url from Cloudinary
+        const servicesData = (sr.data.results ?? sr.data).map((s: Service) => ({
+          ...s,
+          image_url: getCloudinaryUrl(s.image_url || s.image)
+        }));
+        
+        setServices(servicesData);
         setCategories(cr.data.results ?? cr.data);
       } catch (e) {
         console.error(e);
@@ -379,6 +448,7 @@ const Services: React.FC = () => {
     })();
   }, []);
 
+  // ✅ useCallback hooks
   const handleBook = useCallback(async (date: string, address: string, notes: string) => {
     if (!user) { alert('Please log in to book a service.'); return; }
     if (!date || !address) { alert('Please fill in the required fields.'); return; }
@@ -406,34 +476,6 @@ const Services: React.FC = () => {
     navigate(`/services/${service.id}`);
   }, [navigate]);
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    let list = services.filter(s => {
-      const mCat   = !selectedCategory || s.category_name === selectedCategory;
-      const mSearch = !q || s.name.toLowerCase().includes(q) || s.description.toLowerCase().includes(q) || s.provider.toLowerCase().includes(q);
-      const mPrice  = s.price >= minPrice && s.price <= maxPrice;
-      return mCat && mSearch && mPrice;
-    });
-    if (sortBy === 'price_low')  list.sort((a, b) => a.price - b.price);
-    if (sortBy === 'price_high') list.sort((a, b) => b.price - a.price);
-    if (sortBy === 'rating')     list.sort((a, b) => b.rating - a.rating);
-    if (sortBy === 'featured')   list.sort((a, b) => (b.is_featured ? 1 : 0) - (a.is_featured ? 1 : 0));
-    return list;
-  }, [services, selectedCategory, search, minPrice, maxPrice, sortBy]);
-
-  const featured = useMemo(() => services.filter(s => s.is_featured).slice(0, 4), [services]);
-
-  // Get actual min and max prices from services for slider ranges
-  const actualMinPrice = useMemo(() => {
-    if (services.length === 0) return 0;
-    return Math.min(...services.map(s => s.price));
-  }, [services]);
-  
-  const actualMaxPrice = useMemo(() => {
-    if (services.length === 0) return PRICE_MAX;
-    return Math.max(...services.map(s => s.price));
-  }, [services]);
-
   const handleResetFilters = () => {
     setCategory('');
     setSearch('');
@@ -441,6 +483,7 @@ const Services: React.FC = () => {
     setMaxPrice(actualMaxPrice);
   };
 
+  // ✅ Conditional return AFTER all Hooks
   if (loading) return (
     <div style={{ ...p.page, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
       <div style={p.spinner} />
@@ -450,8 +493,7 @@ const Services: React.FC = () => {
 
   return (
     <div style={p.page}>
-
-      {/* ══ HERO ══════════════════════════════════════════════════════════════ */}
+      {/* HERO SECTION */}
       <div style={p.hero}>
         <div style={p.heroBg} />
         <div style={p.heroOverlay} />
@@ -496,7 +538,7 @@ const Services: React.FC = () => {
         </div>
       </div>
 
-      {/* ══ FEATURED STRIP ═══════════════════════════════════════════════════ */}
+      {/* FEATURED STRIP */}
       {featured.length > 0 && (
         <div style={p.featuredStrip}>
           <div style={p.featuredInner}>
@@ -522,9 +564,8 @@ const Services: React.FC = () => {
         </div>
       )}
 
-      {/* ══ MAIN CONTENT ═════════════════════════════════════════════════════ */}
+      {/* MAIN CONTENT */}
       <div style={p.body}>
-
         <aside style={p.sidebar}>
           <div style={p.filterSection}>
             <div style={p.filterSectionLabel}>Category</div>
@@ -554,7 +595,7 @@ const Services: React.FC = () => {
               <span style={p.priceLabel}>Min: {formatPriceShort(minPrice)}</span>
               <span style={p.priceLabel}>Max: {formatPriceShort(maxPrice)}</span>
             </div>
-            
+
             <div style={p.sliderLabel}>Minimum Price</div>
             <input
               type="range"
@@ -565,7 +606,7 @@ const Services: React.FC = () => {
               onChange={e => setMinPrice(Number(e.target.value))}
               style={{ width: '100%', accentColor: TEAL, cursor: 'pointer', marginTop: 4 }}
             />
-            
+
             <div style={{ ...p.sliderLabel, marginTop: 12 }}>Maximum Price</div>
             <input
               type="range"
@@ -576,7 +617,7 @@ const Services: React.FC = () => {
               onChange={e => setMaxPrice(Number(e.target.value))}
               style={{ width: '100%', accentColor: TEAL, cursor: 'pointer', marginTop: 4 }}
             />
-            
+
             <div style={p.priceMinMax}>
               <span>{formatPriceShort(actualMinPrice)}</span>
               <span>{formatPriceShort(actualMaxPrice)}</span>

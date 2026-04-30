@@ -1,14 +1,17 @@
-// src/types/index.ts - COMPLETE UPGRADED VERSION
+// src/types/index.ts - COMPLETE WITH UUID SUPPORT
 
+// ========== USER TYPES ==========
 export interface User {
-  id: number;
+  id: number;  // User uses integer ID (default Django)
   username: string;
   email: string;
   phone: string;
   first_name: string;
   last_name: string;
   profile_picture: string | null;
-  cover_photo: string | null;  
+  profile_picture_url?: string | null;  // Cloudinary URL
+  cover_photo: string | null;
+  cover_photo_url?: string | null;  // Cloudinary URL
   is_agent: boolean;
   is_service_provider: boolean;
   is_verified: boolean;
@@ -20,20 +23,31 @@ export interface User {
   following_count: number;
   full_name?: string;
   is_following?: boolean;
+  listings_count?: number;
+  created_at?: string;
 }
 
+// ========== PROPERTY TYPES ==========
 export interface PropertyImage {
-  id: number;
+  id: string;  // UUID
   image: string;
+  image_url?: string;
+  thumbnail_url?: string;
+  medium_url?: string;
+  large_url?: string;
   is_main: boolean;
   order: number;
+  created_at?: string;
 }
 
 export interface PropertyVideo {
-  id: number;
+  id: string;  // UUID
   video_file?: string;
   video_url?: string;
+  video_url_display?: string;
+  embed_url?: string;
   thumbnail?: string;
+  thumbnail_url?: string;
   title: string;
   order: number;
   is_main: boolean;
@@ -41,18 +55,22 @@ export interface PropertyVideo {
 }
 
 export interface PropertyDocument {
-  id: number;
+  id: string;  // UUID
   document_type: 'title_deed' | 'survey_plan' | 'valuation_report' | 'tax_clearance' | 'other';
   document_type_display: string;
   file: string;
+  file_url?: string;
   title: string;
   description: string;
   uploaded_at: string;
 }
 
 export interface PropertyReview {
-  id: number;
+  id: string;  // UUID
   user: User;
+  user_name?: string;
+  user_username?: string;
+  user_avatar?: string;
   rating: number;
   comment: string;
   created_at: string;
@@ -60,9 +78,14 @@ export interface PropertyReview {
 }
 
 export interface PropertyInquiry {
-  id: number;
-  property: number;
+  id: string;  // UUID
+  property: string;  // UUID
   property_title: string;
+  property_owner?: {
+    id: string;
+    username: string;
+    email: string;
+  };
   user?: number;
   name: string;
   email: string;
@@ -76,6 +99,38 @@ export interface PropertyInquiry {
   created_at: string;
 }
 
+// Property type definitions
+export type PropertyType = 
+  | 'house' | 'apartment' | 'condo' | 'villa' | 'townhouse' | 'duplex' 
+  | 'triplex' | 'bungalow' | 'mansion' | 'studio' | 'penthouse' | 'loft'
+  | 'farmhouse' | 'cottage' | 'cabin' | 'row_house'
+  | 'office' | 'retail' | 'shop' | 'restaurant' | 'cafe' | 'hotel' | 'lodge'
+  | 'warehouse' | 'factory' | 'showroom' | 'mall_space'
+  | 'land' | 'agricultural_land' | 'commercial_land' | 'industrial_land'
+  | 'residential_land' | 'mixed_use_land' | 'farm_land' | 'ranch' | 'plot'
+  | 'school' | 'hospital' | 'church' | 'mosque' | 'temple'
+  | 'community_center' | 'sports_facility' | 'parking_lot' | 'event_center'
+  | 'industrial' | 'manufacturing' | 'storage' | 'cold_storage' | 'workshop'
+  | 'mixed_use' | 'live_work';
+
+export type TransactionType = 'sale' | 'rent' | 'shortlet' | 'lease' | 'auction' | 'foreclosure' | 'pre_construction' | 'exchange' | 'rent_to_own' | 'commercial_lease';
+
+export type FurnishingStatus = 'unfurnished' | 'semi_furnished' | 'fully_furnished' | 'luxury' | 'bare_shell' | 'white_box' | 'turnkey';
+
+export type ParkingType = 'none' | 'street' | 'open' | 'covered' | 'garage' | 'multiple' | 'underground' | 'valet' | 'carport' | 'parking_lot' | 'parking_permit';
+
+export type OwnershipType = 'freehold' | 'leasehold' | 'shared_ownership' | 'co_op' | 'timeshare' | 'land_lease' | 'government' | 'trust';
+
+export type PropertyCondition = 'new' | 'excellent' | 'good' | 'needs_updating' | 'needs_renovation' | 'fixer_upper' | 'under_construction' | 'shell' | 'as_is' | 'repossessed' | 'heritage';
+
+export type TenureType = 'freehold' | 'leasehold' | 'mailo' | 'customary' | 'kibanja' | 'permanent' | 'temporary';
+
+export type BuildingType = 'detached' | 'semi_detached' | 'attached' | 'corner' | 'end_unit' | 'mid_rise' | 'high_rise' | 'low_rise';
+
+export type FloorLevel = 'ground' | 'upper' | 'top' | 'basement' | 'mezzanine';
+
+export type RentalFrequency = 'monthly' | 'quarterly' | 'semi_annually' | 'annually' | 'weekly' | 'daily';
+
 // Temporary image upload state
 export interface UploadImage {
   file: File;
@@ -84,12 +139,14 @@ export interface UploadImage {
 }
 
 export interface Property {
-  id: number;
+  id: string;  // UUID
   owner: User;
   title: string;
   description: string;
-  property_type: 'house' | 'apartment' | 'land' | 'commercial' | 'condo' | 'villa' | 'townhouse' | 'duplex' | 'bungalow';
-  transaction_type: 'sale' | 'rent' | 'shortlet';
+  video_url_display?: string;
+  video_stream_url?: string;
+  property_type: PropertyType;
+  transaction_type: TransactionType;
   price: number;
   bedrooms: number;
   bathrooms: number;
@@ -118,30 +175,76 @@ export interface Property {
   documents?: PropertyDocument[];
   reviews?: PropertyReview[];
   is_liked?: boolean;
+  is_favorited?: boolean;
   created_at: string;
   expires_at?: string;
   
-  // ========== NEW: Video Features ==========
+  // ========== Video Features ==========
   video_url?: string | null;
   video_file?: string | null;
   video_thumbnail?: string | null;
   virtual_tour_url?: string | null;
   has_video?: boolean;
   
-  // ========== NEW: Neighborhood Information ==========
+  // ========== Ownership & Legal ==========
+  ownership_type?: OwnershipType;
+  property_condition?: PropertyCondition;
+  tenure_type?: TenureType;
+  building_type?: BuildingType;
+  floor_level?: FloorLevel;
+  rental_frequency?: RentalFrequency;
+  
+  // ========== Building Information ==========
+  number_of_buildings?: number;
+  number_of_floors?: number;
+  floor_number?: number | null;
+  total_floors?: number | null;
+  elevator_available?: boolean;
+  year_renovated?: number | null;
+  
+  // ========== Commercial Features ==========
+  is_accessible?: boolean;
+  has_reception?: boolean;
+  has_meeting_rooms?: boolean;
+  number_of_meeting_rooms?: number;
+  has_kitchenette?: boolean;
+  has_server_room?: boolean;
+  has_pantry?: boolean;
+  has_emergency_exits?: boolean;
+  loading_dock?: boolean;
+  signage_allowed?: boolean;
+  
+  // ========== Zoning Information ==========
+  zoning_type?: string;
+  permitted_uses?: string;
+  
+  // ========== Utility Details ==========
+  water_source?: string;
+  power_source?: string;
+  has_gas?: boolean;
+  sewage_system?: 'septic' | 'sewer' | 'cesspool' | 'none';
+  
+  // ========== Nearby Facilities (Expanded) ==========
+  nearest_bank?: string;
+  nearest_police_station?: string;
+  nearest_fire_station?: string;
+  nearest_daycare?: string;
+  nearest_university?: string;
+  
+  // ========== Neighborhood Information ==========
   neighborhood_name?: string;
   neighborhood_description?: string;
   distance_to_city_center?: number | null;
   distance_to_airport?: number | null;
   distance_to_highway?: number | null;
   
-  // ========== NEW: Schools & Education ==========
+  // ========== Schools & Education ==========
   nearby_schools?: string;
   nearby_schools_list?: string[];
   distance_to_nearest_school?: number | null;
   school_rating?: number | null;
   
-  // ========== NEW: Transportation & Roads ==========
+  // ========== Transportation & Roads ==========
   nearby_roads?: string;
   nearby_roads_list?: string[];
   nearest_road?: string;
@@ -149,7 +252,7 @@ export interface Property {
   nearest_bus_stop?: string;
   nearest_taxi_stage?: string;
   
-  // ========== NEW: Shopping & Amenities ==========
+  // ========== Shopping & Amenities ==========
   amenities?: string[];
   amenities_list?: string[];
   nearest_mall?: string;
@@ -160,19 +263,19 @@ export interface Property {
   nearest_hospital?: string;
   distance_to_hospital?: number | null;
   
-  // ========== NEW: Entertainment & Lifestyle ==========
+  // ========== Entertainment & Lifestyle ==========
   nearest_restaurant?: string;
   nearest_cafe?: string;
   nearest_gym?: string;
   nearest_park?: string;
   
-  // ========== NEW: Property Features ==========
+  // ========== Property Features ==========
   year_built?: number | null;
-  furnishing_status?: 'unfurnished' | 'semi_furnished' | 'fully_furnished' | 'luxury';
-  parking_type?: 'none' | 'street' | 'open' | 'covered' | 'garage' | 'multiple';
+  furnishing_status?: FurnishingStatus;
+  parking_type?: ParkingType;
   parking_spaces?: number;
   
-  // ========== NEW: Security Features ==========
+  // ========== Security Features ==========
   has_security?: boolean;
   has_cctv?: boolean;
   has_electric_fence?: boolean;
@@ -180,7 +283,7 @@ export interface Property {
   has_security_guards?: boolean;
   has_gated_community?: boolean;
   
-  // ========== NEW: Utilities ==========
+  // ========== Utilities ==========
   has_solar?: boolean;
   has_backup_generator?: boolean;
   has_water_tank?: boolean;
@@ -188,7 +291,7 @@ export interface Property {
   has_internet?: boolean;
   has_cable_tv?: boolean;
   
-  // ========== NEW: Outdoor Features ==========
+  // ========== Outdoor Features ==========
   has_garden?: boolean;
   has_balcony?: boolean;
   has_terrace?: boolean;
@@ -196,7 +299,7 @@ export interface Property {
   has_playground?: boolean;
   has_bbq_area?: boolean;
   
-  // ========== NEW: Interior Features ==========
+  // ========== Interior Features ==========
   has_air_conditioning?: boolean;
   has_heating?: boolean;
   has_fireplace?: boolean;
@@ -204,73 +307,107 @@ export interface Property {
   has_walk_in_closet?: boolean;
   has_study_room?: boolean;
   
-  // ========== NEW: Restrictions ==========
+  // ========== Restrictions ==========
   pets_allowed?: boolean;
   smoking_allowed?: boolean;
+  events_allowed?: boolean;
   
-  // ========== NEW: Energy Efficiency ==========
+  // ========== Energy Efficiency ==========
   energy_rating?: string;
   
-  // ========== NEW: Legal & Documents ==========
+  // ========== Legal & Documents ==========
   has_title_deed?: boolean;
   title_deed_number?: string;
   land_registration_number?: string;
   
-  // ========== NEW: Contact & Viewing ==========
+  // ========== Contact & Viewing ==========
   agent_phone?: string;
   agent_email?: string;
   viewing_instructions?: string;
   
-  // ========== NEW: Helper Properties ==========
+  // ========== Helper Properties ==========
   full_address?: string;
   average_rating?: number;
   reviews_count?: number;
+  property_category?: 'residential' | 'commercial' | 'land' | 'special';
+  is_residential?: boolean;
+  is_commercial?: boolean;
+  is_land?: boolean;
+  hashid?: string;  // For URL-friendly IDs
 }
 
+// ========== BOOKING TYPES ==========
 export interface Booking {
-  id: number;
-  user: User;
-  property: Property;
+  id: string;  // UUID
+  booking_reference?: string;
+  user: number;
+  property: string;
+  property_detail?: Property;
+  user_detail?: User;
   visit_date: string;
   message: string;
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+  status_display?: string;
   booking_fee: number;
   created_at: string;
+  updated_at?: string;
+  confirmed_at?: string | null;
+  cancelled_at?: string | null;
+  completed_at?: string | null;
+  cancellation_reason?: string;
+  payment_status?: 'pending' | 'paid' | 'refunded' | 'failed';
+  payment_reference?: string;
+  contact_name?: string;
+  contact_email?: string;
+  contact_phone?: string;
+  is_upcoming?: boolean;
+  is_past?: boolean;
+  can_cancel?: boolean;
+  days_until_visit?: number;
+  visit_date_formatted?: string;
 }
 
+// ========== REVIEW TYPES ==========
 export interface Review {
-  id: number;
+  id: string;  // UUID
   user: User;
   agent: User;
-  property: Property | null;
+  property: string | null;
   rating: number;
   comment: string;
   created_at: string;
+  updated_at?: string;
 }
 
+// ========== FAVORITE TYPES ==========
 export interface Favorite {
-  id: number;
-  property: Property;
+  id: string;  // UUID
+  property: string;
+  property_detail?: Property;
+  user?: number;
   created_at: string;
 }
 
+// ========== PAYMENT TYPES ==========
 export interface Payment {
-  id: number;
+  id: string;  // UUID
   reference: string;
   amount: number;
   payment_method: string;
   status: string;
   created_at: string;
+  updated_at?: string;
 }
 
-// Service related interfaces
+// ========== SERVICE TYPES ==========
 export interface Service {
-  id: number;
+  id: string;  // UUID
   name: string;
   description: string;
   price: number;
   price_unit: string;
   image: string;
+  image_url?: string;
   gallery: string[];
   duration: string;
   provider: string;
@@ -281,41 +418,57 @@ export interface Service {
   is_featured: boolean;
   category_name: string;
   category_icon: string;
-  category?: number | { id: number; name: string };
+  category?: string;
   is_active?: boolean;
   service_type?: string;
   bookings_count?: number;
-  gallery_images?: Array<{ id: number; image: string; order: number; is_main: boolean }>;
+  gallery_images?: Array<{ id: string; image: string; image_url?: string; order: number; is_main: boolean }>;
+  provider_user?: number | null;
+  avg_rating?: number;
 }
 
 export interface ServiceCategory {
-  id: number;
+  id: string;  // UUID
   name: string;
   icon: string;
   service_count: number;
+  description?: string;
+  image?: string | null;
+  order?: number;
+  is_active?: boolean;
+  created_at?: string;
 }
 
 export interface ServiceBooking {
-  id: number;
-  service: Service;
+  id: string;  // UUID
+  service: string;
+  service_detail?: Service;
+  user?: number;
+  user_detail?: User;
   booking_date: string;
   address: string;
   special_instructions: string;
   status: string;
+  status_display?: string;
   total_price: number;
   created_at: string;
+  updated_at?: string;
+  service_name?: string;
+  service_image?: string;
 }
 
 export interface ServiceReview {
-  id: number;
+  id: string;  // UUID
   user: User;
   service: Service;
   rating: number;
   comment: string;
   created_at: string;
+  user_name?: string;
+  user_avatar?: string;
 }
 
-// Chatbot related interfaces
+// ========== CHATBOT TYPES ==========
 export interface ChatMessage {
   id: string;
   text: string;
@@ -331,18 +484,19 @@ export interface ChatMessage {
   collaboration_note?: string;
 }
 
-// Boost Package interface
+// ========== BOOST PACKAGE TYPES ==========
 export interface BoostPackage {
   id: number;
   name: string;
   description: string;
   duration_days: number;
   price: number;
+  price_formatted?: string;
   priority: number;
   is_active: boolean;
 }
 
-// Notification interface
+// ========== NOTIFICATION TYPES ==========
 export interface Notification {
   id: number;
   title: string;
@@ -354,7 +508,7 @@ export interface Notification {
   url?: string;
 }
 
-// Filter interfaces
+// ========== FILTER INTERFACES ==========
 export interface PropertyFilters {
   search?: string;
   property_type?: string;
@@ -370,9 +524,9 @@ export interface PropertyFilters {
   page?: number;
   is_boosted?: string | boolean;
   is_verified?: boolean;
-  owner?: number;
-  user?: number;
-  agent?: number;
+  owner?: string;  // UUID
+  user?: string;   // UUID
+  agent?: string;  // UUID
   
   // New filters for upgraded features
   min_bedrooms?: number;
@@ -386,11 +540,69 @@ export interface PropertyFilters {
   min_school_rating?: number;
   max_distance_to_city?: number;
   neighborhood?: string;
+  ownership_type?: string;
+  property_condition?: string;
+  tenure_type?: string;
 }
 
+// ========== PAGINATION ==========
 export interface PaginatedResponse<T> {
   count: number;
   next: string | null;
   previous: string | null;
   results: T[];
+}
+
+// ========== AUTH TYPES ==========
+export interface LoginCredentials {
+  username: string;
+  password: string;
+}
+
+export interface RegisterData {
+  username: string;
+  email: string;
+  phone: string;
+  password: string;
+  password2: string;
+  first_name?: string;
+  last_name?: string;
+  is_agent?: boolean;
+  is_service_provider?: boolean;
+}
+
+export interface AuthResponse {
+  access: string;
+  refresh: string;
+  user: User;
+}
+
+// ========== STATUS/STORY TYPES ==========
+export interface Status {
+  id: string;  // UUID
+  user: User;
+  media: string | null;
+  media_url?: string | null;
+  thumbnail_url?: string | null;
+  media_type: 'image' | 'video' | 'text';
+  text_content: string | null;
+  background_color: string;
+  created_at: string;
+  expires_at: string | null;
+  views_count: number;
+  has_viewed: boolean;
+  is_active: boolean;
+}
+
+export interface GroupedStatus {
+  user: {
+    id: number;
+    username: string;
+    first_name: string;
+    last_name: string;
+    profile_picture: string | null;
+    is_agent: boolean;
+    is_service_provider: boolean;
+  };
+  statuses: Status[];
 }

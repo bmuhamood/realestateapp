@@ -1,6 +1,6 @@
 @echo off
 echo ========================================
-echo METRO PROPERTIES App - Backend Setup
+echo METRO CARE PROPERTIES App - Backend Setup
 echo ========================================
 
 cd backend

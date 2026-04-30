@@ -1,4 +1,5 @@
-// ServiceProviderDashboard.tsx - Fixed client info display
+// ServiceProviderDashboard.tsx - Full Cloudinary Support
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -20,7 +21,8 @@ interface ServiceBooking {
     name: string;
     price: number;
     price_unit: string;
-    image: string;
+    image_url?: string;
+    image?: string;
   };
   user: {
     id: number;
@@ -29,6 +31,7 @@ interface ServiceBooking {
     last_name: string;
     email: string;
     phone: string;
+    profile_picture_url?: string;
   };
   booking_date: string;
   address: string;
@@ -44,7 +47,8 @@ interface Service {
   description: string;
   price: number;
   price_unit: string;
-  image: string;
+  image_url?: string;
+  image?: string;
   duration: string;
   bookings_count?: number;
   rating: number;
@@ -88,6 +92,20 @@ const ServiceProviderDashboard: React.FC = () => {
     setTimeout(() => setToast(''), 3500);
   };
 
+  const getImageUrl = (item: any): string | null => {
+    if (item.image_url) return item.image_url;
+    if (item.image) {
+      if (typeof item.image === 'string') {
+        // Check if it's a Cloudinary URL or a public_id
+        if (item.image.startsWith('http')) return item.image;
+        if (item.image.includes('cloudinary')) return item.image;
+        // If it's a public_id, construct Cloudinary URL
+        return `https://res.cloudinary.com/${process.env.REACT_APP_CLOUDINARY_CLOUD_NAME}/image/upload/${item.image}`;
+      }
+    }
+    return null;
+  };
+
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
@@ -98,7 +116,15 @@ const ServiceProviderDashboard: React.FC = () => {
       
       let bookingsData = bookingsRes.data.results || bookingsRes.data;
       if (Array.isArray(bookingsData)) {
-        setBookings(bookingsData);
+        // Process image URLs
+        const processedBookings = bookingsData.map((booking: any) => ({
+          ...booking,
+          service: {
+            ...booking.service,
+            image_url: getImageUrl(booking.service)
+          }
+        }));
+        setBookings(processedBookings);
       } else {
         setBookings([]);
       }
@@ -109,7 +135,10 @@ const ServiceProviderDashboard: React.FC = () => {
       const myServices = allServices.filter((s: any) => 
         s.provider_email === user?.email || 
         s.provider === user?.username
-      );
+      ).map((service: any) => ({
+        ...service,
+        image_url: getImageUrl(service)
+      }));
       setServices(myServices);
       
       // Fetch payments
@@ -310,24 +339,38 @@ const ServiceProviderDashboard: React.FC = () => {
                   </div>
                 ) : (
                   <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1100 }}>
                       <thead style={{ backgroundColor: '#f8faff' }}>
                         <tr>
-                          <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', borderBottom: '1px solid #eef2f7' }}>Service</th>
-                          <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', borderBottom: '1px solid #eef2f7' }}>Client</th>
-                          <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', borderBottom: '1px solid #eef2f7' }}>Booking Date</th>
-                          <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', borderBottom: '1px solid #eef2f7' }}>Address</th>
-                          <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', borderBottom: '1px solid #eef2f7' }}>Amount</th>
-                          <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', borderBottom: '1px solid #eef2f7' }}>Status</th>
-                          <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', borderBottom: '1px solid #eef2f7' }}>Actions</th>
+                          <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Service</th>
+                          <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Client</th>
+                          <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Booking Date</th>
+                          <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Address</th>
+                          <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Amount</th>
+                          <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Status</th>
+                          <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
                         {bookings.map(booking => (
                           <tr key={booking.id} style={{ borderBottom: '1px solid #f8faff' }}>
                             <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
-                              <div style={{ fontWeight: 700, color: NAVY, fontSize: 13, marginBottom: 2 }}>{booking.service?.name || 'Service'}</div>
-                              <div style={{ fontSize: 11, color: '#94a3b8' }}>{booking.service?.price_unit || 'Fixed price'}</div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                {booking.service?.image_url && (
+                                  <img 
+                                    src={booking.service.image_url} 
+                                    alt={booking.service.name}
+                                    style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover' }}
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).style.display = 'none';
+                                    }}
+                                  />
+                                )}
+                                <div>
+                                  <div style={{ fontWeight: 700, color: NAVY, fontSize: 13, marginBottom: 2 }}>{booking.service?.name || 'Service'}</div>
+                                  <div style={{ fontSize: 11, color: '#94a3b8' }}>{booking.service?.price_unit || 'Fixed price'}</div>
+                                </div>
+                              </div>
                             </td>
                             <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
                               <div style={{ fontWeight: 600, color: NAVY, fontSize: 13, marginBottom: 2 }}>
@@ -417,12 +460,12 @@ const ServiceProviderDashboard: React.FC = () => {
                     <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 600 }}>
                       <thead style={{ backgroundColor: '#f8faff' }}>
                         <tr>
-                          <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', borderBottom: '1px solid #eef2f7' }}>Reference</th>
-                          <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', borderBottom: '1px solid #eef2f7' }}>Service</th>
-                          <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', borderBottom: '1px solid #eef2f7' }}>Amount</th>
-                          <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', borderBottom: '1px solid #eef2f7' }}>Method</th>
-                          <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', borderBottom: '1px solid #eef2f7' }}>Status</th>
-                          <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', borderBottom: '1px solid #eef2f7' }}>Date</th>
+                          <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Reference</th>
+                          <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Service</th>
+                          <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Amount</th>
+                          <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Method</th>
+                          <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Status</th>
+                          <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Date</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -466,30 +509,47 @@ const ServiceProviderDashboard: React.FC = () => {
                   {/* Services Performance */}
                   <div style={{ marginBottom: 32 }}>
                     <h3 style={{ fontSize: 16, fontWeight: 700, color: NAVY, marginBottom: 16 }}>Services Performance</h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
                       {services.map(service => (
-                        <div key={service.id} style={{ border: '1px solid #eef2f7', borderRadius: 12, padding: 14 }}>
-                          <div style={{ fontWeight: 700, color: NAVY, marginBottom: 4 }}>{service.name}</div>
-                          <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 8 }}>{service.duration || 'Flexible duration'}</div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div>
-                              <span style={{ fontSize: 14, fontWeight: 800, color: TEAL }}>{formatPrice(service.price)}</span>
-                              {service.price_unit && <span style={{ fontSize: 11, color: '#94a3b8' }}> /{service.price_unit}</span>}
+                        <div key={service.id} style={{ border: '1px solid #eef2f7', borderRadius: 12, padding: 14, display: 'flex', gap: 12 }}>
+                          {service.image_url && (
+                            <img 
+                              src={service.image_url} 
+                              alt={service.name}
+                              style={{ width: 60, height: 60, borderRadius: 8, objectFit: 'cover' }}
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none';
+                              }}
+                            />
+                          )}
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 700, color: NAVY, marginBottom: 4 }}>{service.name}</div>
+                            <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 8 }}>{service.duration || 'Flexible duration'}</div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                              <div>
+                                <span style={{ fontSize: 14, fontWeight: 800, color: TEAL }}>{formatPrice(service.price)}</span>
+                                {service.price_unit && <span style={{ fontSize: 11, color: '#94a3b8' }}> /{service.price_unit}</span>}
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ fontSize: 12, color: AMBER }}>★ {service.rating?.toFixed(1) || '0'}</span>
+                                <span style={{ fontSize: 11, color: '#94a3b8' }}>({service.reviews_count || 0} reviews)</span>
+                              </div>
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <span style={{ fontSize: 12, color: AMBER }}>★ {service.rating?.toFixed(1) || '0'}</span>
-                              <span style={{ fontSize: 11, color: '#94a3b8' }}>({service.reviews_count || 0} reviews)</span>
+                            <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #eef2f7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: 12, color: SLATE }}>Bookings: {service.bookings_count || 0}</span>
+                              <button onClick={() => navigate(`/services/${service.id}`)} style={{ fontSize: 11, color: TEAL, background: 'none', border: 'none', cursor: 'pointer' }}>
+                                View Details →
+                              </button>
                             </div>
-                          </div>
-                          <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #eef2f7', display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ fontSize: 12, color: SLATE }}>Bookings: {service.bookings_count || 0}</span>
-                            <button onClick={() => navigate(`/services/${service.id}`)} style={{ fontSize: 11, color: TEAL, background: 'none', border: 'none', cursor: 'pointer' }}>
-                              View Details →
-                            </button>
                           </div>
                         </div>
                       ))}
                     </div>
+                    {services.length === 0 && (
+                      <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
+                        No services created yet. Click "Manage Services" to add your first service.
+                      </div>
+                    )}
                   </div>
 
                   {/* Quick Stats Summary */}

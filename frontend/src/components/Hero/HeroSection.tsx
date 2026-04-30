@@ -127,7 +127,7 @@ export const AppDownloadBanner: React.FC = () => {
           <div style={{ width: '100%', height: '100%', backgroundColor: '#f5f7fa', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             {/* App bar */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '32px 14px 10px', backgroundColor: '#fff', borderBottom: '1px solid #eef2f7' }}>
-              <span style={{ fontSize: 12, fontWeight: 800, color: NAVY, fontFamily: "'Sora', sans-serif" }}>Metro</span>
+              <span style={{ fontSize: 12, fontWeight: 800, color: NAVY, fontFamily: "'Sora', sans-serif" }}>Metro Care</span>
               <span style={{ fontSize: 9, fontWeight: 700, color: TEAL, backgroundColor: 'rgba(37,168,130,0.1)', padding: '2px 8px', borderRadius: 10 }}>🟢 Live</span>
             </div>
 

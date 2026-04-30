@@ -58,7 +58,7 @@ interface BoostPackage {
 interface BoostModalProps {
   open: boolean;
   onClose: () => void;
-  propertyId: number;
+  propertyId: string;
   propertyTitle: string;
   onBoostSuccess: () => void;
 }

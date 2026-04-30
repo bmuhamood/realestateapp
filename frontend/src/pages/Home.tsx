@@ -1,6 +1,5 @@
 /**
- * Home.tsx — MODERN REDESIGN
- * Design direction: Editorial luxury real estate — Bayut/Rightmove premium meets African warmth
+ * Home.tsx — MODERN REDESIGN with Cloudinary Support
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -25,6 +24,21 @@ const C = {
   border:  '#eef2f7',
   pageBg:  '#f5f7fa',
   white:   '#ffffff',
+};
+
+// ─── Cloudinary Configuration ────────────────────────────────────────────────
+const CLOUDINARY_CLOUD_NAME = 'drcy2xxkg';
+
+const getCloudinaryUrl = (image: string | null | undefined): string => {
+  if (!image) return '';
+  if (image.startsWith('http://') || image.startsWith('https://')) return image;
+  // Remove any existing 'image/upload/' to prevent duplication
+  let cleanUrl = image;
+  if (cleanUrl.includes('image/upload/')) {
+    cleanUrl = cleanUrl.replace('image/upload/', '');
+  }
+  cleanUrl = cleanUrl.replace(/^\/+/, '');
+  return `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/f_auto,q_auto/${cleanUrl}`;
 };
 
 function toPropertiesUrl(params: { search?: string; property_type?: string; transaction_type?: string; bedrooms?: string; location?: string; sort?: string }) {
@@ -125,17 +139,32 @@ const PropTypeTile: React.FC<{ item: typeof PROP_TYPES[0]; tx: 'sale'|'rent'|'sh
   );
 };
 
-// ─── Service Card ─────────────────────────────────────────────────────────────
+// ─── Service Card with Cloudinary Support ─────────────────────────────────────
 const ServiceCard: React.FC<{ service: Service; onPress: () => void }> = ({ service, onPress }) => {
   const [hov, setHov] = useState(false);
+  const [imgError, setImgError] = useState(false);
+  
   const emo: Record<string, string> = { cleaning: '🧹', moving: '🚚', renovation: '🔨', electrical: '⚡', plumbing: '🔧', painting: '🖌️', security: '🔒', landscaping: '🌿', general: '🏠' };
+  
+  const imageUrl = useMemo(() => {
+    if (imgError) return '';
+    const rawUrl = service.image_url || service.image;
+    return getCloudinaryUrl(rawUrl);
+  }, [service.image_url, service.image, imgError]);
+
   return (
     <button onClick={onPress} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)} style={{ flexShrink: 0, width: 230, borderRadius: 18, overflow: 'hidden', border: `1.5px solid ${hov ? C.teal : C.border}`, backgroundColor: C.white, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', transform: hov ? 'translateY(-4px)' : 'none', boxShadow: hov ? '0 12px 32px rgba(37,168,130,0.12)' : '0 1px 6px rgba(0,0,0,0.04)', transition: 'all 0.25s' }}>
       <div style={{ height: 148, position: 'relative', overflow: 'hidden', backgroundColor: '#f4f7fb' }}>
-        {service.image
-          ? <img src={service.image} alt={service.name} style={{ width: '100%', height: '100%', objectFit: 'cover', transform: hov ? 'scale(1.06)' : 'scale(1)', transition: 'transform 0.4s' }} />
-          : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 52 }}>{emo[service.category_name?.toLowerCase()] || '🔧'}</div>
-        }
+        {imageUrl ? (
+          <img 
+            src={imageUrl} 
+            alt={service.name} 
+            style={{ width: '100%', height: '100%', objectFit: 'cover', transform: hov ? 'scale(1.06)' : 'scale(1)', transition: 'transform 0.4s' }}
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 52 }}>{emo[service.category_name?.toLowerCase()] || '🔧'}</div>
+        )}
         {service.is_featured && <span style={{ position: 'absolute', top: 10, left: 10, backgroundColor: '#f59e0b', color: '#fff', fontSize: 10, fontWeight: 800, padding: '3px 9px', borderRadius: 20 }}>⭐ Featured</span>}
       </div>
       <div style={{ padding: '14px 16px' }}>
@@ -220,7 +249,6 @@ const Footer: React.FC = () => {
   ];
   return (
     <footer style={{ backgroundColor: '#07111e' }}>
-      {/* App download strip */}
       <div style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '36px 0' }}>
         <div style={{ maxWidth: 1400, margin: '0 auto', padding: '0 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 24 }}>
           <div>
@@ -244,7 +272,6 @@ const Footer: React.FC = () => {
         </div>
       </div>
 
-      {/* Links */}
       <div style={{ maxWidth: 1400, margin: '0 auto', padding: '44px 28px 32px', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 40 }}>
         <div style={{ maxWidth: 300 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
@@ -252,7 +279,7 @@ const Footer: React.FC = () => {
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill={C.teal}/><polyline points="9 22 9 12 15 12 15 22" stroke="#fff" strokeWidth="2" strokeLinecap="round"/></svg>
             </div>
             <div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: '#fff', fontFamily: "'Sora',sans-serif", letterSpacing: '-0.02em' }}>Metro Properties</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: '#fff', fontFamily: "'Sora',sans-serif", letterSpacing: '-0.02em' }}>Metro Care Properties</div>
               <div style={{ fontSize: 10, fontWeight: 700, color: C.teal, letterSpacing: '0.08em', textTransform: 'uppercase' as const }}>Uganda's #1 Real Estate</div>
             </div>
           </div>
@@ -302,7 +329,13 @@ const Home: React.FC = () => {
   const fetchServices = useCallback(async () => {
     try {
       const res = await api.get('/services/', { params: { page_size: 8, is_featured: true } });
-      setServices((res.data.results ?? res.data).slice(0, 8));
+      let servicesData = res.data.results ?? res.data;
+      // ONLY add this line to process image URLs
+      servicesData = servicesData.map((s: Service) => ({
+        ...s,
+        image_url: getCloudinaryUrl(s.image || s.image_url)
+      }));
+      setServices(servicesData.slice(0, 8));
     } catch (e) { console.error(e); }
   }, []);
 
@@ -341,7 +374,8 @@ const Home: React.FC = () => {
 
       {stats.total > 0 && <StatsStrip stats={stats} />}
 
-      {services.length > 0 && (
+      {/* Services Section with Inspection Card */}
+      {(services.length > 0) && (
         <Sec bg={C.white}>
           <SectionHeader label="Services" title="Home Services" subtitle="Trusted professionals for every need" ctaLabel="Browse all" ctaUrl="/services" accent={C.teal} />
           <div style={{ display: 'flex', gap: 18, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' as any }}>
@@ -439,7 +473,7 @@ const Home: React.FC = () => {
         <div style={{ maxWidth: 1400, margin: '0 auto', padding: '0 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 32, position: 'relative', zIndex: 1 }}>
           <div>
             <div style={{ fontSize: 10, fontWeight: 800, color: C.teal, letterSpacing: '0.12em', textTransform: 'uppercase' as const, marginBottom: 12 }}>For Agents & Developers</div>
-            <h2 style={{ fontFamily: "'Sora',sans-serif", fontSize: 'clamp(1.5rem, 3vw, 2.2rem)', fontWeight: 800, color: '#fff', margin: '0 0 12px', letterSpacing: '-0.025em', lineHeight: 1.15 }}>Grow Your Business<br />with Metro Properties</h2>
+            <h2 style={{ fontFamily: "'Sora',sans-serif", fontSize: 'clamp(1.5rem, 3vw, 2.2rem)', fontWeight: 800, color: '#fff', margin: '0 0 12px', letterSpacing: '-0.025em', lineHeight: 1.15 }}>Grow Your Business<br />with Metro Care Properties</h2>
             <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.55)', margin: 0, maxWidth: 460, lineHeight: 1.7 }}>List your properties and connect with thousands of serious buyers and renters across Uganda every day.</p>
           </div>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>

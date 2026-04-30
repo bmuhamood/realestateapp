@@ -1,4 +1,5 @@
-// src/pages/ProfilePage.tsx — Complete with Cover Photo Support
+// src/pages/ProfilePage.tsx — Complete with Cover Photo & Cloudinary URL Support
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -16,16 +17,20 @@ const GOLD_BG = 'rgba(245,158,11,0.08)';
 const ORANGE = '#F97316';
 const ORANGE_BG = 'rgba(249,115,22,0.08)';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Types with Cloudinary URL fields ────────────────────────────────────────
 interface UserProfile {
   id: number; username: string; email: string; phone: string;
-  first_name: string; last_name: string; profile_picture: string | null;
+  first_name: string; last_name: string; 
+  profile_picture: string | null;
+  profile_picture_url?: string | null;  // ✅ ADDED
   cover_photo: string | null;
+  cover_photo_url?: string | null;      // ✅ ADDED
   bio: string; location: string; district: string; city: string;
   is_agent: boolean; is_service_provider: boolean; is_verified: boolean;
   followers_count: number; following_count: number; created_at: string;
   full_name: string; is_following?: boolean;
 }
+
 interface Property {
   id: number; title: string; description: string; price: number;
   property_type: string; transaction_type: string; bedrooms: number;
@@ -47,6 +52,17 @@ interface Review {
   service?: { id: number; name: string } | null;
   rating: number; comment: string; created_at: string; updated_at: string;
 }
+
+// ─── Helper to get full image URL ────────────────────────────────────────────
+const getImageUrl = (url: string | null | undefined): string | null => {
+  if (!url) return null;
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  if (url.startsWith('image/upload/') || (!url.includes('://') && url.includes('/'))) {
+    const cloudName = 'drcy2xxkg';
+    return `https://res.cloudinary.com/${cloudName}/${url}`;
+  }
+  return url;
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmtPrice = (p: number) =>
@@ -90,16 +106,17 @@ const Spin = ({ size = 20, color = '#fff' }: { size?: number; color?: string }) 
   <span style={{ width: size, height: size, border: `2.5px solid ${color}33`, borderTopColor: color, borderRadius: '50%', display: 'inline-block', animation: 'ppSpin 0.7s linear infinite', flexShrink: 0 }} />
 );
 
-// ─── Avatar ───────────────────────────────────────────────────────────────────
-const ProfileAvatar: React.FC<{ src?: string | null; initials: string; size: number; accentColor: string; style?: React.CSSProperties }> = ({ src, initials, size, accentColor, style }) => (
-  src ? (
-    <img src={src} alt="profile" style={{ width: size, height: size, borderRadius: size * 0.22, objectFit: 'cover', display: 'block', ...style }} />
+// ─── Avatar with Cloudinary URL support ──────────────────────────────────────
+const ProfileAvatar: React.FC<{ src?: string | null; initials: string; size: number; accentColor: string; style?: React.CSSProperties }> = ({ src, initials, size, accentColor, style }) => {
+  const imageUrl = getImageUrl(src);
+  return imageUrl ? (
+    <img src={imageUrl} alt="profile" style={{ width: size, height: size, borderRadius: size * 0.22, objectFit: 'cover', display: 'block', ...style }} />
   ) : (
     <div style={{ width: size, height: size, borderRadius: size * 0.22, background: `linear-gradient(135deg, ${accentColor} 0%, ${accentColor === RED ? RED_DARK : '#ea580c'} 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.36, fontWeight: 800, color: '#fff', fontFamily: "'Sora', sans-serif", flexShrink: 0, ...style }}>
       {initials}
     </div>
-  )
-);
+  );
+};
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 const Toast: React.FC<{ msg: string; severity: 'success' | 'error'; onClose: () => void }> = ({ msg, severity, onClose }) => (
@@ -126,7 +143,7 @@ const PropertyCard: React.FC<{ property: Property; onNavigate: (id: number) => v
       onClick={() => onNavigate(property.id)}
     >
       <div style={{ position: 'relative', paddingTop: '66.67%', overflow: 'hidden' }}>
-        <img src={img || 'https://via.placeholder.com/400x300?text=No+Image'} alt={property.title}
+        <img src={getImageUrl(img) || 'https://via.placeholder.com/400x300?text=No+Image'} alt={property.title}
           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.35s', transform: hov ? 'scale(1.05)' : 'scale(1)' }} />
         <div style={{ position: 'absolute', top: 10, left: 10, display: 'flex', flexDirection: 'column', gap: 5, zIndex: 2 }}>
           {property.is_boosted && <span style={{ backgroundColor: GOLD, color: '#fff', fontSize: 10, fontWeight: 800, padding: '3px 9px', borderRadius: 20, boxShadow: '0 2px 6px rgba(245,158,11,.4)' }}>⭐ Featured</span>}
@@ -175,7 +192,7 @@ const ServiceCard: React.FC<{ service: Service; onNavigate: (id: number) => void
       onClick={() => onNavigate(service.id)}
     >
       <div style={{ position: 'relative', paddingTop: '66.67%', overflow: 'hidden' }}>
-        <img src={service.image || 'https://via.placeholder.com/400x300?text=No+Image'} alt={service.name}
+        <img src={getImageUrl(service.image) || 'https://via.placeholder.com/400x300?text=No+Image'} alt={service.name}
           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.35s', transform: hov ? 'scale(1.05)' : 'scale(1)' }} />
         {service.is_featured && <span style={{ position: 'absolute', top: 10, left: 10, backgroundColor: GOLD, color: '#fff', fontSize: 10, fontWeight: 800, padding: '3px 9px', borderRadius: 20, zIndex: 2 }}>⭐ Featured</span>}
       </div>
@@ -277,8 +294,8 @@ const EditDialog: React.FC<{
           <div style={{ marginBottom: 24 }}>
             <label style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>Cover Photo</label>
             <div style={{ position: 'relative', borderRadius: 14, overflow: 'hidden', height: 140, backgroundColor: '#f1f5f9' }}>
-              {(coverPreview || profile.cover_photo) ? (
-                <img src={coverPreview || profile.cover_photo || undefined} alt="Cover" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              {(coverPreview || profile.cover_photo_url || profile.cover_photo) ? (
+                <img src={getImageUrl(coverPreview || profile.cover_photo_url || profile.cover_photo) || undefined} alt="Cover" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
                 <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: `linear-gradient(135deg, ${accentColor}20 0%, ${accentColor}40 100%)` }}>
                   <span style={{ fontSize: 13, color: '#94a3b8' }}>No cover photo</span>
@@ -297,7 +314,7 @@ const EditDialog: React.FC<{
             <label style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>Profile Picture</label>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
               <div style={{ position: 'relative' }}>
-                <ProfileAvatar src={avatarPreview || profile.profile_picture} initials={initials} size={80} accentColor={accentColor} style={{ border: `2px solid ${accentColor}` }} />
+                <ProfileAvatar src={avatarPreview || profile.profile_picture_url || profile.profile_picture} initials={initials} size={80} accentColor={accentColor} style={{ border: `2px solid ${accentColor}` }} />
                 <label style={{ position: 'absolute', bottom: -4, right: -4, width: 28, height: 28, borderRadius: '50%', backgroundColor: accentColor, border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff' }}>
                   <IcoCamera />
                   <input type="file" hidden accept="image/jpeg,image/png,image/jpg,image/webp" onChange={onAvatarChange} />
@@ -425,8 +442,8 @@ const ProfilePage: React.FC = () => {
           district: r.data.district || '',
           phone: r.data.phone || ''
         });
-        setAvatarPreview(r.data.profile_picture || null);
-        setCoverPreview(r.data.cover_photo || null);
+        setAvatarPreview(r.data.profile_picture_url || r.data.profile_picture || null);
+        setCoverPreview(r.data.cover_photo_url || r.data.cover_photo || null);
       }
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to load profile');
@@ -488,8 +505,8 @@ const ProfilePage: React.FC = () => {
       if (coverFile) fd.append('cover_photo', coverFile);
       const r = await api.patch('/users/me/', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
       setProfile(r.data);
-      setAvatarPreview(r.data.profile_picture || null);
-      setCoverPreview(r.data.cover_photo || null);
+      setAvatarPreview(r.data.profile_picture_url || r.data.profile_picture || null);
+      setCoverPreview(r.data.cover_photo_url || r.data.cover_photo || null);
       setAvatarFile(null);
       setCoverFile(null);
       setEditOpen(false);
@@ -584,9 +601,16 @@ const ProfilePage: React.FC = () => {
       <div style={{ maxWidth: 1000, margin: '0 auto', padding: '24px 20px 0' }}>
         <div style={{ backgroundColor: '#fff', borderRadius: 20, overflow: 'hidden', marginBottom: 20, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', animation: 'ppFadeUp 0.4s ease-out' }}>
 
-          {/* Cover */}
-          <div style={{ height: 190, position: 'relative', background: profile.cover_photo ? `url(${profile.cover_photo}) center/cover no-repeat` : `linear-gradient(135deg, ${NAVY} 0%, ${isAgent ? '#1e3a5c' : isSP ? '#2a1f0a' : '#1e3a5c'} 60%, ${accent}55 100%)`, overflow: 'hidden' }}>
-            {!profile.cover_photo && (
+          {/* Cover - using Cloudinary URL */}
+          <div style={{ 
+            height: 190, 
+            position: 'relative', 
+            background: (profile.cover_photo_url || profile.cover_photo) 
+              ? `url(${getImageUrl(profile.cover_photo_url || profile.cover_photo)}) center/cover no-repeat` 
+              : `linear-gradient(135deg, ${NAVY} 0%, ${isAgent ? '#1e3a5c' : isSP ? '#2a1f0a' : '#1e3a5c'} 60%, ${accent}55 100%)`, 
+            overflow: 'hidden' 
+          }}>
+            {!profile.cover_photo && !profile.cover_photo_url && (
               <>
                 <div style={{ position: 'absolute', top: -40, right: -40, width: 200, height: 200, borderRadius: '50%', background: `${accent}18`, pointerEvents: 'none' }} />
                 <div style={{ position: 'absolute', bottom: -60, left: '30%', width: 160, height: 160, borderRadius: '50%', background: `${TEAL}12`, pointerEvents: 'none' }} />
@@ -605,10 +629,10 @@ const ProfilePage: React.FC = () => {
           {/* Body */}
           <div style={{ padding: '0 28px 24px' }}>
             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16, marginTop: -48, marginBottom: 20 }}>
-              {/* Avatar */}
+              {/* Avatar - using Cloudinary URL */}
               <div style={{ position: 'relative' }}>
                 <ProfileAvatar
-                  src={profile.profile_picture}
+                  src={profile.profile_picture_url || profile.profile_picture}
                   initials={initials}
                   size={96}
                   accentColor={accent}
@@ -803,8 +827,8 @@ const ProfilePage: React.FC = () => {
           setEditOpen(false);
           setAvatarFile(null);
           setCoverFile(null);
-          setAvatarPreview(profile.profile_picture);
-          setCoverPreview(profile.cover_photo);
+          setAvatarPreview(profile.profile_picture_url || profile.profile_picture);
+          setCoverPreview(profile.cover_photo_url || profile.cover_photo);
         }}
       />
 

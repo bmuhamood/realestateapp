@@ -1,6 +1,8 @@
-# chatbot/urls.py
+# chatbot/urls.py - UPDATED WITH CORRECT IMPORTS
+
 from django.urls import path
-from .views_dynamic import UltimatePropertyChatbotView
+# Change this import - use 'views' instead of 'views_dynamic'
+from .views import ChatbotMessageView  # Import your actual view class
 
 # Try to import voice views
 try:
@@ -31,7 +33,8 @@ except ImportError as e:
 
 # Base URL patterns
 urlpatterns = [
-    path('message/', UltimatePropertyChatbotView.as_view(), name='chatbot-message'),
+    # Use the correct view class name
+    path('message/', ChatbotMessageView.as_view(), name='chatbot-message'),
 ]
 
 # Add voice endpoints if available
