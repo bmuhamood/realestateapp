@@ -1212,7 +1212,7 @@ const AddPropertyPage: React.FC = () => {
         f.append(k, JSON.stringify(v));
       } else if (k === 'video_file') {
         if (v && v instanceof File && v.size > 0) {
-          f.append(k, v);
+          f.append('video_file', v);
         }
       } else if (typeof v === 'boolean') {
         f.append(k, String(v));
@@ -1223,9 +1223,9 @@ const AddPropertyPage: React.FC = () => {
     
     imgs.forEach((img, i) => {
       f.append('images', img.file);
-      if (img.is_main) {
-        f.append('main_image_index', i.toString());
-      }
+      // if (img.is_main) {
+      //   f.append('main_image_index', i.toString());
+      // }
     });
     
     return f;
