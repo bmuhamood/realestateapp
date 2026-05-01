@@ -32,9 +32,9 @@ except ImportError:
 
 # ========== FILTER CLASS ==========
 class PropertyFilter(django_filters.FilterSet):
-    owner = django_filters.UUIDFilter(field_name='owner__id')  # Changed to UUIDFilter
-    user = django_filters.UUIDFilter(field_name='owner__id')
-    agent = django_filters.UUIDFilter(field_name='owner__id')
+    owner = django_filters.NumberFilter(field_name='owner__id')  # ✅ Accepts integers
+    user = django_filters.NumberFilter(field_name='owner__id')
+    agent = django_filters.NumberFilter(field_name='owner__id')
     
     # New filters for upgraded features
     min_price = django_filters.NumberFilter(field_name='price', lookup_expr='gte')
@@ -162,13 +162,13 @@ class PropertyListView(generics.ListCreateAPIView):
         )
         
         # Filter by owner (handle UUID string)
-        owner_id = self.request.query_params.get('owner')
-        if owner_id:
-            try:
-                owner_uuid = uuid.UUID(owner_id)
-                queryset = queryset.filter(owner_id=owner_uuid)
-            except ValueError:
-                pass
+        # owner_id = self.request.query_params.get('owner')
+        # if owner_id:
+        #     try:
+        #         owner_uuid = uuid.UUID(owner_id)
+        #         queryset = queryset.filter(owner_id=owner_uuid)
+        #     except ValueError:
+        #         pass
         
         # Filter by authenticated user's properties
         my_properties = self.request.query_params.get('my_properties')
