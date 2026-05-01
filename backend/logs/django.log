@@ -26979,3 +26979,4 @@ WARNING 2026-04-30 19:45:43,915 log 22100 6004 "GET /api%20/properties/?page_siz
 WARNING 2026-04-30 19:45:43,943 log 22100 11864 "GET /api%20/properties/?page_size=500 HTTP/1.1" 404 4181
 INFO 2026-04-30 19:46:02,579 log 22100 11864 "OPTIONS /api%20/chat/message/ HTTP/1.1" 200 0
 WARNING 2026-04-30 19:46:02,614 log 22100 11864 "POST /api%20/chat/message/ HTTP/1.1" 404 4174
+INFO 2026-05-01 11:10:15,688 autoreload 17512 1516 Watching for file changes with StatReloader

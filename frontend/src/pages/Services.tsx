@@ -4,13 +4,13 @@ import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
 // ─── Brand ────────────────────────────────────────────────────────────────────
-const TEAL      = '#25a882';
+const TEAL = '#25a882';
 const TEAL_DARK = '#1d8f6e';
-const TEAL_BG   = 'rgba(37,168,130,0.08)';
-const NAVY      = '#0d1b2e';
+const TEAL_BG = 'rgba(37,168,130,0.08)';
+const NAVY = '#0d1b2e';
 const PRICE_MAX = 1_000_000;
 
-// ─── Helper to get full Cloudinary URL ────────────────────────────────────────
+// ─── Cloudinary URL helper ────────────────────────────────────────────────────
 const getCloudinaryUrl = (url: string | null | undefined): string => {
   if (!url) return '';
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
@@ -52,8 +52,10 @@ interface ServiceCategory {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const formatPrice = (price: number) =>
   new Intl.NumberFormat('en-UG', {
-    style: 'currency', currency: 'UGX',
-    minimumFractionDigits: 0, maximumFractionDigits: 0,
+    style: 'currency',
+    currency: 'UGX',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
   }).format(price);
 
 const formatPriceShort = (price: number) => {
@@ -62,27 +64,30 @@ const formatPriceShort = (price: number) => {
   return `UGX ${price}`;
 };
 
-// Category emoji map
 const CAT_EMOJI: Record<string, string> = {
-  cleaning:    '🧹',
-  moving:      '🚚',
-  renovation:  '🔨',
-  electrical:  '⚡',
-  plumbing:    '🔧',
-  painting:    '🖌️',
-  security:    '🔒',
-  decoration:  '🛋️',
-  gardening:   '🌿',
-  pest:        '🐛',
+  cleaning: '🧹',
+  moving: '🚚',
+  renovation: '🔨',
+  electrical: '⚡',
+  plumbing: '🔧',
+  painting: '🖌️',
+  security: '🔒',
+  decoration: '🛋️',
+  gardening: '🌿',
+  pest: '🐛',
 };
 const getCatEmoji = (name: string) =>
   CAT_EMOJI[name.toLowerCase().split(' ')[0]] ?? '🔧';
 
-// ─── Star Rating ──────────────────────────────────────────────────────────────
+// ─── Stars ────────────────────────────────────────────────────────────────────
 const Stars: React.FC<{ rating: number; size?: number }> = ({ rating, size = 13 }) => (
   <span style={{ display: 'inline-flex', gap: 1 }}>
-    {[1,2,3,4,5].map(i => (
-      <svg key={i} width={size} height={size} viewBox="0 0 24 24"
+    {[1, 2, 3, 4, 5].map(i => (
+      <svg
+        key={i}
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
         fill={i <= Math.round(rating) ? '#f59e0b' : 'none'}
         stroke={i <= Math.round(rating) ? '#f59e0b' : '#d1d5db'}
         strokeWidth="1.5"
@@ -93,7 +98,7 @@ const Stars: React.FC<{ rating: number; size?: number }> = ({ rating, size = 13 
   </span>
 );
 
-// ─── Service Card - Entire card is clickable ─────────────────────────────────
+// ─── Service Card ─────────────────────────────────────────────────────────────
 const ServiceCard: React.FC<{
   service: Service;
   onBook: (s: Service) => void;
@@ -105,18 +110,8 @@ const ServiceCard: React.FC<{
 
   const imageUrl = useMemo(() => {
     if (imgError) return '';
-    const rawUrl = service.image_url || service.image;
-    return getCloudinaryUrl(rawUrl);
+    return getCloudinaryUrl(service.image_url || service.image);
   }, [service.image_url, service.image, imgError]);
-
-  const handleCardClick = () => {
-    onViewDetails(service);
-  };
-
-  const handleBookClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onBook(service);
-  };
 
   return (
     <div
@@ -124,44 +119,28 @@ const ServiceCard: React.FC<{
       style={{
         ...c.card,
         transform: hovered ? 'translateY(-5px)' : 'translateY(0)',
-        boxShadow: hovered
-          ? '0 16px 40px rgba(0,0,0,0.12)'
-          : '0 1px 4px rgba(0,0,0,0.06)',
+        boxShadow: hovered ? '0 16px 40px rgba(0,0,0,0.12)' : '0 1px 4px rgba(0,0,0,0.06)',
         animationDelay: `${index * 0.04}s`,
         cursor: 'pointer',
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      onClick={handleCardClick}
+      onClick={() => onViewDetails(service)}
     >
       <div style={c.cardImgWrap}>
         {imageUrl ? (
           <img
             src={imageUrl}
             alt={service.name}
-            style={{
-              ...c.cardImg,
-              transform: hovered ? 'scale(1.05)' : 'scale(1)',
-            }}
+            style={{ ...c.cardImg, transform: hovered ? 'scale(1.05)' : 'scale(1)' }}
             onError={() => setImgError(true)}
           />
         ) : (
-          <div
-            style={{
-              ...c.cardImg,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: '#f4f7fb',
-              fontSize: 48,
-            }}
-          >
+          <div style={{ ...c.cardImg, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f4f7fb', fontSize: 48 }}>
             🔧
           </div>
         )}
-        {service.is_featured && (
-          <div style={c.featuredBadge}>⭐ Featured</div>
-        )}
+        {service.is_featured && <div style={c.featuredBadge}>⭐ Featured</div>}
         <div style={c.categoryPill}>
           {service.category_icon || getCatEmoji(service.category_name)} {service.category_name}
         </div>
@@ -180,9 +159,7 @@ const ServiceCard: React.FC<{
         </div>
 
         <p style={c.cardDesc}>
-          {service.description.length > 90
-            ? service.description.slice(0, 90) + '…'
-            : service.description}
+          {service.description.length > 90 ? service.description.slice(0, 90) + '…' : service.description}
         </p>
 
         <div style={c.cardDivider} />
@@ -190,9 +167,7 @@ const ServiceCard: React.FC<{
         <div style={c.cardFooter}>
           <div>
             <div style={c.cardPrice}>From {formatPrice(service.price)}</div>
-            {service.price_unit && (
-              <div style={c.cardPriceUnit}>per {service.price_unit}</div>
-            )}
+            {service.price_unit && <div style={c.cardPriceUnit}>per {service.price_unit}</div>}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {service.duration && (
@@ -205,17 +180,9 @@ const ServiceCard: React.FC<{
             )}
             <button
               style={c.bookBtn}
-              onClick={handleBookClick}
-              onMouseEnter={(e) => {
-                const btn = e.currentTarget;
-                btn.style.backgroundColor = '#1d8f6e';
-                btn.style.transform = 'scale(1.02)';
-              }}
-              onMouseLeave={(e) => {
-                const btn = e.currentTarget;
-                btn.style.backgroundColor = TEAL;
-                btn.style.transform = 'scale(1)';
-              }}
+              onClick={e => { e.stopPropagation(); onBook(service); }}
+              onMouseEnter={e => { e.currentTarget.style.backgroundColor = TEAL_DARK; e.currentTarget.style.transform = 'scale(1.02)'; }}
+              onMouseLeave={e => { e.currentTarget.style.backgroundColor = TEAL; e.currentTarget.style.transform = 'scale(1)'; }}
             >
               Book Now
             </button>
@@ -227,30 +194,33 @@ const ServiceCard: React.FC<{
 };
 
 // ─── Booking Modal ────────────────────────────────────────────────────────────
-const BookingModal: React.FC<{
+// ✅ FIXED: Explicit props interface instead of {...}
+interface BookingModalProps {
   service: Service | null;
   onClose: () => void;
   onConfirm: (date: string, address: string, instructions: string) => Promise<void>;
   loading: boolean;
   success: boolean;
-}> = ({ service, onClose, onConfirm, loading, success }) => {
+}
+
+const BookingModal: React.FC<BookingModalProps> = ({ service, onClose, onConfirm, loading, success }) => {
   const [date, setDate] = useState('');
   const [address, setAddress] = useState('');
   const [notes, setNotes] = useState('');
   const [imgError, setImgError] = useState(false);
 
-  if (!service) return null;
-
+  // ✅ FIXED: useMemo BEFORE early return — hooks must never be conditional
   const imageUrl = useMemo(() => {
-    if (imgError) return '';
-    const rawUrl = service.image_url || service.image;
-    return getCloudinaryUrl(rawUrl);
-  }, [service.image_url, service.image, imgError]);
+    if (imgError || !service) return '';
+    return getCloudinaryUrl(service.image_url || service.image);
+  }, [service?.image_url, service?.image, imgError]);
+
+  // ✅ Early return AFTER all hooks
+  if (!service) return null;
 
   return (
     <>
       <div style={m.backdrop} onClick={onClose} />
-
       <div style={m.modal}>
         <div style={m.header}>
           <div>
@@ -270,20 +240,15 @@ const BookingModal: React.FC<{
               <div style={m.successIcon}>✅</div>
               <h3 style={m.successTitle}>Booking Confirmed!</h3>
               <p style={m.successText}>
-                Your booking for <strong>{service.name}</strong> has been received.
-                <br />The service provider will contact you shortly.
+                Your booking for <strong>{service.name}</strong> has been received.<br />
+                The service provider will contact you shortly.
               </p>
             </div>
           ) : (
             <>
               <div style={m.summaryCard}>
                 {imageUrl ? (
-                  <img
-                    src={imageUrl}
-                    alt={service.name}
-                    style={m.summaryImg}
-                    onError={() => setImgError(true)}
-                  />
+                  <img src={imageUrl} alt={service.name} style={m.summaryImg} onError={() => setImgError(true)} />
                 ) : (
                   <div style={{ ...m.summaryImg, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f4f7fb', fontSize: 24 }}>
                     🔧
@@ -305,14 +270,10 @@ const BookingModal: React.FC<{
               {(service.provider_phone || service.provider_email) && (
                 <div style={m.contactRow}>
                   {service.provider_phone && (
-                    <a href={`tel:${service.provider_phone}`} style={m.contactLink}>
-                      📞 {service.provider_phone}
-                    </a>
+                    <a href={`tel:${service.provider_phone}`} style={m.contactLink}>📞 {service.provider_phone}</a>
                   )}
                   {service.provider_email && (
-                    <a href={`mailto:${service.provider_email}`} style={m.contactLink}>
-                      ✉️ {service.provider_email}
-                    </a>
+                    <a href={`mailto:${service.provider_email}`} style={m.contactLink}>✉️ {service.provider_email}</a>
                   )}
                 </div>
               )}
@@ -328,7 +289,6 @@ const BookingModal: React.FC<{
                     required
                   />
                 </div>
-
                 <div style={m.formGroup}>
                   <label style={m.formLabel}>Service Address *</label>
                   <textarea
@@ -340,7 +300,6 @@ const BookingModal: React.FC<{
                     required
                   />
                 </div>
-
                 <div style={m.formGroup}>
                   <label style={m.formLabel}>Special Instructions</label>
                   <textarea
@@ -382,6 +341,8 @@ const BookingModal: React.FC<{
 // ─── Main Component ───────────────────────────────────────────────────────────
 const Services: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
   const [services, setServices] = useState<Service[]>([]);
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -393,9 +354,18 @@ const Services: React.FC = () => {
   const [selectedService, setService] = useState<Service | null>(null);
   const [bookingLoading, setBookingLoad] = useState(false);
   const [bookingSuccess, setBookingOk] = useState(false);
-  const { user } = useAuth();
 
-  // ✅ ALL useMemo hooks are called BEFORE any conditional return
+  // ── All useMemo before any conditional return ─────────────────────────────
+  const actualMinPrice = useMemo(() => {
+    if (services.length === 0) return 0;
+    return Math.min(...services.map(s => s.price));
+  }, [services]);
+
+  const actualMaxPrice = useMemo(() => {
+    if (services.length === 0) return PRICE_MAX;
+    return Math.max(...services.map(s => s.price));
+  }, [services]);
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     let list = services.filter(s => {
@@ -413,31 +383,15 @@ const Services: React.FC = () => {
 
   const featured = useMemo(() => services.filter(s => s.is_featured).slice(0, 4), [services]);
 
-  const actualMinPrice = useMemo(() => {
-    if (services.length === 0) return 0;
-    return Math.min(...services.map(s => s.price));
-  }, [services]);
-
-  const actualMaxPrice = useMemo(() => {
-    if (services.length === 0) return PRICE_MAX;
-    return Math.max(...services.map(s => s.price));
-  }, [services]);
-
-  // ✅ useEffect hooks
+  // ── useEffect ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    (async () => {
+    const fetchData = async () => {
       try {
-        const [sr, cr] = await Promise.all([
-          api.get('/services/'),
-          api.get('/services/categories/'),
-        ]);
-        
-        // Process services to add image_url from Cloudinary
+        const [sr, cr] = await Promise.all([api.get('/services/'), api.get('/services/categories/')]);
         const servicesData = (sr.data.results ?? sr.data).map((s: Service) => ({
           ...s,
-          image_url: getCloudinaryUrl(s.image_url || s.image)
+          image_url: getCloudinaryUrl(s.image_url || s.image),
         }));
-        
         setServices(servicesData);
         setCategories(cr.data.results ?? cr.data);
       } catch (e) {
@@ -445,32 +399,33 @@ const Services: React.FC = () => {
       } finally {
         setLoading(false);
       }
-    })();
+    };
+    fetchData();
   }, []);
 
-  // ✅ useCallback hooks
-  const handleBook = useCallback(async (date: string, address: string, notes: string) => {
-    if (!user) { alert('Please log in to book a service.'); return; }
-    if (!date || !address) { alert('Please fill in the required fields.'); return; }
-    setBookingLoad(true);
-    try {
-      await api.post('/services/bookings/', {
-        service: selectedService?.id,
-        booking_date: new Date(date).toISOString(),
-        address,
-        special_instructions: notes,
-      });
-      setBookingOk(true);
-      setTimeout(() => {
-        setService(null);
-        setBookingOk(false);
-      }, 2200);
-    } catch {
-      alert('Failed to book. Please try again.');
-    } finally {
-      setBookingLoad(false);
-    }
-  }, [user, selectedService]);
+  // ── useCallback ───────────────────────────────────────────────────────────
+  const handleBook = useCallback(
+    async (date: string, address: string, notes: string) => {
+      if (!user) { alert('Please log in to book a service.'); return; }
+      if (!date || !address) { alert('Please fill in the required fields.'); return; }
+      setBookingLoad(true);
+      try {
+        await api.post('/services/bookings/', {
+          service: selectedService?.id,
+          booking_date: new Date(date).toISOString(),
+          address,
+          special_instructions: notes,
+        });
+        setBookingOk(true);
+        setTimeout(() => { setService(null); setBookingOk(false); }, 2200);
+      } catch {
+        alert('Failed to book. Please try again.');
+      } finally {
+        setBookingLoad(false);
+      }
+    },
+    [user, selectedService]
+  );
 
   const handleViewDetails = useCallback((service: Service) => {
     navigate(`/services/${service.id}`);
@@ -483,17 +438,19 @@ const Services: React.FC = () => {
     setMaxPrice(actualMaxPrice);
   };
 
-  // ✅ Conditional return AFTER all Hooks
-  if (loading) return (
-    <div style={{ ...p.page, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
-      <div style={p.spinner} />
-      <p style={{ color: '#94a3b8', marginTop: 14, fontSize: 13 }}>Loading services…</p>
-    </div>
-  );
+  // ── Conditional return AFTER all hooks ────────────────────────────────────
+  if (loading) {
+    return (
+      <div style={{ ...p.page, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
+        <div style={p.spinner} />
+        <p style={{ color: '#94a3b8', marginTop: 14, fontSize: 13 }}>Loading services…</p>
+      </div>
+    );
+  }
 
   return (
     <div style={p.page}>
-      {/* HERO SECTION */}
+      {/* ── HERO ── */}
       <div style={p.hero}>
         <div style={p.heroBg} />
         <div style={p.heroOverlay} />
@@ -520,9 +477,7 @@ const Services: React.FC = () => {
               onChange={e => setSearch(e.target.value)}
               style={p.heroSearchInput}
             />
-            {search && (
-              <button onClick={() => setSearch('')} style={p.heroSearchClear}>✕</button>
-            )}
+            {search && <button onClick={() => setSearch('')} style={p.heroSearchClear}>✕</button>}
             <button style={p.heroSearchBtn}>Search</button>
           </div>
 
@@ -538,7 +493,7 @@ const Services: React.FC = () => {
         </div>
       </div>
 
-      {/* FEATURED STRIP */}
+      {/* ── FEATURED STRIP ── */}
       {featured.length > 0 && (
         <div style={p.featuredStrip}>
           <div style={p.featuredInner}>
@@ -547,11 +502,7 @@ const Services: React.FC = () => {
             </div>
             <div style={p.featuredScroll}>
               {featured.map(s => (
-                <button
-                  key={s.id}
-                  style={p.featuredChip}
-                  onClick={() => handleViewDetails(s)}
-                >
+                <button key={s.id} style={p.featuredChip} onClick={() => handleViewDetails(s)}>
                   <span style={{ fontSize: 18 }}>{s.category_icon || getCatEmoji(s.category_name)}</span>
                   <div style={{ textAlign: 'left' }}>
                     <div style={p.featuredChipName}>{s.name}</div>
@@ -564,16 +515,13 @@ const Services: React.FC = () => {
         </div>
       )}
 
-      {/* MAIN CONTENT */}
+      {/* ── MAIN CONTENT ── */}
       <div style={p.body}>
         <aside style={p.sidebar}>
           <div style={p.filterSection}>
             <div style={p.filterSectionLabel}>Category</div>
             <div style={p.filterChips}>
-              <button
-                onClick={() => setCategory('')}
-                style={{ ...p.filterChip, ...(!selectedCategory ? p.filterChipActive : {}) }}
-              >
+              <button onClick={() => setCategory('')} style={{ ...p.filterChip, ...(!selectedCategory ? p.filterChipActive : {}) }}>
                 🏠 All Categories
               </button>
               {categories.map(cat => (
@@ -595,29 +543,12 @@ const Services: React.FC = () => {
               <span style={p.priceLabel}>Min: {formatPriceShort(minPrice)}</span>
               <span style={p.priceLabel}>Max: {formatPriceShort(maxPrice)}</span>
             </div>
-
             <div style={p.sliderLabel}>Minimum Price</div>
-            <input
-              type="range"
-              min={actualMinPrice}
-              max={actualMaxPrice}
-              step={Math.max(1, Math.floor(actualMaxPrice / 100))}
-              value={minPrice}
-              onChange={e => setMinPrice(Number(e.target.value))}
-              style={{ width: '100%', accentColor: TEAL, cursor: 'pointer', marginTop: 4 }}
-            />
-
+            <input type="range" min={actualMinPrice} max={actualMaxPrice} step={Math.max(1, Math.floor(actualMaxPrice / 100))} value={minPrice}
+              onChange={e => setMinPrice(Number(e.target.value))} style={{ width: '100%', accentColor: TEAL, cursor: 'pointer', marginTop: 4 }} />
             <div style={{ ...p.sliderLabel, marginTop: 12 }}>Maximum Price</div>
-            <input
-              type="range"
-              min={actualMinPrice}
-              max={actualMaxPrice}
-              step={Math.max(1, Math.floor(actualMaxPrice / 100))}
-              value={maxPrice}
-              onChange={e => setMaxPrice(Number(e.target.value))}
-              style={{ width: '100%', accentColor: TEAL, cursor: 'pointer', marginTop: 4 }}
-            />
-
+            <input type="range" min={actualMinPrice} max={actualMaxPrice} step={Math.max(1, Math.floor(actualMaxPrice / 100))} value={maxPrice}
+              onChange={e => setMaxPrice(Number(e.target.value))} style={{ width: '100%', accentColor: TEAL, cursor: 'pointer', marginTop: 4 }} />
             <div style={p.priceMinMax}>
               <span>{formatPriceShort(actualMinPrice)}</span>
               <span>{formatPriceShort(actualMaxPrice)}</span>
@@ -625,9 +556,7 @@ const Services: React.FC = () => {
           </div>
 
           {(selectedCategory || search || minPrice > actualMinPrice || maxPrice < actualMaxPrice) && (
-            <button onClick={handleResetFilters} style={p.resetBtn}>
-              ↺ Reset all filters
-            </button>
+            <button onClick={handleResetFilters} style={p.resetBtn}>↺ Reset all filters</button>
           )}
         </aside>
 
@@ -639,11 +568,7 @@ const Services: React.FC = () => {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 12, color: '#94a3b8' }}>Sort:</span>
-              <select
-                value={sortBy}
-                onChange={e => setSortBy(e.target.value)}
-                style={p.sortSelect}
-              >
+              <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={p.sortSelect}>
                 <option value="featured">Featured first</option>
                 <option value="price_low">Price: Low → High</option>
                 <option value="price_high">Price: High → Low</option>
@@ -655,27 +580,15 @@ const Services: React.FC = () => {
           {filtered.length > 0 ? (
             <div style={p.grid}>
               {filtered.map((s, i) => (
-                <ServiceCard
-                  key={s.id}
-                  service={s}
-                  onBook={setService}
-                  onViewDetails={handleViewDetails}
-                  index={i}
-                />
+                <ServiceCard key={s.id} service={s} onBook={setService} onViewDetails={handleViewDetails} index={i} />
               ))}
             </div>
           ) : (
             <div style={p.empty}>
               <div style={{ fontSize: 52, marginBottom: 12 }}>🔍</div>
-              <h3 style={{ color: NAVY, fontSize: 16, fontWeight: 700, margin: '0 0 8px' }}>
-                No services found
-              </h3>
-              <p style={{ color: '#94a3b8', fontSize: 13, margin: '0 0 20px' }}>
-                Try adjusting your search or filters
-              </p>
-              <button onClick={handleResetFilters} style={p.emptyBtn}>
-                Clear all filters
-              </button>
+              <h3 style={{ color: NAVY, fontSize: 16, fontWeight: 700, margin: '0 0 8px' }}>No services found</h3>
+              <p style={{ color: '#94a3b8', fontSize: 13, margin: '0 0 20px' }}>Try adjusting your search or filters</p>
+              <button onClick={handleResetFilters} style={p.emptyBtn}>Clear all filters</button>
             </div>
           )}
         </main>
@@ -694,46 +607,27 @@ const Services: React.FC = () => {
   );
 };
 
-// ─── Card styles ──────────────────────────────────────────────────────────────
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const c: Record<string, React.CSSProperties> = {
   card: {
-    backgroundColor: '#fff', borderRadius: 16,
-    overflow: 'hidden', cursor: 'pointer',
-    border: '1px solid #eef2f7',
-    transition: 'transform 0.25s ease, box-shadow 0.25s ease',
-    display: 'flex', flexDirection: 'column',
-    animation: 'svcCardIn 0.38s ease-out both',
+    backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', cursor: 'pointer',
+    border: '1px solid #eef2f7', transition: 'transform 0.25s ease, box-shadow 0.25s ease',
+    display: 'flex', flexDirection: 'column', animation: 'svcCardIn 0.38s ease-out both',
   },
   cardImgWrap: { position: 'relative', paddingTop: '58%', overflow: 'hidden', flexShrink: 0 },
-  cardImg: {
-    position: 'absolute', top: 0, left: 0,
-    width: '100%', height: '100%',
-    objectFit: 'cover',
-    transition: 'transform 0.4s ease',
-  },
+  cardImg: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.4s ease' },
   featuredBadge: {
-    position: 'absolute', top: 12, left: 12,
-    backgroundColor: '#f59e0b', color: '#fff',
-    fontSize: 11, fontWeight: 700,
-    padding: '4px 10px', borderRadius: 20,
-    boxShadow: '0 2px 8px rgba(245,158,11,0.35)',
-    zIndex: 2,
+    position: 'absolute', top: 12, left: 12, backgroundColor: '#f59e0b', color: '#fff',
+    fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20,
+    boxShadow: '0 2px 8px rgba(245,158,11,0.35)', zIndex: 2,
   },
   categoryPill: {
-    position: 'absolute', bottom: 12, left: 12,
-    backgroundColor: 'rgba(13,27,46,0.75)',
-    backdropFilter: 'blur(6px)',
-    color: '#fff', fontSize: 11, fontWeight: 600,
-    padding: '4px 10px', borderRadius: 20,
-    zIndex: 2,
+    position: 'absolute', bottom: 12, left: 12, backgroundColor: 'rgba(13,27,46,0.75)',
+    backdropFilter: 'blur(6px)', color: '#fff', fontSize: 11, fontWeight: 600,
+    padding: '4px 10px', borderRadius: 20, zIndex: 2,
   },
-  cardBody: { padding: '18px', display: 'flex', flexDirection: 'column', flex: 1, gap: 0 },
-  cardTitle: {
-    margin: '0 0 3px',
-    fontSize: 15, fontWeight: 700, color: NAVY,
-    lineHeight: 1.3,
-    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-  },
+  cardBody: { padding: 18, display: 'flex', flexDirection: 'column', flex: 1, gap: 0 },
+  cardTitle: { margin: '0 0 3px', fontSize: 15, fontWeight: 700, color: NAVY, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   cardProvider: { margin: 0, fontSize: 12, color: '#94a3b8', fontWeight: 500 },
   ratingBox: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0 },
   ratingCount: { fontSize: 10, color: '#94a3b8' },
@@ -743,380 +637,141 @@ const c: Record<string, React.CSSProperties> = {
   cardPrice: { fontSize: 17, fontWeight: 800, color: TEAL },
   cardPriceUnit: { fontSize: 11, color: '#94a3b8', marginTop: 1 },
   durationChip: {
-    display: 'inline-flex', alignItems: 'center', gap: 4,
-    padding: '4px 9px', borderRadius: 20,
-    border: '1px solid #e2e8f0', backgroundColor: '#f8faff',
-    color: '#64748b', fontSize: 11, fontWeight: 500,
-    whiteSpace: 'nowrap',
+    display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 9px',
+    borderRadius: 20, border: '1px solid #e2e8f0', backgroundColor: '#f8faff',
+    color: '#64748b', fontSize: 11, fontWeight: 500, whiteSpace: 'nowrap',
   },
   bookBtn: {
-    padding: '7px 16px', borderRadius: 9,
-    border: 'none', backgroundColor: TEAL, color: '#fff',
-    fontSize: 12, fontWeight: 700, cursor: 'pointer',
-    boxShadow: `0 3px 10px rgba(37,168,130,0.28)`,
-    whiteSpace: 'nowrap', fontFamily: 'inherit',
-    transition: 'all 0.15s',
+    padding: '7px 16px', borderRadius: 9, border: 'none', backgroundColor: TEAL,
+    color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+    boxShadow: '0 3px 10px rgba(37,168,130,0.28)', whiteSpace: 'nowrap',
+    fontFamily: 'inherit', transition: 'all 0.15s',
   },
 };
 
-// ─── Modal styles ─────────────────────────────────────────────────────────────
 const m: Record<string, React.CSSProperties> = {
-  backdrop: {
-    position: 'fixed', inset: 0,
-    backgroundColor: 'rgba(13,27,46,0.5)',
-    backdropFilter: 'blur(4px)',
-    zIndex: 1000,
-  },
+  backdrop: { position: 'fixed', inset: 0, backgroundColor: 'rgba(13,27,46,0.5)', backdropFilter: 'blur(4px)', zIndex: 1000 },
   modal: {
-    position: 'fixed',
-    top: '50%', left: '50%',
-    transform: 'translate(-50%, -50%)',
-    width: '100%', maxWidth: 520,
-    maxHeight: '90vh', overflowY: 'auto',
-    backgroundColor: '#fff', borderRadius: 20,
-    boxShadow: '0 24px 64px rgba(0,0,0,0.2)',
-    zIndex: 1001,
-    animation: 'modalIn 0.22s ease-out',
+    position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+    width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto',
+    backgroundColor: '#fff', borderRadius: 20, boxShadow: '0 24px 64px rgba(0,0,0,0.2)',
+    zIndex: 1001, animation: 'modalIn 0.22s ease-out',
   },
-  header: {
-    display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-    padding: '24px 24px 0',
-  },
-  headerTitle: {
-    margin: 0, fontSize: 20, fontWeight: 800, color: NAVY,
-    fontFamily: "'Sora', sans-serif",
-  },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '24px 24px 0' },
+  headerTitle: { margin: 0, fontSize: 20, fontWeight: 800, color: NAVY, fontFamily: "'Sora', sans-serif" },
   headerSub: { margin: '3px 0 0', fontSize: 13, color: '#94a3b8' },
-  closeBtn: {
-    background: 'none', border: 'none', cursor: 'pointer',
-    color: '#94a3b8', padding: 4, display: 'flex',
-    borderRadius: 8, transition: 'color 0.15s',
-  },
+  closeBtn: { background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 4, display: 'flex', borderRadius: 8 },
   body: { padding: '20px 24px' },
   summaryCard: {
-    display: 'flex', alignItems: 'center', gap: 14,
-    padding: 14, borderRadius: 12,
-    backgroundColor: TEAL_BG,
-    border: `1px solid rgba(37,168,130,0.2)`,
-    marginBottom: 16,
+    display: 'flex', alignItems: 'center', gap: 14, padding: 14, borderRadius: 12,
+    backgroundColor: TEAL_BG, border: '1px solid rgba(37,168,130,0.2)', marginBottom: 16,
   },
   summaryImg: { width: 52, height: 52, borderRadius: 10, objectFit: 'cover', flexShrink: 0 },
   summaryName: { fontSize: 14, fontWeight: 700, color: NAVY },
   summaryProvider: { fontSize: 12, color: '#94a3b8', marginTop: 2 },
   summaryPrice: { fontSize: 15, fontWeight: 800, color: TEAL, marginTop: 4 },
-  contactRow: {
-    display: 'flex', gap: 12, flexWrap: 'wrap',
-    marginBottom: 16,
-  },
+  contactRow: { display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 },
   contactLink: {
-    display: 'inline-flex', alignItems: 'center', gap: 5,
-    padding: '6px 12px', borderRadius: 8,
-    backgroundColor: '#f8faff', border: '1px solid #e2e8f0',
-    color: '#475569', fontSize: 12, fontWeight: 500,
-    textDecoration: 'none',
+    display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px',
+    borderRadius: 8, backgroundColor: '#f8faff', border: '1px solid #e2e8f0',
+    color: '#475569', fontSize: 12, fontWeight: 500, textDecoration: 'none',
   },
   formGrid: { display: 'flex', flexDirection: 'column', gap: 14 },
   formGroup: { display: 'flex', flexDirection: 'column', gap: 5 },
   formLabel: { fontSize: 12, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em' },
-  formInput: {
-    padding: '11px 14px', borderRadius: 10,
-    border: '1.5px solid #e2e8f0',
-    fontSize: 14, color: NAVY,
-    fontFamily: 'inherit', outline: 'none',
-    transition: 'border-color 0.15s',
-  },
-  footer: {
-    display: 'flex', gap: 10, padding: '0 24px 24px',
-  },
-  cancelBtn: {
-    flex: 1, padding: '12px', borderRadius: 10,
-    border: '1.5px solid #e2e8f0', backgroundColor: '#fff',
-    color: '#64748b', fontSize: 14, fontWeight: 600,
-    cursor: 'pointer', fontFamily: 'inherit',
-  },
+  formInput: { padding: '11px 14px', borderRadius: 10, border: '1.5px solid #e2e8f0', fontSize: 14, color: NAVY, fontFamily: 'inherit', outline: 'none' },
+  footer: { display: 'flex', gap: 10, padding: '0 24px 24px' },
+  cancelBtn: { flex: 1, padding: 12, borderRadius: 10, border: '1.5px solid #e2e8f0', backgroundColor: '#fff', color: '#64748b', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' },
   confirmBtn: {
-    flex: 2, padding: '12px', borderRadius: 10,
-    border: 'none', backgroundColor: TEAL, color: '#fff',
-    fontSize: 14, fontWeight: 700, cursor: 'pointer',
-    fontFamily: 'inherit',
-    boxShadow: `0 4px 14px rgba(37,168,130,0.35)`,
-    transition: 'background-color 0.15s',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    flex: 2, padding: 12, borderRadius: 10, border: 'none', backgroundColor: TEAL,
+    color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+    boxShadow: '0 4px 14px rgba(37,168,130,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
   confirmBtnLoading: { backgroundColor: TEAL_DARK, cursor: 'wait' },
-  spinner: {
-    width: 16, height: 16,
-    border: '2px solid rgba(255,255,255,0.35)',
-    borderTop: '2px solid #fff',
-    borderRadius: '50%',
-    animation: 'spin 0.7s linear infinite',
-    display: 'inline-block',
-  },
-  successBox: {
-    textAlign: 'center', padding: '20px 0',
-  },
+  spinner: { width: 16, height: 16, border: '2px solid rgba(255,255,255,0.35)', borderTop: '2px solid #fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' },
+  successBox: { textAlign: 'center', padding: '20px 0' },
   successIcon: { fontSize: 56, marginBottom: 12 },
   successTitle: { margin: '0 0 8px', fontSize: 18, fontWeight: 800, color: NAVY },
   successText: { margin: 0, fontSize: 14, color: '#64748b', lineHeight: 1.6 },
 };
 
-// ─── Page styles ──────────────────────────────────────────────────────────────
 const p: Record<string, React.CSSProperties> = {
-  page: {
-    minHeight: '100vh', backgroundColor: '#f4f7fb',
-    fontFamily: "'DM Sans', 'Sora', system-ui, sans-serif",
-    marginTop: 64,
-  },
-  spinner: {
-    width: 40, height: 40,
-    border: '3px solid #e2e8f0', borderTop: `3px solid ${TEAL}`,
-    borderRadius: '50%', animation: 'spin 0.7s linear infinite',
-  },
-  hero: {
-    position: 'relative', minHeight: 480,
-    display: 'flex', alignItems: 'center', overflow: 'hidden',
-  },
+  page: { minHeight: '100vh', backgroundColor: '#f4f7fb', fontFamily: "'DM Sans', 'Sora', system-ui, sans-serif", marginTop: 64 },
+  spinner: { width: 40, height: 40, border: '3px solid #e2e8f0', borderTop: `3px solid ${TEAL}`, borderRadius: '50%', animation: 'spin 0.7s linear infinite' },
+  hero: { position: 'relative', minHeight: 480, display: 'flex', alignItems: 'center', overflow: 'hidden' },
   heroBg: {
     position: 'absolute', inset: 0,
     backgroundImage: `url('https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1600&q=80')`,
-    backgroundSize: 'cover', backgroundPosition: 'center 50%',
-    filter: 'brightness(0.35) saturate(1.1)',
-    zIndex: 0,
+    backgroundSize: 'cover', backgroundPosition: 'center 50%', filter: 'brightness(0.35) saturate(1.1)', zIndex: 0,
   },
-  heroOverlay: {
-    position: 'absolute', inset: 0,
-    background: `linear-gradient(160deg, rgba(13,27,46,0.7) 0%, rgba(13,27,46,0.85) 100%)`,
-    zIndex: 1,
-  },
-  heroInner: {
-    position: 'relative', zIndex: 2,
-    maxWidth: 820, margin: '0 auto',
-    padding: '60px 24px 48px',
-    textAlign: 'center', width: '100%',
-  },
+  heroOverlay: { position: 'absolute', inset: 0, background: 'linear-gradient(160deg, rgba(13,27,46,0.7) 0%, rgba(13,27,46,0.85) 100%)', zIndex: 1 },
+  heroInner: { position: 'relative', zIndex: 2, maxWidth: 820, margin: '0 auto', padding: '60px 24px 48px', textAlign: 'center', width: '100%' },
   heroBadge: {
-    display: 'inline-flex', alignItems: 'center', gap: 8,
-    backgroundColor: 'rgba(37,168,130,0.18)',
-    border: '1px solid rgba(37,168,130,0.4)',
-    color: '#6ee7c7',
-    fontSize: 11, fontWeight: 700,
-    padding: '5px 14px', borderRadius: 40,
-    letterSpacing: '0.06em', textTransform: 'uppercase',
+    display: 'inline-flex', alignItems: 'center', gap: 8, backgroundColor: 'rgba(37,168,130,0.18)',
+    border: '1px solid rgba(37,168,130,0.4)', color: '#6ee7c7', fontSize: 11, fontWeight: 700,
+    padding: '5px 14px', borderRadius: 40, letterSpacing: '0.06em', textTransform: 'uppercase',
     marginBottom: 22, animation: 'pfFadeUp 0.5s ease-out both',
   },
-  heroBadgeDot: {
-    width: 7, height: 7, borderRadius: '50%',
-    backgroundColor: TEAL, display: 'inline-block',
-    animation: 'pfPulse 2s ease-in-out infinite',
-    boxShadow: `0 0 0 3px rgba(37,168,130,0.3)`,
-  },
-  heroTitle: {
-    fontFamily: "'Sora', Georgia, serif",
-    fontSize: 'clamp(1.8rem, 4vw, 3.2rem)',
-    fontWeight: 800, color: '#fff',
-    margin: '0 0 14px', lineHeight: 1.15,
-    letterSpacing: '-0.025em',
-    animation: 'pfFadeUp 0.55s ease-out 0.08s both',
-  },
+  heroBadgeDot: { width: 7, height: 7, borderRadius: '50%', backgroundColor: TEAL, display: 'inline-block', animation: 'pfPulse 2s ease-in-out infinite', boxShadow: '0 0 0 3px rgba(37,168,130,0.3)' },
+  heroTitle: { fontFamily: "'Sora', Georgia, serif", fontSize: 'clamp(1.8rem, 4vw, 3.2rem)', fontWeight: 800, color: '#fff', margin: '0 0 14px', lineHeight: 1.15, letterSpacing: '-0.025em', animation: 'pfFadeUp 0.55s ease-out 0.08s both' },
   heroAccent: { color: '#34d9a5' },
-  heroSub: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 'clamp(0.9rem, 2vw, 1rem)',
-    lineHeight: 1.7, margin: '0 0 28px',
-    animation: 'pfFadeUp 0.55s ease-out 0.14s both',
-  },
-  heroSearch: {
-    display: 'flex', alignItems: 'center', gap: 10,
-    backgroundColor: '#fff', borderRadius: 14,
-    padding: '10px 14px', maxWidth: 680, margin: '0 auto 28px',
-    boxShadow: '0 16px 48px rgba(0,0,0,0.28)',
-    animation: 'pfFadeUp 0.55s ease-out 0.2s both',
-  },
-  heroSearchInput: {
-    flex: 1, border: 'none', outline: 'none',
-    fontSize: 14, color: NAVY,
-    backgroundColor: 'transparent', fontFamily: 'inherit',
-  },
-  heroSearchClear: {
-    background: 'none', border: 'none', color: '#94a3b8',
-    cursor: 'pointer', fontSize: 13, padding: 2,
-  },
-  heroSearchBtn: {
-    padding: '9px 22px', borderRadius: 10,
-    border: 'none', backgroundColor: TEAL, color: '#fff',
-    fontSize: 13, fontWeight: 700, cursor: 'pointer',
-    boxShadow: `0 3px 10px rgba(37,168,130,0.3)`,
-    fontFamily: 'inherit', whiteSpace: 'nowrap',
-  },
-  heroStats: {
-    display: 'inline-flex', alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    backdropFilter: 'blur(10px)',
-    border: '1px solid rgba(255,255,255,0.12)',
-    borderRadius: 14, padding: '12px 0',
-    animation: 'pfFadeUp 0.55s ease-out 0.28s both',
-  },
-  heroStat: {
-    display: 'flex', flexDirection: 'column', alignItems: 'center',
-    gap: 2, padding: '0 24px',
-    color: '#fff',
-  },
+  heroSub: { color: 'rgba(255,255,255,0.7)', fontSize: 'clamp(0.9rem, 2vw, 1rem)', lineHeight: 1.7, margin: '0 0 28px', animation: 'pfFadeUp 0.55s ease-out 0.14s both' },
+  heroSearch: { display: 'flex', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderRadius: 14, padding: '10px 14px', maxWidth: 680, margin: '0 auto 28px', boxShadow: '0 16px 48px rgba(0,0,0,0.28)', animation: 'pfFadeUp 0.55s ease-out 0.2s both' },
+  heroSearchInput: { flex: 1, border: 'none', outline: 'none', fontSize: 14, color: NAVY, backgroundColor: 'transparent', fontFamily: 'inherit' },
+  heroSearchClear: { background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 13, padding: 2 },
+  heroSearchBtn: { padding: '9px 22px', borderRadius: 10, border: 'none', backgroundColor: TEAL, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: '0 3px 10px rgba(37,168,130,0.3)', fontFamily: 'inherit', whiteSpace: 'nowrap' },
+  heroStats: { display: 'inline-flex', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.07)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, padding: '12px 0', animation: 'pfFadeUp 0.55s ease-out 0.28s both' },
+  heroStat: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '0 24px', color: '#fff' },
   heroStatDivider: { width: 1, height: 32, backgroundColor: 'rgba(255,255,255,0.12)' },
-  featuredStrip: {
-    backgroundColor: '#fff', borderBottom: '1px solid #eef2f7',
-    padding: '14px 0',
-  },
-  featuredInner: {
-    maxWidth: 1400, margin: '0 auto',
-    padding: '0 20px',
-    display: 'flex', alignItems: 'center', gap: 16,
-  },
-  featuredLabel: {
-    fontSize: 12, fontWeight: 700, color: NAVY,
-    textTransform: 'uppercase', letterSpacing: '0.06em',
-    whiteSpace: 'nowrap', flexShrink: 0,
-    display: 'flex', alignItems: 'center', gap: 5,
-  },
-  featuredScroll: {
-    display: 'flex', gap: 10, overflowX: 'auto',
-    paddingBottom: 2,
-  },
-  featuredChip: {
-    display: 'flex', alignItems: 'center', gap: 10,
-    padding: '8px 14px', borderRadius: 12,
-    border: '1.5px solid #eef2f7', backgroundColor: '#fafcff',
-    cursor: 'pointer', flexShrink: 0, textAlign: 'left',
-    transition: 'all 0.15s', fontFamily: 'inherit',
-  },
+  featuredStrip: { backgroundColor: '#fff', borderBottom: '1px solid #eef2f7', padding: '14px 0' },
+  featuredInner: { maxWidth: 1400, margin: '0 auto', padding: '0 20px', display: 'flex', alignItems: 'center', gap: 16 },
+  featuredLabel: { fontSize: 12, fontWeight: 700, color: NAVY, textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5 },
+  featuredScroll: { display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 2 },
+  featuredChip: { display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderRadius: 12, border: '1.5px solid #eef2f7', backgroundColor: '#fafcff', cursor: 'pointer', flexShrink: 0, textAlign: 'left', transition: 'all 0.15s', fontFamily: 'inherit' },
   featuredChipName: { fontSize: 12, fontWeight: 700, color: NAVY, whiteSpace: 'nowrap' },
   featuredChipPrice: { fontSize: 11, color: TEAL, fontWeight: 600, marginTop: 1 },
-  body: {
-    maxWidth: 1400, margin: '0 auto',
-    padding: '20px 16px', display: 'flex', gap: 16,
-    minHeight: 'calc(100vh - 540px)',
-  },
-  sidebar: {
-    width: 260, flexShrink: 0,
-    position: 'sticky', top: 80,
-    height: 'fit-content',
-    backgroundColor: '#fff', borderRadius: 14,
-    border: '1px solid #eef2f7',
-    padding: '18px 16px',
-    boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-  },
+  body: { maxWidth: 1400, margin: '0 auto', padding: '20px 16px', display: 'flex', gap: 16, minHeight: 'calc(100vh - 540px)' },
+  sidebar: { width: 260, flexShrink: 0, position: 'sticky', top: 80, height: 'fit-content', backgroundColor: '#fff', borderRadius: 14, border: '1px solid #eef2f7', padding: '18px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' },
   filterSection: { marginBottom: 22 },
-  filterSectionLabel: {
-    fontSize: 10, fontWeight: 700, color: '#94a3b8',
-    textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10,
-  },
+  filterSectionLabel: { fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 },
   filterChips: { display: 'flex', flexDirection: 'column', gap: 4 },
-  filterChip: {
-    display: 'flex', alignItems: 'center', gap: 8,
-    padding: '8px 10px', borderRadius: 9,
-    border: '1.5px solid transparent', backgroundColor: 'transparent',
-    color: '#475569', fontSize: 13, fontWeight: 500,
-    cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
-    transition: 'all 0.15s',
-  },
-  filterChipActive: {
-    backgroundColor: TEAL_BG, borderColor: TEAL,
-    color: TEAL_DARK, fontWeight: 700,
-  },
-  filterCount: {
-    marginLeft: 'auto', fontSize: 10, fontWeight: 700,
-    color: '#94a3b8', backgroundColor: '#f1f5f9',
-    padding: '1px 6px', borderRadius: 10,
-  },
-  priceRangeLabels: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-    fontSize: 12,
-    fontWeight: 600,
-  },
-  priceLabel: {
-    color: TEAL,
-    backgroundColor: TEAL_BG,
-    padding: '2px 8px',
-    borderRadius: 12,
-  },
-  sliderLabel: {
-    fontSize: 11,
-    color: '#64748b',
-    marginBottom: 4,
-  },
-  priceMinMax: {
-    display: 'flex', justifyContent: 'space-between',
-    fontSize: 10, color: '#94a3b8', marginTop: 8,
-  },
-  resetBtn: {
-    width: '100%', padding: '10px', borderRadius: 10,
-    border: '1.5px solid #eef2f7', backgroundColor: '#fafcff',
-    color: '#64748b', fontSize: 13, fontWeight: 600,
-    cursor: 'pointer', fontFamily: 'inherit', marginTop: 8,
-  },
+  filterChip: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 9, border: '1.5px solid transparent', backgroundColor: 'transparent', color: '#475569', fontSize: 13, fontWeight: 500, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', transition: 'all 0.15s' },
+  filterChipActive: { backgroundColor: TEAL_BG, borderColor: TEAL, color: TEAL_DARK, fontWeight: 700 },
+  filterCount: { marginLeft: 'auto', fontSize: 10, fontWeight: 700, color: '#94a3b8', backgroundColor: '#f1f5f9', padding: '1px 6px', borderRadius: 10 },
+  priceRangeLabels: { display: 'flex', justifyContent: 'space-between', marginBottom: 12, fontSize: 12, fontWeight: 600 },
+  priceLabel: { color: TEAL, backgroundColor: TEAL_BG, padding: '2px 8px', borderRadius: 12 },
+  sliderLabel: { fontSize: 11, color: '#64748b', marginBottom: 4 },
+  priceMinMax: { display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#94a3b8', marginTop: 8 },
+  resetBtn: { width: '100%', padding: 10, borderRadius: 10, border: '1.5px solid #eef2f7', backgroundColor: '#fafcff', color: '#64748b', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', marginTop: 8 },
   main: { flex: 1, minWidth: 0 },
-  resultsBar: {
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    marginBottom: 16, padding: '12px 16px',
-    backgroundColor: '#fff', borderRadius: 12,
-    border: '1px solid #eef2f7',
-  },
+  resultsBar: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, padding: '12px 16px', backgroundColor: '#fff', borderRadius: 12, border: '1px solid #eef2f7' },
   resultsCount: { display: 'flex', alignItems: 'baseline', gap: 3 },
   resultsNum: { fontSize: 20, fontWeight: 800, color: NAVY, fontFamily: "'Sora', sans-serif" },
   resultsSub: { fontSize: 13, color: '#94a3b8', fontWeight: 500 },
-  sortSelect: {
-    padding: '6px 10px', borderRadius: 8,
-    border: '1.5px solid #eef2f7', fontSize: 12,
-    color: NAVY, backgroundColor: '#fff',
-    cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500,
-  },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-    gap: 18,
-  },
-  empty: {
-    display: 'flex', flexDirection: 'column', alignItems: 'center',
-    justifyContent: 'center', padding: '80px 24px', textAlign: 'center',
-    backgroundColor: '#fff', borderRadius: 16, border: '1px solid #eef2f7',
-  },
-  emptyBtn: {
-    padding: '10px 28px', borderRadius: 10, border: 'none',
-    backgroundColor: TEAL, color: '#fff', fontSize: 13,
-    fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
-  },
+  sortSelect: { padding: '6px 10px', borderRadius: 8, border: '1.5px solid #eef2f7', fontSize: 12, color: NAVY, backgroundColor: '#fff', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 18 },
+  empty: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 24px', textAlign: 'center', backgroundColor: '#fff', borderRadius: 16, border: '1px solid #eef2f7' },
+  emptyBtn: { padding: '10px 28px', borderRadius: 10, border: 'none', backgroundColor: TEAL, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
 };
 
 // ─── Global keyframes ─────────────────────────────────────────────────────────
 if (typeof document !== 'undefined') {
-  const id = 'services-pf-styles';
-  if (!document.getElementById(id)) {
+  const styleId = 'services-pf-styles';
+  if (!document.getElementById(styleId)) {
     const el = document.createElement('style');
-    el.id = id;
+    el.id = styleId;
     el.textContent = `
       @import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500;600;700;800&display=swap');
-
-      @keyframes spin       { to { transform: rotate(360deg); } }
-      @keyframes pfFadeUp   { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:translateY(0); } }
-      @keyframes pfPulse    { 0%,100% { box-shadow:0 0 0 3px rgba(37,168,130,.35); } 50% { box-shadow:0 0 0 7px rgba(37,168,130,.08); } }
-      @keyframes svcCardIn  { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
-      @keyframes modalIn    { from { opacity:0; transform:translate(-50%,-48%); } to { opacity:1; transform:translate(-50%,-50%); } }
-
-      .heroStat strong { font-size: 18px; font-weight: 800; }
-      .heroStat span { font-size: 11px; color: rgba(255, 255, 255, 0.55); }
-
-      ::-webkit-scrollbar       { width: 4px; height: 4px; }
-      ::-webkit-scrollbar-track { background: transparent; }
-      ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-
-      input[type="datetime-local"]:focus,
-      textarea:focus,
-      select:focus { border-color: ${TEAL} !important; outline: none; }
-
-      @media (max-width: 960px) {
-        aside { display: none !important; }
-      }
+      @keyframes spin      { to { transform: rotate(360deg); } }
+      @keyframes pfFadeUp  { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:translateY(0); } }
+      @keyframes pfPulse   { 0%,100% { box-shadow:0 0 0 3px rgba(37,168,130,.35); } 50% { box-shadow:0 0 0 7px rgba(37,168,130,.08); } }
+      @keyframes svcCardIn { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
+      @keyframes modalIn   { from { opacity:0; transform:translate(-50%,-48%); } to { opacity:1; transform:translate(-50%,-50%); } }
+      ::-webkit-scrollbar { width:4px; height:4px; }
+      ::-webkit-scrollbar-track { background:transparent; }
+      ::-webkit-scrollbar-thumb { background:#e2e8f0; border-radius:10px; }
+      input[type="datetime-local"]:focus, textarea:focus, select:focus { border-color:${TEAL} !important; outline:none; }
+      @media (max-width: 960px) { aside { display:none !important; } }
     `;
     document.head.appendChild(el);
   }
