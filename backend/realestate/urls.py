@@ -51,7 +51,7 @@ urlpatterns = [
     path('api/favorites/', include('favorites.urls')),
     path('api/reviews/', include('reviews.urls')),
     path('api/services/', include('services.urls')),
-    path('api/chat/', include('chatbot.urls')),
+    # path('api/chat/', include('chatbot.urls')),
 ]
 
 if settings.DEBUG:

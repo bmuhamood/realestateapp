@@ -56,7 +56,7 @@ INSTALLED_APPS = [
     'favorites',
     'reviews',
     'services',
-    'chatbot',
+    # 'chatbot',
     'channels',
 
     # Allauth
