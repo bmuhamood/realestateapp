@@ -1,4 +1,4 @@
-# settings.py - COMPLETE FINAL VERSION
+# settings.py - PRODUCTION READY
 
 import os
 from pathlib import Path
@@ -7,19 +7,16 @@ import dj_database_url
 import cloudinary
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
 load_dotenv()
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 if not SECRET_KEY:
     raise ValueError("DJANGO_SECRET_KEY environment variable is required!")
 
-# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'False') == 'True'
+IS_RENDER = 'RENDER' in os.environ
 
 ALLOWED_HOSTS = [
     'localhost',
@@ -28,7 +25,6 @@ ALLOWED_HOSTS = [
     'metro-properties-web.onrender.com',
 ]
 
-# For production, use specific hosts. Remove '*' in production
 if not DEBUG:
     ALLOWED_HOSTS = [h for h in ALLOWED_HOSTS if h != '*']
 
@@ -39,9 +35,9 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    'cloudinary_storage',          # ← MUST be before staticfiles
-    'django.contrib.staticfiles',  # ← staticfiles after cloudinary_storage
-    'cloudinary',                  # ← cloudinary after staticfiles is fine
+    'cloudinary_storage',          # MUST be before staticfiles
+    'django.contrib.staticfiles',
+    'cloudinary',
 
     # Third party
     'rest_framework',
@@ -71,17 +67,19 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.google',
 ]
 
-# Cloudinary Configuration
+# ── Cloudinary ────────────────────────────────────────────────────────────────
 CLOUDINARY_CLOUD_NAME = os.environ.get('CLOUDINARY_CLOUD_NAME')
-CLOUDINARY_API_KEY = os.environ.get('CLOUDINARY_API_KEY')
+CLOUDINARY_API_KEY    = os.environ.get('CLOUDINARY_API_KEY')
 CLOUDINARY_API_SECRET = os.environ.get('CLOUDINARY_API_SECRET')
 
-# Validate Cloudinary credentials are set
 if not all([CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET]):
     if DEBUG:
-        print("⚠️ Warning: Cloudinary credentials not set. Images will not work properly.")
+        print("⚠️  Warning: Cloudinary credentials not set. Images will not work.")
     else:
-        raise ValueError("Cloudinary credentials are required! Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET")
+        raise ValueError(
+            "Cloudinary credentials are required in production! "
+            "Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET"
+        )
 
 cloudinary.config(
     cloud_name=CLOUDINARY_CLOUD_NAME,
@@ -92,12 +90,13 @@ cloudinary.config(
 
 CLOUDINARY_STORAGE = {
     'CLOUD_NAME': CLOUDINARY_CLOUD_NAME,
-    'API_KEY': CLOUDINARY_API_KEY,
+    'API_KEY':    CLOUDINARY_API_KEY,
     'API_SECRET': CLOUDINARY_API_SECRET,
 }
 
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
+# ── Django Channels ───────────────────────────────────────────────────────────
 ASGI_APPLICATION = 'realestate.asgi.application'
 
 CHANNEL_LAYERS = {
@@ -106,6 +105,7 @@ CHANNEL_LAYERS = {
     },
 }
 
+# ── Auth ──────────────────────────────────────────────────────────────────────
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
     'allauth.account.auth_backends.AuthenticationBackend',
@@ -121,6 +121,7 @@ SOCIALACCOUNT_PROVIDERS = {
     }
 }
 
+# ── Middleware ────────────────────────────────────────────────────────────────
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
@@ -154,7 +155,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'realestate.wsgi.application'
 
-# Database Configuration
+# ── Database ──────────────────────────────────────────────────────────────────
 if os.environ.get('DATABASE_URL'):
     DATABASES = {
         'default': dj_database_url.config(
@@ -173,7 +174,7 @@ else:
 
 AUTH_USER_MODEL = 'users.User'
 
-# Password validation
+# ── Password validation ───────────────────────────────────────────────────────
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
@@ -181,27 +182,28 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-# Internationalization
+# ── Internationalisation ──────────────────────────────────────────────────────
 LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'Africa/Kampala'
-USE_I18N = True
-USE_TZ = True
+TIME_ZONE     = 'Africa/Kampala'
+USE_I18N      = True
+USE_TZ        = True
 
-# Static files (CSS, JavaScript, Images)
-STATIC_URL = '/static/'
+# ── Static files ──────────────────────────────────────────────────────────────
+STATIC_URL  = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static'] if (BASE_DIR / 'static').exists() else []
-# STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# CompressedStaticFilesStorage — compresses but does NOT enforce manifest.
+# This avoids "Missing staticfiles manifest entry" crashes on Render.
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
-
-# Media files (handled by Cloudinary)
-MEDIA_URL = '/media/'
+# ── Media files (Cloudinary handles this) ─────────────────────────────────────
+MEDIA_URL  = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# CORS Configuration
+# ── CORS ──────────────────────────────────────────────────────────────────────
 CORS_ALLOWED_ORIGINS = [
     "https://metro-properties-web.onrender.com",
     "https://realestate-frontend.onrender.com",
@@ -218,22 +220,10 @@ CSRF_TRUSTED_ORIGINS = [
     'https://realestate-frontend.onrender.com',
 ]
 
-# Add CORS origins for development
-if DEBUG:
-    CORS_ALLOWED_ORIGINS.extend([
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ])
-
 CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOW_METHODS = [
-    'DELETE',
-    'GET',
-    'OPTIONS',
-    'PATCH',
-    'POST',
-    'PUT',
+    'DELETE', 'GET', 'OPTIONS', 'PATCH', 'POST', 'PUT',
 ]
 
 CORS_ALLOW_HEADERS = [
@@ -248,7 +238,7 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
 ]
 
-# REST Framework Configuration
+# ── REST Framework ────────────────────────────────────────────────────────────
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -263,39 +253,65 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 20,
 }
 
-# JWT Configuration
+# ── JWT ───────────────────────────────────────────────────────────────────────
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
+    'ACCESS_TOKEN_LIFETIME':  timedelta(days=1),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
-    'ROTATE_REFRESH_TOKENS': True,
+    'ROTATE_REFRESH_TOKENS':  True,
     'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
-# Allauth Configuration
-ACCOUNT_EMAIL_VERIFICATION = 'optional'
-ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_USERNAME_REQUIRED = True
-ACCOUNT_AUTHENTICATION_METHOD = 'username_email'
-ACCOUNT_UNIQUE_EMAIL = True
-LOGIN_REDIRECT_URL = '/'
-ACCOUNT_LOGOUT_REDIRECT_URL = '/'
+# ── Allauth ───────────────────────────────────────────────────────────────────
+ACCOUNT_EMAIL_VERIFICATION      = 'optional'
+ACCOUNT_EMAIL_REQUIRED          = True
+ACCOUNT_USERNAME_REQUIRED       = True
+ACCOUNT_AUTHENTICATION_METHOD   = 'username_email'
+ACCOUNT_UNIQUE_EMAIL            = True
+LOGIN_REDIRECT_URL              = '/'
+ACCOUNT_LOGOUT_REDIRECT_URL     = '/'
 
-# Email Configuration (use console for development)
+# ── Email ─────────────────────────────────────────────────────────────────────
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
-# For production, use:
+# Uncomment and configure for production email sending:
 # if not DEBUG:
-#     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-#     EMAIL_HOST = os.environ.get('EMAIL_HOST')
-#     EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
-#     EMAIL_USE_TLS = True
-#     EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
+#     EMAIL_BACKEND      = 'django.core.mail.backends.smtp.EmailBackend'
+#     EMAIL_HOST         = os.environ.get('EMAIL_HOST')
+#     EMAIL_PORT         = int(os.environ.get('EMAIL_PORT', 587))
+#     EMAIL_USE_TLS      = True
+#     EMAIL_HOST_USER    = os.environ.get('EMAIL_HOST_USER')
 #     EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
 
-# Logging Configuration
-LOGS_DIR = BASE_DIR / 'logs'
-LOGS_DIR.mkdir(exist_ok=True)
+# ── Logging ───────────────────────────────────────────────────────────────────
+# On Render the filesystem is ephemeral — never write log files in production.
+# Console-only logging works perfectly with Render's log dashboard.
+
+if DEBUG and not IS_RENDER:
+    # Local development: log to both console and file
+    LOGS_DIR = BASE_DIR / 'logs'
+    LOGS_DIR.mkdir(exist_ok=True)
+    _handlers = {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+        'file': {
+            'class': 'logging.FileHandler',
+            'filename': str(LOGS_DIR / 'django.log'),
+            'formatter': 'verbose',
+        },
+    }
+    _handler_names = ['console', 'file']
+else:
+    # Production / Render: console only
+    _handlers = {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+    }
+    _handler_names = ['console']
 
 LOGGING = {
     'version': 1,
@@ -310,49 +326,44 @@ LOGGING = {
             'style': '{',
         },
     },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'verbose' if DEBUG else 'simple',
-        },
-        'file': {
-            'class': 'logging.FileHandler',
-            'filename': LOGS_DIR / 'django.log',
-            'formatter': 'verbose',
-        },
-    },
+    'handlers': _handlers,
     'loggers': {
         'django': {
-            'handlers': ['console', 'file'],
+            'handlers': _handler_names,
             'level': 'INFO' if DEBUG else 'WARNING',
             'propagate': True,
         },
         'django.request': {
-            'handlers': ['console', 'file'],
+            'handlers': _handler_names,
             'level': 'ERROR',
             'propagate': False,
         },
     },
 }
 
-# Security Settings for Production
+# ── Security (Production only) ────────────────────────────────────────────────
 if not DEBUG:
-    # HTTPS Settings
-    SECURE_SSL_REDIRECT = True
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
-    SECURE_BROWSER_XSS_FILTER = True
+    # IMPORTANT: NEVER set SECURE_SSL_REDIRECT = True on Render.
+    # Render's load balancer terminates SSL and forwards requests as HTTP internally.
+    # Setting this True causes an infinite redirect loop (too many redirects error).
+    SECURE_SSL_REDIRECT = False
+
+    # This tells Django to trust Render's X-Forwarded-Proto header instead,
+    # so request.is_secure() returns True correctly for HTTPS requests.
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+    SESSION_COOKIE_SECURE    = True
+    CSRF_COOKIE_SECURE       = True
+    SECURE_BROWSER_XSS_FILTER   = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
-    X_FRAME_OPTIONS = 'DENY'
-    
-    # HSTS Settings
-    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    X_FRAME_OPTIONS          = 'DENY'
+
+    # HSTS — start at 1 hour, raise to 1 year only after confirming HTTPS is stable
+    SECURE_HSTS_SECONDS            = 3600   # 1 hour — change to 31536000 when ready
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    SECURE_HSTS_PRELOAD = True
-    
-    # Session Settings
+    SECURE_HSTS_PRELOAD            = False  # only True when permanently on HTTPS
+
     SESSION_COOKIE_HTTPONLY = True
-    CSRF_COOKIE_HTTPONLY = True
-    
-    # File Upload Security
+    CSRF_COOKIE_HTTPONLY    = True
+
     DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000
