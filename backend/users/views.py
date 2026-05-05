@@ -20,14 +20,89 @@ import requests as http_requests
 import cloudinary.uploader
 import cloudinary.api
 from django.core.files.uploadedfile import UploadedFile
+from rest_framework.parsers import MultiPartParser, FormParser
+from .serializers import KYCSerializer
+from .models import KYCSubmission
 
 from .serializers import (
     UserSerializer, RegisterSerializer, FollowSerializer,
     StatusSerializer, StatusViewSerializer
 )
-from .models import Follow, Status, StatusView
+from .models import Follow, Status, StatusView, KYCSubmission
 
 User = get_user_model()
+
+# ========== KYC VIEWS ==========
+
+class KYCSubmitView(APIView):
+    """Submit KYC documents for verification"""
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+    
+    def post(self, request):
+        document_type = request.data.get('document_type')
+        document_number = request.data.get('document_number')
+        front_image = request.FILES.get('front_image')
+        back_image = request.FILES.get('back_image')
+        selfie = request.FILES.get('selfie')
+        
+        if not document_type or not document_number or not front_image:
+            return Response(
+                {'error': 'Document type, number, and front image are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Upload to Cloudinary
+        front_url = None
+        back_url = None
+        selfie_url = None
+        
+        if front_image:
+            result = cloudinary.uploader.upload(front_image, folder='kyc/documents/')
+            front_url = result['secure_url']
+        
+        if back_image:
+            result = cloudinary.uploader.upload(back_image, folder='kyc/documents/')
+            back_url = result['secure_url']
+        
+        if selfie:
+            result = cloudinary.uploader.upload(selfie, folder='kyc/selfies/')
+            selfie_url = result['secure_url']
+        
+        kyc = KYCSubmission.objects.create(
+            user=request.user,
+            document_type=document_type,
+            document_number=document_number,
+            front_image=front_url,
+            back_image=back_url,
+            selfie=selfie_url,
+            status='pending'
+        )
+        
+        serializer = KYCSerializer(kyc)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class KYCStatusView(APIView):
+    """Get KYC status for the authenticated user"""
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        try:
+            kyc = KYCSubmission.objects.filter(user=request.user).latest('submitted_at')
+            return Response({
+                'status': kyc.status,
+                'rejection_reason': kyc.rejection_reason,
+                'admin_notes': kyc.admin_notes,
+                'submitted_at': kyc.submitted_at,
+                'reviewed_at': kyc.reviewed_at
+            })
+        except KYCSubmission.DoesNotExist:
+            return Response({
+                'status': 'not_submitted',
+                'message': 'No KYC submission found'
+            })
+        
 
 # ========== USER MANAGEMENT VIEWS ==========
 
@@ -728,3 +803,4 @@ class StatusViewSet(viewsets.ModelViewSet):
         expired_statuses.delete()
         
         return Response({'deleted': deleted_count})
+    

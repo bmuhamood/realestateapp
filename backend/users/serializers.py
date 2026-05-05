@@ -6,10 +6,11 @@ from django.contrib.auth.password_validation import validate_password
 from django.db.models import Count
 from cloudinary import CloudinaryImage
 
-from .models import Status, StatusView
+from .models import Status, StatusView, KYCSubmission
 from properties.models import Property
 from services.models import Service
 from .models import Follow
+
 
 User = get_user_model()
 
@@ -380,3 +381,32 @@ class StatusViewSerializer(serializers.ModelSerializer):
             representation['viewer'] = str(representation['viewer'])
         
         return representation
+
+class KYCSerializer(serializers.ModelSerializer):
+    front_image_url = serializers.SerializerMethodField()
+    back_image_url = serializers.SerializerMethodField()
+    selfie_url = serializers.SerializerMethodField()
+    user_name = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = KYCSubmission
+        fields = [
+            'id', 'user', 'user_name', 'document_type', 'document_number', 
+            'front_image', 'front_image_url', 'back_image', 'back_image_url',
+            'selfie', 'selfie_url', 'status', 'admin_notes', 'rejection_reason',
+            'submitted_at', 'reviewed_at', 'reviewed_by'
+        ]
+        read_only_fields = ['id', 'status', 'admin_notes', 'submitted_at', 'reviewed_at', 'reviewed_by']
+    
+    def get_front_image_url(self, obj):
+        # obj.front_image is already a URL string (secure_url from Cloudinary)
+        return obj.front_image if obj.front_image else None
+    
+    def get_back_image_url(self, obj):
+        return obj.back_image if obj.back_image else None
+    
+    def get_selfie_url(self, obj):
+        return obj.selfie if obj.selfie else None
+    
+    def get_user_name(self, obj):
+        return obj.user.get_full_name() or obj.user.username

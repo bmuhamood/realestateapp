@@ -168,3 +168,48 @@ class Follow(models.Model):
     
     def __str__(self):
         return f"{self.follower.username} follows {self.following.username}"
+
+
+class KYCSubmission(models.Model):
+    """KYC document submission"""
+    STATUS_CHOICES = [
+        ('pending', 'Pending Review'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('requires_update', 'Requires Update'),
+    ]
+    
+    DOCUMENT_TYPES = [
+        ('national_id', 'National ID'),
+        ('passport', 'Passport'),
+        ('driving_license', 'Driving License'),
+        ('tin', 'Tax Identification Number'),
+        ('business_reg', 'Business Registration'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='kyc_submissions')
+    
+    document_type = models.CharField(max_length=20, choices=DOCUMENT_TYPES)
+    document_number = models.CharField(max_length=100)
+    
+    # Front and back images
+    front_image = CloudinaryField('kyc_front', folder='kyc/', null=True, blank=True)
+    back_image = CloudinaryField('kyc_back', folder='kyc/', null=True, blank=True)
+    selfie = CloudinaryField('kyc_selfie', folder='kyc/', null=True, blank=True)
+    
+    # Status tracking
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    admin_notes = models.TextField(blank=True)
+    rejection_reason = models.TextField(blank=True)
+    
+    # Timestamps
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    reviewed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='kyc_reviews')
+    
+    class Meta:
+        ordering = ['-submitted_at']
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.get_document_type_display()}"

@@ -606,3 +606,412 @@ export interface GroupedStatus {
   };
   statuses: Status[];
 }
+
+export interface Conversation {
+  id: string;  // UUID
+  other_participant: User;
+  property?: Property;
+  property_data?: Property;
+  last_message: string;
+  last_message_preview: string;
+  last_message_time: string;
+  unread_count: number;
+  is_active: boolean;
+}
+
+export interface Message {
+  id: string;  // UUID
+  sender: number;
+  sender_name: string;
+  sender_avatar?: string;
+  content: string;
+  attachment?: string;
+  is_sender?: boolean;
+  attachment_url?: string;
+  attachment_type?: string;
+  is_read: boolean;
+  created_at: string;
+  time_ago?: string;
+}
+
+export interface CreateConversationRequest {
+  other_user_id: number;
+  property_id?: string;  // UUID
+  initial_message?: string;
+}
+
+// ========== COMPLAINT/DISPUTE TYPES ==========
+export type ComplaintCategory = 
+  | 'fraud' 
+  | 'fake_listing' 
+  | 'misrepresentation' 
+  | 'agent_misconduct' 
+  | 'service_issue' 
+  | 'payment_dispute' 
+  | 'privacy_violation' 
+  | 'harassment' 
+  | 'other';
+
+export type ComplaintStatus = 
+  | 'pending' 
+  | 'investigating' 
+  | 'resolved' 
+  | 'dismissed' 
+  | 'escalated';
+
+export type ComplaintPriority = 'low' | 'medium' | 'high' | 'urgent';
+
+export interface Complaint {
+  id: string;  // UUID
+  complaint_number: string;
+  category: ComplaintCategory;
+  category_display: string;
+  title: string;
+  description: string;
+  evidence: string[];  // Array of Cloudinary URLs
+  priority: ComplaintPriority;
+  priority_display: string;
+  status: ComplaintStatus;
+  status_display: string;
+  admin_notes: string;
+  admin_response: string;
+  resolution_details: string;
+  resolved_in_favor?: 'complainant' | 'defendant' | 'partial';
+  compensation_amount?: number;
+  
+  // Parties
+  complainant: number;
+  complainant_data: User;
+  defendant?: number;
+  defendant_data?: User;
+  property_obj?: string;  // UUID
+  property_data?: Property;
+  service_obj?: string;  // UUID
+  service_data?: Service;
+  
+  // Messages & Documents
+  messages?: ComplaintMessage[];
+  documents?: ComplaintDocument[];
+  resolutions?: ComplaintResolution[];
+  
+  // Timestamps
+  created_at: string;
+  updated_at: string;
+  resolved_at?: string;
+  time_ago?: string;
+  
+  // Permissions
+  can_be_cancelled?: boolean;
+}
+
+export interface ComplaintMessage {
+  id: string;  // UUID
+  sender: number;
+  sender_name: string;
+  sender_type: 'complainant' | 'defendant' | 'admin' | 'other';
+  content: string;
+  attachment?: string;
+  is_admin_response: boolean;
+  is_read: boolean;
+  created_at: string;
+  time_ago: string;
+}
+
+export interface ComplaintDocument {
+  id: string;  // UUID
+  title: string;
+  file: string;
+  file_url: string;
+  file_name: string;
+  file_size: number;
+  uploaded_by: number;
+  uploaded_by_name: string;
+  uploaded_at: string;
+}
+
+export interface ComplaintResolution {
+  id: string;  // UUID
+  action_taken: string;
+  action_type: 'warning' | 'listing_removed' | 'agent_suspended' | 'agent_verified' | 'refund_issued' | 'compensation' | 'account_ban' | 'escalated';
+  action_display: string;
+  action_by: number;
+  action_by_name: string;
+  created_at: string;
+}
+
+export interface CreateComplaintRequest {
+  defendant?: number;
+  property_obj?: string;  // UUID
+  service_obj?: string;   // UUID
+  category: ComplaintCategory;
+  title: string;
+  description: string;
+  evidence?: string[];
+  priority?: ComplaintPriority;
+}
+
+// ========== DEAL ROOM TYPES ==========
+export type DealStatus = 
+  | 'negotiation' 
+  | 'deposit' 
+  | 'contract' 
+  | 'inspection' 
+  | 'closing' 
+  | 'completed' 
+  | 'cancelled' 
+  | 'disputed';
+
+export type DealMessageType = 'general' | 'offer' | 'document' | 'inspection' | 'closing' | 'urgent';
+
+export type DocumentType = 
+  | 'offer_letter' 
+  | 'counter_offer' 
+  | 'purchase_agreement' 
+  | 'title_deed' 
+  | 'survey_report' 
+  | 'valuation_report' 
+  | 'inspection_report' 
+  | 'deposit_receipt' 
+  | 'commission_agreement' 
+  | 'closing_document' 
+  | 'tax_document' 
+  | 'other';
+
+export interface DealRoom {
+  id: string;  // UUID
+  deal_number: string;
+  property_obj: string;  // UUID
+  property_data: Property;
+  booking?: string;  // UUID
+  
+  // Participants
+  buyer: number;
+  buyer_data: User;
+  seller: number;
+  seller_data: User;
+  agent?: number;
+  agent_data?: User;
+  
+  // Financial
+  agreed_price?: number;
+  agreed_price_formatted?: string;
+  original_listing_price?: number;
+  price_reduction?: number;
+  deposit_amount?: number;
+  deposit_amount_formatted?: string;
+  deposit_percentage?: number;
+  deposit_paid: boolean;
+  deposit_paid_at?: string;
+  deposit_reference?: string;
+  agent_commission?: number;
+  commission_percentage: number;
+  commission_paid: boolean;
+  
+  // Status
+  status: DealStatus;
+  status_display: string;
+  status_color: string;
+  current_step: number;
+  progress_percentage: number;
+  
+  // Dates
+  offer_date: string;
+  acceptance_date?: string;
+  closing_date?: string;
+  possession_date?: string;
+  created_at: string;
+  updated_at: string;
+  completed_at?: string;
+  
+  // Terms
+  special_conditions: string;
+  contingencies: string;
+  
+  // Collections
+  messages?: DealMessage[];
+  documents?: DealDocument[];
+  milestones?: DealMilestone[];
+  offers?: DealOffer[];
+  activity_logs?: DealActivityLog[];
+  
+  // Stats
+  unread_messages_count: number;
+  pending_documents_count: number;
+  user_role: 'buyer' | 'seller' | 'agent' | 'admin' | null;
+  can_edit?: boolean;
+}
+
+export interface DealMessage {
+  id: string;  // UUID
+  sender: number;
+  sender_name: string;
+  sender_avatar?: string;
+  is_sender: boolean;
+  message_type: DealMessageType;
+  content: string;
+  attachment?: string;
+  attachment_url?: string;
+  attachment_name?: string;
+  is_read: boolean;
+  created_at: string;
+  time_ago: string;
+}
+
+export interface DealDocument {
+  id: string;  // UUID
+  document_type: DocumentType;
+  document_type_display: string;
+  title: string;
+  description: string;
+  file: string;
+  file_url: string;
+  file_name: string;
+  file_size: number;
+  uploaded_by: number;
+  uploaded_by_name: string;
+  requires_signature: boolean;
+  signed_by_buyer: boolean;
+  signed_by_seller: boolean;
+  signed_by_agent: boolean;
+  all_signed: boolean;
+  can_sign: boolean;
+  signed_at?: string;
+  is_confidential: boolean;
+  uploaded_at: string;
+}
+
+export interface DealMilestone {
+  id: string;  // UUID
+  title: string;
+  description: string;
+  due_date?: string;
+  completed_date?: string;
+  is_completed: boolean;
+  completed_by?: number;
+  completed_by_name?: string;
+  order: number;
+  status_badge: 'pending' | 'completed' | 'overdue';
+}
+
+export interface DealOffer {
+  id: string;  // UUID
+  made_by: number;
+  made_by_name: string;
+  amount: number;
+  amount_formatted: string;
+  terms: string;
+  expiry_date?: string;
+  status: 'pending' | 'accepted' | 'rejected' | 'countered' | 'expired';
+  status_display: string;
+  responded_at?: string;
+  response_notes: string;
+  created_at: string;
+  time_ago: string;
+}
+
+export interface DealActivityLog {
+  id: string;  // UUID
+  user: number;
+  user_name: string;
+  activity_type: string;
+  activity_display: string;
+  description: string;
+  old_value?: any;
+  new_value?: any;
+  created_at: string;
+}
+
+export interface CreateDealRoomRequest {
+  property_obj: string;  // UUID
+  booking?: string;  // UUID
+  buyer: number;
+  seller: number;
+  agent?: number;
+  special_conditions?: string;
+}
+
+export interface UpdateDealRequest {
+  agreed_price?: number;
+  deposit_amount?: number;
+  deposit_percentage?: number;
+  deposit_paid?: boolean;
+  deposit_reference?: string;
+  agent_commission?: number;
+  commission_percentage?: number;
+  status?: DealStatus;
+  closing_date?: string;
+  possession_date?: string;
+  special_conditions?: string;
+  contingencies?: string;
+}
+
+export interface CreateOfferRequest {
+  amount: number;
+  terms?: string;
+  expiry_date?: string;
+}
+
+export interface RespondToOfferRequest {
+  offer_id: string;        // Required - UUID of the offer
+  action: 'accept' | 'reject' | 'counter';  // Required
+  counter_amount?: number;  // Required for 'counter' action
+  counter_terms?: string;   // Optional for 'counter' action
+}
+
+// ========== KYC TYPES ==========
+export type KYCStatus = 'pending' | 'approved' | 'rejected' | 'requires_update';
+export type KYCDocumentType = 'national_id' | 'passport' | 'driving_license' | 'tin' | 'business_reg';
+
+export interface KYCSubmission {
+  id: string;  // UUID
+  user: number;
+  user_name: string;
+  document_type: KYCDocumentType;
+  document_number: string;
+  front_image: string;
+  front_image_url?: string;
+  back_image?: string;
+  back_image_url?: string;
+  selfie?: string;
+  selfie_url?: string;
+  status: KYCStatus;
+  admin_notes: string;
+  rejection_reason: string;
+  submitted_at: string;
+  reviewed_at?: string;
+  reviewed_by?: number;
+}
+
+export interface CreateKYCRequest {
+  document_type: KYCDocumentType;
+  document_number: string;
+  front_image: File;
+  back_image?: File;
+  selfie?: File;
+}
+
+// ========== STATS TYPES ==========
+export interface ComplaintStats {
+  total: number;
+  pending: number;
+  investigating: number;
+  resolved: number;
+  dismissed: number;
+  by_category: Record<string, number>;
+  by_priority: Record<string, number>;
+  recent_30_days: number;
+}
+
+export interface DealStats {
+  total: number;
+  active: number;
+  completed: number;
+  cancelled: number;
+  disputed: number;
+  total_value: number;
+  monthly_breakdown: Array<{
+    month: string;
+    count: number;
+    value: number;
+  }>;
+}

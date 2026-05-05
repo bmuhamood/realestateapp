@@ -25,6 +25,16 @@ import FollowersList from './pages/FollowersList';
 import FollowingList from './pages/FollowingList';
 import AddPropertyPage from './pages/AddPropertyPage';
 import EditPropertyPage from './pages/EditPropertyPage';
+import NewComplaintPage from './pages/legal/NewComplaintPage';
+import ComplaintsListPage from './pages/legal/ComplaintsListPage';
+import ComplaintDetailPage from './pages/legal/ComplaintDetailPage';
+import SafetyCenterPage from './pages/legal/SafetyCenterPage';
+import KYCUploadPage from './pages/kyc/KYCUploadPage';
+import DealDetailPage from './pages/DealDetailPage';
+import MessagesPage from './pages/MessagesPage';
+import MakeDealPage from './pages/MakeDealPage';
+import MakeOfferPage from './pages/MakeOfferPage';
+import RespondToOfferPage from './pages/RespondToOfferPage';
 
 const theme = createTheme({
   palette: {
@@ -148,6 +158,17 @@ function AppContent() {
         <Route path="/profile/:username/following" element={<FollowingList />} />
         <Route path="/dashboard/properties/add" element={<AddPropertyPage />} />
         <Route path="/dashboard/properties/edit/:id" element={<EditPropertyPage />} />
+        <Route path="/legal/complaints/new" element={<NewComplaintPage />} />
+        <Route path="/dashboard/complaints" element={<ComplaintsListPage />} />
+        <Route path="/legal/complaints/:id" element={<ComplaintDetailPage />} />
+        <Route path="/safety" element={<SafetyCenterPage />} />
+        <Route path="/kyc/upload" element={<KYCUploadPage />} />
+        <Route path="/deals/:id" element={<DealDetailPage />} />
+        <Route path="/messages" element={<MessagesPage />} />
+        <Route path="/make-deal/:propertyId" element={<MakeDealPage />} />
+        <Route path="/make-offer/:id" element={<MakeOfferPage />} />
+        <Route path="/respond-offer/:id" element={<RespondToOfferPage />} />
+
         {/* Protected Routes - Require Authentication */}
         <Route
           path="/favorites"

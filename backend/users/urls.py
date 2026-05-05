@@ -1,11 +1,12 @@
-# users/urls.py
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
+
 from .views import (
     RegisterView, UserFollowersView, UserFollowingView, UserListView, 
     UserProfileView, UserDetailView, FollowUserView, FollowStatusView, 
     ChangePasswordView, GoogleLoginView, FacebookLoginView,
-    UploadProfilePictureView, UploadCoverPhotoView, StatusViewSet
+    UploadProfilePictureView, UploadCoverPhotoView, StatusViewSet,
+    KYCSubmitView, KYCStatusView
 )
 
 # Create router for StatusViewSet
@@ -34,4 +35,8 @@ urlpatterns = [
     # Social Login URLs
     path('auth/google/', GoogleLoginView.as_view(), name='google-login'),
     path('auth/facebook/', FacebookLoginView.as_view(), name='facebook-login'),
+
+    # KYC URLs
+    path('kyc/', KYCSubmitView.as_view(), name='kyc-submit'),
+    path('kyc/status/', KYCStatusView.as_view(), name='kyc-status'),
 ]

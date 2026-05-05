@@ -1,4 +1,4 @@
-# bookings/admin.py - SIMPLIFIED VERSION
+# bookings/admin.py - UPDATED VERSION
 
 from django.contrib import admin
 from .models import Booking, BookingHistory
@@ -6,14 +6,15 @@ from .models import Booking, BookingHistory
 
 @admin.register(Booking)
 class BookingAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'property', 'visit_date', 'status', 'booking_fee', 'created_at')
+    # ✅ Changed 'property' to 'property_obj'
+    list_display = ('id', 'user', 'property_obj', 'visit_date', 'status', 'booking_fee', 'created_at')
     list_filter = ('status', 'created_at')
-    search_fields = ('user__username', 'property__title')
+    search_fields = ('user__username', 'property_obj__title')  # ✅ Changed 'property__title' to 'property_obj__title'
     readonly_fields = ('id', 'booking_fee', 'created_at', 'updated_at')
     
     fieldsets = (
         ('Booking Info', {
-            'fields': ('id', 'user', 'property', 'visit_date', 'message')
+            'fields': ('id', 'user', 'property_obj', 'visit_date', 'message')  # ✅ Changed 'property' to 'property_obj'
         }),
         ('Status & Payment', {
             'fields': ('status', 'booking_fee')

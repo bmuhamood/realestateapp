@@ -9,6 +9,7 @@ import api from '../services/api';
 import { Property, Review } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import PropertyRecommendations from '../components/Recommendations/PropertyRecommendations';
+import { dealAPI } from '../services/api';
 
 // ─── Brand ────────────────────────────────────────────────────────────────────
 const RED      = '#e63946';
@@ -28,12 +29,45 @@ const fmtDate = (d: string) => {
   catch { return d; }
 };
 
+// helper function at the top of your file (outside the component)
+const formatWhatsAppNumber = (phone: string): string => {
+  if (!phone) return '';
+  
+  // Check if the number already has a + (international format)
+  const hasPlus = phone.trim().startsWith('+');
+  
+  // Remove all non-digit characters (spaces, dashes, parentheses, etc.) but keep the + if present
+  let cleaned = phone.replace(/[\s\-\(\)]/g, '');
+  
+  // If it starts with 0 (e.g., 07XXXXXXXX), remove the leading zero and add +256 prefix
+  if (cleaned.startsWith('0')) {
+    cleaned = cleaned.substring(1);
+    return `+256${cleaned}`;
+  }
+  
+  // If it starts with 7 (Ugandan mobile format without country code)
+  if (cleaned.startsWith('7')) {
+    return `+256${cleaned}`;
+  }
+  
+  // If it starts with 256 (already has country code but no +)
+  if (cleaned.startsWith('256')) {
+    return `+${cleaned}`;
+  }
+  
+  // If it already has a +, return as is
+  if (hasPlus) {
+    return cleaned;
+  }
+  
+  // Default: add + prefix
+  return `+${cleaned}`;
+};
+
 // ─── Helper to get full Cloudinary URL ────────────────────────────────────────
 const getCloudinaryUrl = (url: string | null | undefined): string | undefined => {
   if (!url) return undefined;
-  // If it's already a full URL, return it as is
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
-  // If it's a Cloudinary public ID or relative path
   if (url.includes('/')) {
     const cloudName = 'drcy2xxkg';
     return `https://res.cloudinary.com/${cloudName}/${url}`;
@@ -117,34 +151,21 @@ const VideoPlayer: React.FC<{ property: Property }> = ({ property }) => {
   const [showVideo, setShowVideo] = useState(false);
   const [videoError, setVideoError] = useState(false);
   const hasVideo = property.has_video || property.video_url || property.video_file;
-  
+
   if (!hasVideo) return null;
-  
-  // Get proper video URL from property
+
   const getVideoUrl = (): string | undefined => {
-    // First try video_url_display from API
-    if (property.video_url_display) {
-      return property.video_url_display;
-    }
-    // Then try video_url
+    if (property.video_url_display) return property.video_url_display;
     if (property.video_url) {
-      // Check if it's a YouTube/Vimeo URL
       if (property.video_url.includes('youtube.com') || property.video_url.includes('youtu.be') || property.video_url.includes('vimeo.com')) {
         return property.video_url;
       }
     }
-    // Then try video_file (Cloudinary public_id)
     if (property.video_file) {
-      // If it's a Cloudinary public_id, construct the URL
       if (typeof property.video_file === 'string' && !property.video_file.startsWith('http')) {
-        // Remove any existing 'video/upload/' to prevent duplication
         let cleanId = property.video_file;
-        if (cleanId.includes('video/upload/')) {
-          cleanId = cleanId.replace('video/upload/', '');
-        }
-        if (cleanId.includes('image/upload/')) {
-          cleanId = cleanId.replace('image/upload/', '');
-        }
+        if (cleanId.includes('video/upload/')) cleanId = cleanId.replace('video/upload/', '');
+        if (cleanId.includes('image/upload/')) cleanId = cleanId.replace('image/upload/', '');
         cleanId = cleanId.replace(/^\/+/, '');
         return `https://res.cloudinary.com/drcy2xxkg/video/upload/f_auto,q_auto/${cleanId}`;
       }
@@ -152,28 +173,22 @@ const VideoPlayer: React.FC<{ property: Property }> = ({ property }) => {
     }
     return undefined;
   };
-  
+
   const videoUrl = getVideoUrl();
   const isYouTubeVimeo = videoUrl?.includes('youtube.com') || videoUrl?.includes('youtu.be') || videoUrl?.includes('vimeo.com');
-  
-  // Get thumbnail URL
+
   const getThumbnailUrl = (): string | undefined => {
-    if (property.video_thumbnail) {
-      return getCloudinaryUrl(property.video_thumbnail);
-    }
-    // Generate thumbnail from video if available
+    if (property.video_thumbnail) return getCloudinaryUrl(property.video_thumbnail);
     if (property.video_file && typeof property.video_file === 'string' && !property.video_file.startsWith('http')) {
       const cleanId = property.video_file.replace(/^(.*\/)/, '');
       return `https://res.cloudinary.com/drcy2xxkg/video/upload/f_auto,q_auto/so_0/${cleanId}.jpg`;
     }
     return undefined;
   };
-  
+
   const thumbnailUrl = getThumbnailUrl();
-  
   if (!videoUrl) return null;
-  
-  // For YouTube/Vimeo, use iframe embed
+
   if (isYouTubeVimeo) {
     let embedUrl = videoUrl;
     if (videoUrl.includes('youtube.com/watch')) {
@@ -186,7 +201,6 @@ const VideoPlayer: React.FC<{ property: Property }> = ({ property }) => {
       const videoId = videoUrl.split('/').pop();
       embedUrl = `https://player.vimeo.com/video/${videoId}`;
     }
-    
     return (
       <div style={pg.section}>
         <h2 style={pg.sectionTitle}>🎬 Property Video Tour</h2>
@@ -204,21 +218,13 @@ const VideoPlayer: React.FC<{ property: Property }> = ({ property }) => {
               <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 70, height: 70, borderRadius: '50%', backgroundColor: 'rgba(230,57,70,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, color: '#fff', cursor: 'pointer' }}>▶</div>
             </div>
           ) : (
-            <iframe
-              src={embedUrl}
-              title="Video tour"
-              frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-              style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}
-            />
+            <iframe src={embedUrl} title="Video tour" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }} />
           )}
         </div>
       </div>
     );
   }
-  
-  // For direct video files (Cloudinary)
+
   return (
     <div style={pg.section}>
       <h2 style={pg.sectionTitle}>🎬 Property Video Tour</h2>
@@ -236,12 +242,7 @@ const VideoPlayer: React.FC<{ property: Property }> = ({ property }) => {
             <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 70, height: 70, borderRadius: '50%', backgroundColor: 'rgba(230,57,70,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, color: '#fff', cursor: 'pointer' }}>▶</div>
           </div>
         ) : (
-          <video
-            controls
-            autoPlay
-            style={{ width: '100%', height: '100%', outline: 'none' }}
-            onError={() => setVideoError(true)}
-          >
+          <video controls autoPlay style={{ width: '100%', height: '100%', outline: 'none' }} onError={() => setVideoError(true)}>
             <source src={videoUrl} type="video/mp4" />
             Your browser does not support the video tag.
           </video>
@@ -310,26 +311,82 @@ const TransportationSection: React.FC<{ property: Property }> = ({ property }) =
 
 // ─── AMENITIES ────────────────────────────────────────────────────────────────
 const AmenitiesGrid: React.FC<{ property: Property }> = ({ property }) => {
+  // Safely get amenities array with proper type checking
   const getAmenitiesArray = (): string[] => {
-    const a: unknown = property.amenities || property.amenities_list;
-    if (!a) return [];
-    if (Array.isArray(a)) return a.filter((x): x is string => typeof x === 'string');
-    if (typeof a === 'string') {
-      const t = a.trim();
-      if (t.startsWith('[')) { try { const p = JSON.parse(t); if (Array.isArray(p)) return p.filter((x): x is string => typeof x === 'string'); } catch {} }
-      if (t.includes(',')) return t.split(',').map(x => x.trim().replace(/[\[\]"]/g, '')).filter(x => x.length > 0);
-      const c = t.replace(/[\[\]"]/g, ''); if (c.length > 0) return [c];
+    // Try property.amenities first (most common from API)
+    const amenitiesData: unknown = property.amenities || property.amenities_list;
+    
+    // If no data, return empty array
+    if (!amenitiesData) return [];
+    
+    // If it's already an array
+    if (Array.isArray(amenitiesData)) {
+      return amenitiesData.filter((item): item is string => typeof item === 'string');
     }
+    
+    // If it's a string (fallback for older data)
+    if (typeof amenitiesData === 'string') {
+      const trimmed = amenitiesData.trim();
+      
+      // Try to parse as JSON array
+      if (trimmed.startsWith('[')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (Array.isArray(parsed)) {
+            return parsed.filter((item): item is string => typeof item === 'string');
+          }
+        } catch (e) {
+          // JSON parse failed
+        }
+      }
+      
+      // Try comma-separated values
+      if (trimmed.includes(',')) {
+        return trimmed.split(',').map(s => s.trim().replace(/[\[\]"]/g, '')).filter(s => s.length > 0);
+      }
+      
+      // Single value
+      const cleaned = trimmed.replace(/[\[\]"]/g, '');
+      return cleaned.length > 0 ? [cleaned] : [];
+    }
+    
     return [];
   };
+  
   const list = getAmenitiesArray();
   if (!list.length) return null;
-  const icons: Record<string, string> = { 'swimming pool': '🏊', 'gym': '💪', 'security': '🔒', 'parking': '🅿️', 'garden': '🌿', 'balcony': '🏡', 'air conditioning': '❄️', 'internet': '📶', 'cctv': '📹', 'solar': '☀️', 'generator': '⚡', 'water tank': '💧', 'borehole water': '🚰' };
+  
+  const icons: Record<string, string> = { 
+    'swimming pool': '🏊', 
+    'gym': '💪', 
+    'security': '🔒', 
+    'parking': '🅿️', 
+    'garden': '🌿', 
+    'balcony': '🏡', 
+    'air conditioning': '❄️', 
+    'internet': '📶', 
+    'cctv': '📹', 
+    'solar': '☀️', 
+    'generator': '⚡', 
+    'water tank': '💧', 
+    'borehole water': '🚰',
+    'backup generator': '⚡',
+    '24/7 security': '🔒',
+    'cctv surveillance': '📹',
+    'playground': '🎠',
+    'bbq area': '🍖'
+  };
+  
   return (
     <div style={pg.section}>
       <h2 style={pg.sectionTitle}>✨ Amenities & Features</h2>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-        {list.map((a: string, i: number) => <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', backgroundColor: '#f8faff', border: '1px solid #eef2f7', borderRadius: 30, fontSize: 12 }}><span style={{ fontSize: 16 }}>{icons[a.toLowerCase()] || '✓'}</span><span style={{ fontWeight: 500 }}>{a}</span></div>)}
+        {list.map((a: string, i: number) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', backgroundColor: '#f8faff', border: '1px solid #eef2f7', borderRadius: 30, fontSize: 12 }}>
+            <span style={{ fontSize: 16 }}>{icons[a.toLowerCase()] || '✓'}</span>
+            <span style={{ fontWeight: 500 }}>{a}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -397,8 +454,6 @@ const LegalSection: React.FC<{ property: Property }> = ({ property }) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ★ PROPERTY INQUIRY SECTION ★
-// Maps directly to PropertyInquiry Django model
-// Fields: inquiry_type, name, email, phone, message, preferred_date
 // ─────────────────────────────────────────────────────────────────────────────
 const INQUIRY_TYPES = [
   { value: 'viewing',     label: '📅 Schedule Viewing',   desc: 'Book a physical visit to the property' },
@@ -438,10 +493,9 @@ const PropertyInquirySection: React.FC<{ property: Property; user: any }> = ({ p
     if (!form.name.trim())    { setError('Please enter your name.');          return; }
     if (!form.email.trim())   { setError('Please enter your email address.');  return; }
     if (!form.message.trim()) { setError('Please write a message.');           return; }
-
     setSubmitting(true);
     try {
-      await api.post(`/properties/${property.id}/inquiries/`,{
+      await api.post(`/properties/${property.id}/inquiries/`, {
         property: property.id,
         inquiry_type:   form.inquiry_type,
         name:           form.name.trim(),
@@ -462,7 +516,6 @@ const PropertyInquirySection: React.FC<{ property: Property; user: any }> = ({ p
   const handleTypeClick = (val: string) => {
     setActiveType(val);
     set('inquiry_type', val);
-    // Auto-fill message hint based on type
     const hints: Record<string, string> = {
       viewing:     `Hi, I'd like to schedule a viewing for "${property.title}". Please let me know your available dates.`,
       price:       `Hi, I'm interested in "${property.title}". Could you please provide more details about the pricing and payment plans?`,
@@ -482,10 +535,7 @@ const PropertyInquirySection: React.FC<{ property: Property; user: any }> = ({ p
           <p style={inq.successMsg}>
             Your inquiry has been sent to the agent. You'll receive a response within 24 hours at <strong>{form.email}</strong>.
           </p>
-          <button
-            onClick={() => { setSubmitted(false); setForm(f => ({ ...f, message: '' })); }}
-            style={inq.sendAnotherBtn}
-          >
+          <button onClick={() => { setSubmitted(false); setForm(f => ({ ...f, message: '' })); }} style={inq.sendAnotherBtn}>
             Send Another Inquiry
           </button>
         </div>
@@ -495,7 +545,6 @@ const PropertyInquirySection: React.FC<{ property: Property; user: any }> = ({ p
 
   return (
     <div style={pg.section}>
-      {/* Header */}
       <div style={inq.header}>
         <div>
           <div style={inq.eyebrow}>
@@ -514,81 +563,44 @@ const PropertyInquirySection: React.FC<{ property: Property; user: any }> = ({ p
         </div>
       </div>
 
-      {/* ── Inquiry Type Selector ── */}
       <div style={{ marginBottom: 24 }}>
         <div style={inq.typeLabel}>What are you inquiring about?</div>
         <div style={inq.typeGrid}>
           {INQUIRY_TYPES.map(t => (
-            <button
-              key={t.value}
-              onClick={() => handleTypeClick(t.value)}
-              style={{
-                ...inq.typeBtn,
-                ...(activeType === t.value ? inq.typeBtnActive : {}),
-              }}
-            >
+            <button key={t.value} onClick={() => handleTypeClick(t.value)} style={{ ...inq.typeBtn, ...(activeType === t.value ? inq.typeBtnActive : {}) }}>
               <span style={{ fontSize: 14, marginBottom: 3 }}>{t.label.split(' ')[0]}</span>
-              <span style={{ fontSize: 12, fontWeight: activeType === t.value ? 700 : 500, lineHeight: 1.2 }}>
-                {t.label.substring(2)}
-              </span>
+              <span style={{ fontSize: 12, fontWeight: activeType === t.value ? 700 : 500, lineHeight: 1.2 }}>{t.label.substring(2)}</span>
             </button>
           ))}
         </div>
-        {/* Active type description */}
         <div style={inq.typeDesc}>
           <span style={{ color: TEAL, marginRight: 6 }}>ℹ️</span>
           {INQUIRY_TYPES.find(t => t.value === activeType)?.desc}
         </div>
       </div>
 
-      {/* ── Contact Fields ── */}
       <div style={inq.fieldsGrid}>
-        {/* Name */}
         <div style={inq.fieldGroup}>
           <label style={inq.fieldLabel}>Full Name *</label>
           <div style={inq.inputWrap}>
             <span style={inq.inputIcon}>👤</span>
-            <input
-              type="text"
-              placeholder="Your full name"
-              value={form.name}
-              onChange={e => set('name', e.target.value)}
-              style={inq.input}
-            />
+            <input type="text" placeholder="Your full name" value={form.name} onChange={e => set('name', e.target.value)} style={inq.input} />
           </div>
         </div>
-
-        {/* Email */}
         <div style={inq.fieldGroup}>
           <label style={inq.fieldLabel}>Email Address *</label>
           <div style={inq.inputWrap}>
             <span style={inq.inputIcon}>✉️</span>
-            <input
-              type="email"
-              placeholder="your@email.com"
-              value={form.email}
-              onChange={e => set('email', e.target.value)}
-              style={inq.input}
-            />
+            <input type="email" placeholder="your@email.com" value={form.email} onChange={e => set('email', e.target.value)} style={inq.input} />
           </div>
         </div>
-
-        {/* Phone */}
         <div style={inq.fieldGroup}>
           <label style={inq.fieldLabel}>Phone Number</label>
           <div style={inq.inputWrap}>
             <span style={inq.inputIcon}>📞</span>
-            <input
-              type="tel"
-              placeholder="+256 700 000 000"
-              value={form.phone}
-              onChange={e => set('phone', e.target.value)}
-              style={inq.input}
-            />
+            <input type="tel" placeholder="+256 700 000 000" value={form.phone} onChange={e => set('phone', e.target.value)} style={inq.input} />
           </div>
         </div>
-
-        {/* Preferred date (shown for viewing/general) */}
         <div style={inq.fieldGroup}>
           <label style={inq.fieldLabel}>
             Preferred Date
@@ -597,27 +609,14 @@ const PropertyInquirySection: React.FC<{ property: Property; user: any }> = ({ p
           </label>
           <div style={inq.inputWrap}>
             <span style={inq.inputIcon}>📅</span>
-            <input
-              type="date"
-              value={form.preferred_date}
-              onChange={e => set('preferred_date', e.target.value)}
-              min={new Date().toISOString().split('T')[0]}
-              style={inq.input}
-            />
+            <input type="date" value={form.preferred_date} onChange={e => set('preferred_date', e.target.value)} min={new Date().toISOString().split('T')[0]} style={inq.input} />
           </div>
         </div>
       </div>
 
-      {/* Message */}
       <div style={{ ...inq.fieldGroup, marginBottom: 20 }}>
         <label style={inq.fieldLabel}>Your Message *</label>
-        <textarea
-          placeholder="Describe what you're looking for, any questions, or special requirements..."
-          value={form.message}
-          onChange={e => set('message', e.target.value)}
-          rows={5}
-          style={inq.textarea}
-        />
+        <textarea placeholder="Describe what you're looking for, any questions, or special requirements..." value={form.message} onChange={e => set('message', e.target.value)} rows={5} style={inq.textarea} />
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
           <span style={{ fontSize: 11, color: form.message.length < 20 ? '#94a3b8' : TEAL }}>
             {form.message.length} characters {form.message.length < 20 ? `(min 20)` : '✓'}
@@ -625,7 +624,6 @@ const PropertyInquirySection: React.FC<{ property: Property; user: any }> = ({ p
         </div>
       </div>
 
-      {/* Error */}
       {error && (
         <div style={inq.errorBox}>
           <span>⚠️</span>
@@ -633,7 +631,6 @@ const PropertyInquirySection: React.FC<{ property: Property; user: any }> = ({ p
         </div>
       )}
 
-      {/* Property summary pill */}
       <div style={inq.propertySummary}>
         <div style={{ fontSize: 20 }}>🏠</div>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -643,17 +640,7 @@ const PropertyInquirySection: React.FC<{ property: Property; user: any }> = ({ p
         <div style={{ fontSize: 14, fontWeight: 800, color: RED, flexShrink: 0 }}>{formatPrice(property.price)}</div>
       </div>
 
-      {/* Submit */}
-      <button
-        onClick={handleSubmit}
-        disabled={submitting}
-        style={{
-          ...inq.submitBtn,
-          opacity: submitting ? 0.75 : 1,
-          cursor: submitting ? 'wait' : 'pointer',
-        }}
-        className="inq-submit-btn"
-      >
+      <button onClick={handleSubmit} disabled={submitting} style={{ ...inq.submitBtn, opacity: submitting ? 0.75 : 1, cursor: submitting ? 'wait' : 'pointer' }} className="inq-submit-btn">
         {submitting ? (
           <>
             <span style={{ width: 16, height: 16, border: '2.5px solid rgba(255,255,255,0.35)', borderTop: '2.5px solid #fff', borderRadius: '50%', display: 'inline-block', animation: 'pdSpin 0.7s linear infinite' }} />
@@ -670,7 +657,6 @@ const PropertyInquirySection: React.FC<{ property: Property; user: any }> = ({ p
         )}
       </button>
 
-      {/* Privacy note */}
       <div style={inq.privacyNote}>
         🔒 Your contact details are only shared with the property agent and are never sold to third parties.
       </div>
@@ -678,30 +664,14 @@ const PropertyInquirySection: React.FC<{ property: Property; user: any }> = ({ p
   );
 };
 
-// Inquiry styles
 const inq: Record<string, React.CSSProperties> = {
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 22, gap: 12 },
   eyebrow: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 },
   responseTime: { display: 'flex', alignItems: 'center', gap: 10, backgroundColor: 'rgba(37,168,130,0.07)', border: '1px solid rgba(37,168,130,0.15)', borderRadius: 12, padding: '10px 14px', flexShrink: 0 },
   typeLabel: { fontSize: 12, fontWeight: 700, color: SLATE, textTransform: 'uppercase' as const, letterSpacing: '0.07em', marginBottom: 10 },
   typeGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 10, marginBottom: 10 },
-  typeBtn: {
-    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-    padding: '12px 8px', borderRadius: 12,
-    border: '1.5px solid #eef2f7',
-    backgroundColor: '#f8faff',
-    cursor: 'pointer', fontFamily: 'inherit',
-    color: SLATE, textAlign: 'center' as const,
-    transition: 'all 0.18s', gap: 2,
-    minHeight: 68,
-  },
-  typeBtnActive: {
-    backgroundColor: NAVY,
-    borderColor: NAVY,
-    color: '#fff',
-    boxShadow: '0 4px 12px rgba(13,27,46,0.2)',
-    transform: 'translateY(-1px)',
-  },
+  typeBtn: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '12px 8px', borderRadius: 12, border: '1.5px solid #eef2f7', backgroundColor: '#f8faff', cursor: 'pointer', fontFamily: 'inherit', color: SLATE, textAlign: 'center' as const, transition: 'all 0.18s', gap: 2, minHeight: 68 },
+  typeBtnActive: { backgroundColor: NAVY, borderColor: NAVY, color: '#fff', boxShadow: '0 4px 12px rgba(13,27,46,0.2)', transform: 'translateY(-1px)' },
   typeDesc: { fontSize: 12, color: SLATE, backgroundColor: '#f8faff', border: '1px solid #eef2f7', borderRadius: 10, padding: '8px 13px', display: 'flex', alignItems: 'center' },
   fieldsGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 },
   fieldGroup: { display: 'flex', flexDirection: 'column', gap: 6 },
@@ -714,7 +684,6 @@ const inq: Record<string, React.CSSProperties> = {
   propertySummary: { display: 'flex', alignItems: 'center', gap: 12, backgroundColor: '#f8faff', border: '1px solid #eef2f7', borderRadius: 12, padding: '12px 14px', marginBottom: 16 },
   submitBtn: { width: '100%', padding: '15px', borderRadius: 13, border: 'none', backgroundColor: TEAL, color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, boxShadow: '0 4px 18px rgba(37,168,130,0.3)', transition: 'all 0.15s', marginBottom: 12 },
   privacyNote: { fontSize: 11, color: '#94a3b8', textAlign: 'center' as const, lineHeight: 1.5 },
-  // Success state
   successWrap: { textAlign: 'center' as const, padding: '32px 16px' },
   successIcon: { fontSize: 60, marginBottom: 16 },
   successTitle: { fontFamily: "'Sora', sans-serif", fontSize: 22, fontWeight: 800, color: NAVY, margin: '0 0 10px' },
@@ -818,16 +787,28 @@ const StickyActionBar: React.FC<{ scrolled: boolean; property: Property; liked: 
 );
 
 // ─── AGENT CARD ───────────────────────────────────────────────────────────────
-const AgentCard: React.FC<{ property: Property; ownerName: string; avgRating: number; reviewsCount: number; onBook: () => void; onCopy: () => void; copied: boolean }> = ({ property, ownerName, avgRating, reviewsCount, onBook, onCopy, copied }) => (
+const AgentCard: React.FC<{
+  property: Property;
+  ownerName: string;
+  avgRating: number;
+  reviewsCount: number;
+  onBook: () => void;
+  onCopy: () => void;
+  copied: boolean;
+  onMakeDeal: () => void;
+  canMakeDeal: boolean;
+  navigate: any;  // ← Add this
+  user: any;      // ← Add this
+}> = ({ property, ownerName, avgRating, reviewsCount, onBook, onCopy, copied, onMakeDeal, canMakeDeal, navigate, user }) => (
   <div style={pg.agentCard}>
     <div style={pg.agentHeader}>
-<div style={pg.agentAvatar}>
-  {property.owner?.profile_picture ? (
-    <img src={getCloudinaryUrl(property.owner.profile_picture)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-  ) : (
-    getInitials(property.owner?.first_name, property.owner?.last_name, property.owner?.username)
-  )}
-</div>
+      <div style={pg.agentAvatar}>
+        {property.owner?.profile_picture ? (
+          <img src={getCloudinaryUrl(property.owner.profile_picture)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+        ) : (
+          getInitials(property.owner?.first_name, property.owner?.last_name, property.owner?.username)
+        )}
+      </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={pg.agentName}>{ownerName}</div>
         <div style={pg.agentMeta}>{property.owner?.is_verified && <span style={pg.agentVerified}>✓ Verified Agent</span>}</div>
@@ -839,11 +820,53 @@ const AgentCard: React.FC<{ property: Property; ownerName: string; avgRating: nu
     <div style={pg.agentBtns}>
       {property.owner?.phone && (
         <>
-          <a href={`tel:${property.owner.phone}`} style={pg.callBtn}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.37 2 2 0 0 1 3.61 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.37a16 16 0 0 0 6.72 6.72l.62-.62a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Call Agent</a>
-          <a href={`https://wa.me/${property.owner.phone.replace(/\D/g,'')}?text=Hi, I'm interested in: ${encodeURIComponent(property.title)}`} target="_blank" rel="noopener noreferrer" style={pg.whatsappBtn}><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>WhatsApp</a>
+          <a href={`tel:${property.owner.phone}`} style={pg.callBtn}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.37 2 2 0 0 1 3.61 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.37a16 16 0 0 0 6.72 6.72l.62-.62a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+            </svg>
+            Call Agent
+          </a>
+          <a 
+            href={`https://wa.me/${formatWhatsAppNumber(property.owner?.phone || '')}?text=Hi, I'm interested in: ${encodeURIComponent(property.title)}`} 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            style={pg.whatsappBtn}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/>
+            </svg>
+            WhatsApp
+          </a>
         </>
       )}
-      <button onClick={onBook} style={pg.bookingBtn}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Schedule Viewing</button>
+
+      {/* Deal button - shows login for non-authenticated users */}
+      {!user ? (
+        <button 
+          onClick={() => navigate('/login', { state: { returnTo: `/property/${property.id}` } })} 
+          style={pg.dealBtn}
+        >
+          🔐 Login to Make a Deal
+        </button>
+      ) : canMakeDeal ? (
+        <button onClick={onMakeDeal} style={pg.dealBtn}>
+          💎 Make an Offer / Start Deal
+        </button>
+      ) : user.id === property.owner?.id ? (
+        <button disabled style={{ ...pg.dealBtn, opacity: 0.5, cursor: 'not-allowed', backgroundColor: '#94a3b8' }}>
+          Cannot Deal on Your Property
+        </button>
+      ) : null}
+
+      <button onClick={onBook} style={pg.bookingBtn}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+          <rect x="3" y="4" width="18" height="18" rx="2"/>
+          <line x1="16" y1="2" x2="16" y2="6"/>
+          <line x1="8" y1="2" x2="8" y2="6"/>
+          <line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+        Schedule Viewing
+      </button>
     </div>
     <div style={pg.shareRow}>
       <span style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600 }}>Share:</span>
@@ -933,29 +956,75 @@ const PropertyDetail: React.FC = () => {
     setTimeout(() => setCopied(false), 2200);
   };
 
+  // FIX: handleMakeDeal is now inside the component so it has access to user, property, navigate
+  const handleMakeDeal = async () => {
+    if (!user) { navigate('/login'); return; }
+    if (user.id === property?.owner?.id) {
+      alert('You cannot make a deal on your own property');
+      return;
+    }
+    try {
+      const response = await dealAPI.createDeal({
+        property_obj: property!.id,
+        buyer: user.id,
+        seller: property!.owner.id,
+        agent: property!.owner.is_agent ? property!.owner.id : undefined,
+        special_conditions: `Interested in purchasing ${property!.title}`
+      });
+      alert('Deal room created! You can now negotiate with the seller.');
+      navigate(`/deals/${response.data.id}`);
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Failed to create deal. Please try again.');
+    }
+  };
+
   const handleBooking = useCallback(async (date: string, time: string, msg: string) => {
     if (!user) { navigate('/login'); return; }
     if (!date || !time) { alert('Please select a date and time.'); return; }
     setBookingLoad(true);
     try {
-      await api.post('/bookings/', { property: property?.id, visit_date: new Date(`${date}T${time}`).toISOString(), message: msg });
+      const visitDateTime = new Date(`${date}T${time}:00`);
+      if (visitDateTime < new Date()) {
+        alert('Please select a future date and time.');
+        setBookingLoad(false);
+        return;
+      }
+      const bookingData = {
+        property: property!.id,
+        visit_date: visitDateTime.toISOString(),
+        message: msg || `I'm interested in viewing "${property!.title}". Please confirm the booking.`
+      };
+      await api.post('/bookings/', bookingData);
       setBookingOk(true);
-      setTimeout(() => { setBookingOpen(false); setBookingOk(false); }, 2500);
-    } catch { alert('Failed to create booking. Please try again.'); }
-    finally { setBookingLoad(false); }
+      setTimeout(() => {
+        setBookingOpen(false);
+        setBookingOk(false);
+        alert('✅ Booking confirmed! The agent will contact you shortly.');
+      }, 2000);
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.error ||
+                       error.response?.data?.message ||
+                       error.response?.data?.visit_date?.[0] ||
+                       'Failed to create booking. Please try again.';
+      alert('❌ ' + errorMsg);
+    } finally {
+      setBookingLoad(false);
+    }
   }, [user, property, navigate]);
 
-const images = (property?.images?.length ?? 0) > 0
-  ? property!.images.map(img => ({
-      ...img,
-      id: String(img.id),
-      // Use the full URL from the API if available, otherwise construct it
-      image: img.image_url || img.image || getCloudinaryUrl(img.image) || 'https://via.placeholder.com/1200x700?text=No+Image'
-    }))
-  : [{ id: '0', image: 'https://via.placeholder.com/1200x700?text=No+Image', is_main: true, order: 0 }];
+  const images = (property?.images?.length ?? 0) > 0
+    ? property!.images.map(img => ({
+        ...img,
+        id: String(img.id),
+        image: img.image_url || img.image || getCloudinaryUrl(img.image) || 'https://via.placeholder.com/1200x700?text=No+Image'
+      }))
+    : [{ id: '0', image: 'https://via.placeholder.com/1200x700?text=No+Image', is_main: true, order: 0 }];
 
-  const avgRating  = reviews.length ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : 0;
-  const ownerName  = property?.owner ? `${property.owner.first_name || ''} ${property.owner.last_name || ''}`.trim() || property.owner.username || 'Agent' : 'Agent';
+  const avgRating = reviews.length ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : 0;
+  const ownerName = property?.owner ? `${property.owner.first_name || ''} ${property.owner.last_name || ''}`.trim() || property.owner.username || 'Agent' : 'Agent';
+
+  // FIX: computed once here, passed as prop to AgentCard
+  const canMakeDeal = !!user && !!property && user.id !== property.owner?.id;
 
   if (loading)   return <LoadingSkeleton />;
   if (!property) return <NotFoundPage navigate={navigate} />;
@@ -1010,7 +1079,6 @@ const images = (property?.images?.length ?? 0) > 0
         <div style={pg.twoCol}>
           {/* LEFT */}
           <div style={pg.leftCol}>
-            {/* Price / Title / Location */}
             <div style={pg.priceCard}>
               <div style={pg.priceRow}>
                 <div style={pg.price}>{formatPrice(property.price)}{property.transaction_type === 'rent' && <span style={{ fontSize: 14, color: '#64748b', fontWeight: 400, marginLeft: 4 }}>/month</span>}</div>
@@ -1021,7 +1089,6 @@ const images = (property?.images?.length ?? 0) > 0
               {property.is_verified && <div style={pg.verifiedBanner}><span>✓</span><span>Verified listing — checked by our team</span></div>}
             </div>
 
-            {/* Feature stats */}
             <div style={pg.section}>
               <h2 style={pg.sectionTitle}>Property Overview</h2>
               <div style={pg.featGrid}>
@@ -1032,7 +1099,7 @@ const images = (property?.images?.length ?? 0) > 0
                 <FeatureBox icon="❤️" value={property.likes_count || 0} label="Saves" />
                 {property.parking_spaces !== undefined && property.parking_spaces > 0 && (
                   <FeatureBox icon="🅿️" value={property.parking_spaces} label="Parking" />
-                )}              
+                )}
               </div>
             </div>
 
@@ -1049,7 +1116,6 @@ const images = (property?.images?.length ?? 0) > 0
             <InteriorFeatures property={property} />
             <LegalSection property={property} />
 
-            {/* Property Details Table */}
             <div style={pg.section}>
               <h2 style={pg.sectionTitle}>Property Details</h2>
               <DetailRow label="Property Type" value={<span style={{ textTransform: 'capitalize' }}>{property.property_type}</span>} />
@@ -1063,7 +1129,6 @@ const images = (property?.images?.length ?? 0) > 0
               <DetailRow label="Reference ID" value={`#${String(property.id)}`} />
             </div>
 
-            {/* Map */}
             <div style={pg.section}>
               <h2 style={pg.sectionTitle}>Location</h2>
               <div style={{ borderRadius: 14, backgroundColor: '#f4f7fb', border: '1px solid #eef2f7', height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1075,10 +1140,8 @@ const images = (property?.images?.length ?? 0) > 0
               </div>
             </div>
 
-            {/* ★ INQUIRY SECTION — inserted before reviews ★ */}
             <PropertyInquirySection property={property} user={user} />
 
-            {/* Reviews */}
             <div style={pg.section}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
                 <h2 style={{ ...pg.sectionTitle, margin: 0 }}>Agent Reviews</h2>
@@ -1097,14 +1160,37 @@ const images = (property?.images?.length ?? 0) > 0
 
           {/* RIGHT */}
           <div style={pg.rightCol}>
-            <AgentCard property={property} ownerName={ownerName} avgRating={avgRating} reviewsCount={reviews.length} onBook={() => setBookingOpen(true)} onCopy={handleCopy} copied={copied} />
+            {/* FIX: pass canMakeDeal instead of user={user} */}
+            <AgentCard
+              property={property}
+              ownerName={ownerName}
+              avgRating={avgRating}
+              reviewsCount={reviews.length}
+              onBook={() => setBookingOpen(true)}
+              onCopy={handleCopy}
+              copied={copied}
+              onMakeDeal={handleMakeDeal}
+              canMakeDeal={canMakeDeal}
+              navigate={navigate}  // ← Add this
+              user={user}          // ← Add this
+            />
           </div>
         </div>
 
-        <div style={{ marginTop: 48 }}>
+        {/* <div style={{ marginTop: 48 }}>
           <PropertyRecommendations propertyId={String(property.id)} limit={3} />
-        </div>
+        </div> */}
       </div>
+
+      {bookingOpen && (
+        <BookingModal
+          property={property}
+          onClose={() => { setBookingOpen(false); setBookingOk(false); }}
+          onConfirm={handleBooking}
+          loading={bookingLoading}
+          success={bookingSuccess}
+        />
+      )}
 
       {lightboxOpen && <Lightbox images={images} index={currentImg} onClose={() => setLightboxOpen(false)} onPrev={() => setCurrentImg(i => Math.max(0, i - 1))} onNext={() => setCurrentImg(i => Math.min(images.length - 1, i + 1))} />}
     </div>
@@ -1162,6 +1248,7 @@ const pg: Record<string, React.CSSProperties> = {
   callBtn:      { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '13px', borderRadius: 12, textDecoration: 'none', backgroundColor: '#25D366', color: '#fff', fontSize: 14, fontWeight: 700 },
   whatsappBtn:  { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '13px', borderRadius: 12, textDecoration: 'none', backgroundColor: '#128C7E', color: '#fff', fontSize: 14, fontWeight: 700 },
   bookingBtn:   { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '13px', borderRadius: 12, border: 'none', backgroundColor: RED, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+  dealBtn:      { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '13px', borderRadius: 12, border: 'none', backgroundColor: '#8b5cf6', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.2s' },
   shareRow:     { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', paddingTop: 14, borderTop: '1px solid #f1f5f9', marginBottom: 14 },
   shareBtn:     { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 20, border: '1px solid #eef2f7', backgroundColor: '#f8faff', color: NAVY, fontSize: 11, fontWeight: 600, cursor: 'pointer', textDecoration: 'none', fontFamily: 'inherit' },
   quickStats:   { display: 'flex', gap: 0, borderTop: '1px solid #f1f5f9', paddingTop: 14 },
@@ -1179,7 +1266,7 @@ if (typeof document !== 'undefined') {
       @keyframes pdFadeIn  { from { opacity:0; } to { opacity:1; } }
       @keyframes pdSpin    { to { transform:rotate(360deg); } }
       @keyframes pdShimmer { 0%,100% { background-color:#e2e8f0; } 50% { background-color:#f1f5f9; } }
-      .inq-submit-btn:hover { background-color: ${TEAL.replace(')', '').replace('rgba','').replace('rgb','')}; filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(37,168,130,0.4) !important; }
+      .inq-submit-btn:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(37,168,130,0.4) !important; }
       input:focus, textarea:focus, select:focus { border-color: ${TEAL} !important; }
       ::-webkit-scrollbar { width:4px; height:4px; }
       ::-webkit-scrollbar-thumb { background:#e2e8f0; border-radius:10px; }
