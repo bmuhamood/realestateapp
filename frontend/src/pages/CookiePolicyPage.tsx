@@ -1,6 +1,7 @@
 // src/pages/legal/CookiePolicyPage.tsx
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import Footer from '../components/Footer/Footer';
 
 const RED = '#e63946';
 const NAVY = '#0d1b2e';
@@ -108,6 +109,7 @@ const CookiePolicyPage: React.FC = () => {
           </div>
         </div>
       </div>
+      <Footer />
     </div>
   );
 };

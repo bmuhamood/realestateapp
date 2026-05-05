@@ -1,6 +1,7 @@
 // src/pages/legal/UserAgreementPage.tsx
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import Footer from '../components/Footer/Footer';
 
 const RED = '#e63946';
 const NAVY = '#0d1b2e';
@@ -14,6 +15,14 @@ const UserAgreementPage: React.FC = () => {
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f4f7fb', fontFamily: "'DM Sans', sans-serif", marginTop: 64 }}>
       <div style={{ maxWidth: 1000, margin: '0 auto', padding: '40px 20px' }}>
+        
+        {/* Back Button */}
+        <button 
+          onClick={() => navigate(-1)} 
+          style={{ background: 'none', border: 'none', color: RED, cursor: 'pointer', fontSize: 14, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 4 }}
+        >
+          ← Back
+        </button>
         
         {/* Header */}
         <div style={{ marginBottom: 32 }}>
@@ -148,6 +157,9 @@ const UserAgreementPage: React.FC = () => {
           </div>
         </div>
       </div>
+      
+      {/* Footer */}
+      <Footer />
     </div>
   );
 };
