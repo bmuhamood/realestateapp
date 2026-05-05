@@ -197,7 +197,7 @@ if _static_dir.exists():
     STATICFILES_DIRS.append(_static_dir)
 # CompressedStaticFilesStorage — compresses but does NOT enforce manifest.
 # This avoids "Missing staticfiles manifest entry" crashes on Render.
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
+STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 
 # ── Media files (Cloudinary handles this) ─────────────────────────────────────
 MEDIA_URL  = '/media/'
