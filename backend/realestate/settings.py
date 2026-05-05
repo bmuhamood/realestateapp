@@ -191,8 +191,10 @@ USE_TZ        = True
 # ── Static files ──────────────────────────────────────────────────────────────
 STATIC_URL  = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_DIRS = [BASE_DIR / 'static'] if (BASE_DIR / 'static').exists() else []
-
+STATICFILES_DIRS = []
+_static_dir = BASE_DIR / 'static'
+if _static_dir.exists():
+    STATICFILES_DIRS.append(_static_dir)
 # CompressedStaticFilesStorage — compresses but does NOT enforce manifest.
 # This avoids "Missing staticfiles manifest entry" crashes on Render.
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
