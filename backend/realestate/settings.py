@@ -32,7 +32,6 @@ ALLOWED_HOSTS = [
 if not DEBUG:
     ALLOWED_HOSTS = [h for h in ALLOWED_HOSTS if h != '*']
 
-# Application definition
 INSTALLED_APPS = [
     'daphne',
     'django.contrib.admin',
@@ -40,7 +39,9 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    'django.contrib.staticfiles',
+    'cloudinary_storage',          # ← MUST be before staticfiles
+    'django.contrib.staticfiles',  # ← staticfiles after cloudinary_storage
+    'cloudinary',                  # ← cloudinary after staticfiles is fine
 
     # Third party
     'rest_framework',
@@ -57,9 +58,7 @@ INSTALLED_APPS = [
     'favorites',
     'reviews',
     'services',
-    # 'chatbot',
     'channels',
-
     'chat',
     'dealroom',
     'complaints',
@@ -70,9 +69,6 @@ INSTALLED_APPS = [
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.google',
-
-    'cloudinary',
-    'cloudinary_storage',
 ]
 
 # Cloudinary Configuration
@@ -164,7 +160,7 @@ if os.environ.get('DATABASE_URL'):
         'default': dj_database_url.config(
             default=os.environ.get('DATABASE_URL'),
             conn_max_age=600,
-            ssl_require=not DEBUG,  # Only require SSL in production
+            conn_health_checks=True,
         )
     }
 else:
@@ -212,6 +208,12 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:8080",
     "http://127.0.0.1:3000",
     "http://127.0.0.1:8080",
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://metro-properties-web.onrender.com',
+    'https://realestateapp-sc4i.onrender.com',
+    'https://realestate-frontend.onrender.com',
 ]
 
 # Add CORS origins for development
