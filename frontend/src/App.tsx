@@ -28,13 +28,19 @@ import EditPropertyPage from './pages/EditPropertyPage';
 import NewComplaintPage from './pages/legal/NewComplaintPage';
 import ComplaintsListPage from './pages/legal/ComplaintsListPage';
 import ComplaintDetailPage from './pages/legal/ComplaintDetailPage';
-import SafetyCenterPage from './pages/legal/SafetyCenterPage';
 import KYCUploadPage from './pages/kyc/KYCUploadPage';
 import DealDetailPage from './pages/DealDetailPage';
 import MessagesPage from './pages/MessagesPage';
 import MakeDealPage from './pages/MakeDealPage';
 import MakeOfferPage from './pages/MakeOfferPage';
 import RespondToOfferPage from './pages/RespondToOfferPage';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
+import TermsOfServicePage from './pages/TermsOfServicePage';
+import DataProtectionPage from './pages/DataProtectionPage';
+import CookiePolicyPage from './pages/CookiePolicyPage';
+import DisclaimerPage from './pages/DisclaimerPage';
+import UserAgreementPage from './pages/UserAgreementPage';
+import SafetyCenterPage from './pages/legal/SafetyCenterPage';
 
 const theme = createTheme({
   palette: {
@@ -168,6 +174,13 @@ function AppContent() {
         <Route path="/make-deal/:propertyId" element={<MakeDealPage />} />
         <Route path="/make-offer/:id" element={<MakeOfferPage />} />
         <Route path="/respond-offer/:id" element={<RespondToOfferPage />} />
+        <Route path="/legal/privacy-policy/" element={<PrivacyPolicyPage />} />
+        <Route path="/legal/terms-of-service/" element={<TermsOfServicePage />} />
+        <Route path="/legal/data-protection/" element={<DataProtectionPage />} />
+        <Route path="/legal/cookie-policy/" element={<CookiePolicyPage />} />
+        <Route path="/legal/disclaimer/" element={<DisclaimerPage />} />
+        <Route path="/legal/user-agreement/" element={<UserAgreementPage />} />
+        <Route path="/safety/" element={<SafetyCenterPage />} />
 
         {/* Protected Routes - Require Authentication */}
         <Route

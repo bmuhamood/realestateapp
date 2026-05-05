@@ -1,5 +1,7 @@
 /**
- * Home.tsx — MODERN REDESIGN with Cloudinary Support
+ * Home.tsx — Bayut-inspired redesign
+ * Clean whites · crisp typography · responsive · Chatbot removed
+ * Logic unchanged — only UI overhauled
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -7,38 +9,340 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { Property, Service } from '../types';
 import PropertyCard from '../components/Property/PropertyCard';
-import Chatbot from '../components/Chatbot/Chatbot';
 import HeroSection from '../components/Hero/HeroSection';
 import { useAuth } from '../contexts/AuthContext';
 
-// ─── Brand Tokens ─────────────────────────────────────────────────────────────
-const C = {
-  red:     '#e63946',
-  redDark: '#c1121f',
-  redBg:   'rgba(230,57,70,0.06)',
-  teal:    '#25a882',
-  tealBg:  'rgba(37,168,130,0.07)',
-  navy:    '#0d1b2e',
-  slate:   '#475569',
-  muted:   '#94a3b8',
-  border:  '#eef2f7',
-  pageBg:  '#f5f7fa',
-  white:   '#ffffff',
-};
+// ─── Inject global styles ──────────────────────────────────────────────────────
+if (typeof document !== 'undefined' && !document.getElementById('home-styles')) {
+  const s = document.createElement('style');
+  s.id = 'home-styles';
+  s.textContent = `
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&family=Fraunces:ital,opsz,wght@0,9..144,700;0,9..144,900;1,9..144,700&family=DM+Mono:wght@400;500&display=swap');
 
-// ─── Cloudinary Configuration ────────────────────────────────────────────────
+    :root {
+      --h-red:       #e84035;
+      --h-red-dark:  #c0392b;
+      --h-red-bg:    #fff5f4;
+      --h-red-bdr:   rgba(232,64,53,0.2);
+      --h-navy:      #0f1923;
+      --h-navy2:     #1e2d3d;
+      --h-teal:      #0d9948;
+      --h-teal-bg:   #edf7f2;
+      --h-teal-bdr:  rgba(13,153,72,0.2);
+      --h-amber:     #d97706;
+      --h-amber-bg:  #fffbeb;
+      --h-blue:      #1a56db;
+      --h-blue-bg:   #eff6ff;
+      --h-slate:     #64748b;
+      --h-muted:     #94a3b8;
+      --h-light:     #cbd5e1;
+      --h-border:    #e2e8f0;
+      --h-border2:   #f1f5f9;
+      --h-bg:        #f8fafc;
+      --h-white:     #ffffff;
+      --h-shadow-xs: 0 1px 4px rgba(0,0,0,0.06);
+      --h-shadow-sm: 0 2px 10px rgba(0,0,0,0.08);
+      --h-shadow-md: 0 6px 24px rgba(0,0,0,0.10);
+      --h-shadow-lg: 0 12px 40px rgba(0,0,0,0.13);
+      --h-font:      'DM Sans', -apple-system, sans-serif;
+      --h-display:   'Fraunces', Georgia, serif;
+      --h-mono:      'DM Mono', monospace;
+      --h-radius:    14px;
+      --h-radius-sm: 10px;
+      --h-radius-xs: 7px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    .home-root {
+      font-family: var(--h-font);
+      -webkit-font-smoothing: antialiased;
+      color: var(--h-navy);
+      background: var(--h-bg);
+    }
+
+    /* ─── Animations ─── */
+    @keyframes h-fade-up {
+      from { opacity:0; transform:translateY(16px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+    @keyframes h-shimmer {
+      0%   { background-position:-600px 0; }
+      100% { background-position:600px 0; }
+    }
+    @keyframes h-spin {
+      to { transform:rotate(360deg); }
+    }
+    @keyframes h-pulse {
+      0%,100% { opacity:1; }
+      50%      { opacity:0.6; }
+    }
+
+    /* ─── Shimmer skeleton ─── */
+    .h-skeleton {
+      background: linear-gradient(90deg,#f0f4f8 25%,#e2e8f0 50%,#f0f4f8 75%);
+      background-size: 600px 100%;
+      animation: h-shimmer 1.5s infinite;
+      border-radius: 8px;
+    }
+
+    /* ─── Section label ─── */
+    .h-section-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .h-section-label::before {
+      content: '';
+      display: inline-block;
+      width: 20px; height: 3px;
+      border-radius: 2px;
+      background: currentColor;
+    }
+
+    /* ─── Section title ─── */
+    .h-section-title {
+      font-family: var(--h-display);
+      font-size: clamp(1.4rem, 2.5vw, 2rem);
+      font-weight: 700;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+      color: var(--h-navy);
+      margin: 0;
+    }
+
+    /* ─── CTA outline button ─── */
+    .h-cta-outline {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 22px;
+      border-radius: 30px;
+      border: 1.5px solid var(--h-red);
+      background: transparent;
+      color: var(--h-red);
+      font-family: var(--h-font);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      white-space: nowrap;
+    }
+    .h-cta-outline:hover {
+      background: var(--h-red);
+      color: white;
+      box-shadow: 0 4px 16px rgba(232,64,53,0.25);
+    }
+    .h-cta-outline.teal {
+      border-color: var(--h-teal);
+      color: var(--h-teal);
+    }
+    .h-cta-outline.teal:hover {
+      background: var(--h-teal);
+      color: white;
+      box-shadow: 0 4px 16px rgba(13,153,72,0.25);
+    }
+
+    /* ─── Card hover lift ─── */
+    .h-lift {
+      transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s ease;
+    }
+    .h-lift:hover {
+      transform: translateY(-5px);
+      box-shadow: var(--h-shadow-lg) !important;
+    }
+
+    /* ─── Stats strip ─── */
+    .h-stat-btn {
+      padding: 24px 28px;
+      border: none;
+      border-right: 1px solid rgba(255,255,255,0.07);
+      background: transparent;
+      cursor: pointer;
+      text-align: left;
+      font-family: var(--h-font);
+      transition: background 0.15s;
+    }
+    .h-stat-btn:hover { background: rgba(255,255,255,0.04); }
+    .h-stat-btn:last-child { border-right: none; }
+
+    /* ─── Property type tile ─── */
+    .h-type-tile {
+      position: relative;
+      border-radius: var(--h-radius);
+      overflow: hidden;
+      cursor: pointer;
+      border: none;
+      padding: 0;
+      width: 100%;
+      aspect-ratio: 3/4;
+      transition: transform 0.28s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.28s ease;
+    }
+    .h-type-tile:hover {
+      transform: translateY(-6px);
+      box-shadow: var(--h-shadow-lg);
+    }
+    .h-type-tile img {
+      width:100%; height:100%; object-fit:cover;
+      transition: transform 0.5s ease;
+    }
+    .h-type-tile:hover img { transform: scale(1.07); }
+
+    /* ─── Service card ─── */
+    .h-service-card {
+      flex-shrink: 0;
+      width: 230px;
+      border-radius: var(--h-radius);
+      overflow: hidden;
+      border: 1.5px solid var(--h-border);
+      background: var(--h-white);
+      cursor: pointer;
+      text-align: left;
+      font-family: var(--h-font);
+      transition: all 0.22s ease;
+    }
+    .h-service-card:hover {
+      border-color: var(--h-teal);
+      transform: translateY(-4px);
+      box-shadow: 0 12px 32px rgba(13,153,72,0.1);
+    }
+    .h-service-card:hover .h-svc-img { transform: scale(1.06); }
+    .h-svc-img { width:100%; height:100%; object-fit:cover; transition:transform 0.4s; }
+
+    /* ─── Trust card ─── */
+    .h-trust-card {
+      flex: 1 1 220px;
+      background: var(--h-white);
+      border-radius: var(--h-radius);
+      padding: 28px 24px;
+      border: 1.5px solid var(--h-border);
+      cursor: default;
+      transition: all 0.22s ease;
+    }
+    .h-trust-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--h-shadow-md);
+    }
+
+    /* ─── Neighbourhood card ─── */
+    .h-nb-card {
+      position: relative;
+      border-radius: var(--h-radius);
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.28s ease, box-shadow 0.28s ease;
+    }
+    .h-nb-card:hover { transform: translateY(-4px); box-shadow: var(--h-shadow-lg); }
+    .h-nb-card:hover img { transform: scale(1.05); }
+    .h-nb-card img { width:100%; height:100%; object-fit:cover; transition:transform 0.5s; display:block; }
+
+    /* ─── Footer links ─── */
+    .h-ft-link {
+      display: block;
+      background: none; border: none;
+      color: #4a6070;
+      font-size: 13px;
+      margin-bottom: 11px;
+      cursor: pointer;
+      text-align: left;
+      font-family: var(--h-font);
+      padding: 0;
+      transition: color 0.15s;
+    }
+    .h-ft-link:hover { color: #e2e8f0; }
+
+    /* ─── App store badge ─── */
+    .h-app-badge {
+      display: flex; align-items: center; gap: 10px;
+      background: #111;
+      border: 1.5px solid rgba(255,255,255,0.12);
+      border-radius: 12px; padding: 10px 18px;
+      text-decoration: none; color: #fff;
+      transition: border-color 0.2s;
+    }
+    .h-app-badge:hover { border-color: rgba(255,255,255,0.35); }
+
+    /* ─── Scroll container (horizontal) ─── */
+    .h-scroll-x {
+      display: flex; gap: 16px;
+      overflow-x: auto;
+      padding-bottom: 6px;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .h-scroll-x::-webkit-scrollbar { display: none; }
+
+    /* ─── Tab pills ─── */
+    .h-tab {
+      padding: 9px 24px;
+      border-radius: 10px;
+      border: none;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: var(--h-font);
+      transition: all 0.18s;
+    }
+    .h-tab.active {
+      background: var(--h-navy);
+      color: white;
+      box-shadow: 0 2px 10px rgba(15,25,35,0.2);
+    }
+    .h-tab:not(.active) {
+      background: transparent;
+      color: var(--h-slate);
+    }
+    .h-tab:not(.active):hover { background: var(--h-border2); color: var(--h-navy); }
+
+    /* ─── Responsive ─── */
+    @media (max-width: 1024px) {
+      .h-grid-3 { grid-template-columns: repeat(2, 1fr) !important; }
+      .h-nb-bento { grid-template-columns: repeat(2,1fr) !important; }
+      .h-stat-grid { grid-template-columns: repeat(2,1fr) !important; }
+    }
+    @media (max-width: 768px) {
+      .h-sec { padding: 40px 0 !important; }
+      .h-inner { padding: 0 16px !important; }
+      .h-grid-auto { grid-template-columns: repeat(auto-fill, minmax(260px,1fr)) !important; }
+      .h-grid-3 { grid-template-columns: 1fr !important; }
+      .h-nb-bento { grid-template-columns: 1fr !important; }
+      .h-nb-bento > :first-child { grid-row: span 1 !important; }
+      .h-type-grid { grid-template-columns: repeat(2, 1fr) !important; }
+      .h-type-tile { aspect-ratio: 4/3 !important; }
+      .h-stat-grid { grid-template-columns: repeat(2,1fr) !important; }
+      .h-stat-btn { border-right: none !important; border-bottom: 1px solid rgba(255,255,255,0.07); }
+      .h-agent-row { flex-direction: column !important; gap: 24px !important; }
+      .h-trust-card { flex: 1 1 100% !important; }
+      .h-footer-cols { flex-direction: column !important; gap: 28px !important; }
+      .h-footer-top { flex-direction: column !important; gap: 20px !important; }
+      .h-section-hd { flex-direction: column !important; align-items: flex-start !important; gap: 12px !important; }
+      .h-tab-row { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .h-tab-row::-webkit-scrollbar { display: none; }
+    }
+    @media (max-width: 480px) {
+      .h-stat-grid { grid-template-columns: 1fr !important; }
+      .h-type-grid { grid-template-columns: 1fr 1fr !important; }
+      .h-section-title { font-size: 1.3rem !important; }
+    }
+  `;
+  document.head.appendChild(s);
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
 const CLOUDINARY_CLOUD_NAME = 'drcy2xxkg';
 
 const getCloudinaryUrl = (image: string | null | undefined): string => {
   if (!image) return '';
   if (image.startsWith('http://') || image.startsWith('https://')) return image;
-  // Remove any existing 'image/upload/' to prevent duplication
-  let cleanUrl = image;
-  if (cleanUrl.includes('image/upload/')) {
-    cleanUrl = cleanUrl.replace('image/upload/', '');
-  }
-  cleanUrl = cleanUrl.replace(/^\/+/, '');
-  return `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/f_auto,q_auto/${cleanUrl}`;
+  let clean = image;
+  if (clean.includes('image/upload/')) clean = clean.replace('image/upload/', '');
+  clean = clean.replace(/^\/+/, '');
+  return `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/f_auto,q_auto/${clean}`;
 };
 
 function toPropertiesUrl(params: { search?: string; property_type?: string; transaction_type?: string; bedrooms?: string; location?: string; sort?: string }) {
@@ -50,66 +354,97 @@ function toPropertiesUrl(params: { search?: string; property_type?: string; tran
 const fmtPrice = (n: number) =>
   new Intl.NumberFormat('en-UG', { style: 'currency', currency: 'UGX', maximumFractionDigits: 0 }).format(n);
 
-// ─── Section Header ───────────────────────────────────────────────────────────
-const SectionHeader: React.FC<{ label?: string; title: string; subtitle?: string; ctaLabel?: string; ctaUrl?: string; accent?: string }> = ({
-  label, title, subtitle, ctaLabel, ctaUrl, accent = C.red,
-}) => {
+// ─── Inner container ──────────────────────────────────────────────────────────
+const Inner: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div className="h-inner" style={{ maxWidth: 1400, margin: '0 auto', padding: '0 28px' }}>
+    {children}
+  </div>
+);
+
+// ─── Section wrapper ──────────────────────────────────────────────────────────
+const Sec: React.FC<{ bg?: string; children: React.ReactNode; style?: React.CSSProperties }> = ({ bg = 'var(--h-white)', children, style }) => (
+  <section className="h-sec" style={{ background: bg, padding: '60px 0', ...style }}>
+    <Inner>{children}</Inner>
+  </section>
+);
+
+// ─── Section header ───────────────────────────────────────────────────────────
+const SectionHeader: React.FC<{
+  label?: string;
+  title: string;
+  subtitle?: string;
+  ctaLabel?: string;
+  ctaUrl?: string;
+  accentColor?: string;
+}> = ({ label, title, subtitle, ctaLabel, ctaUrl, accentColor = 'var(--h-red)' }) => {
   const navigate = useNavigate();
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 32, flexWrap: 'wrap', gap: 12 }}>
+    <div className="h-section-hd" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 32, flexWrap: 'wrap', gap: 12 }}>
       <div>
         {label && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-            <span style={{ width: 22, height: 3, borderRadius: 2, backgroundColor: accent, display: 'inline-block' }} />
-            <span style={{ fontSize: 11, fontWeight: 700, color: accent, letterSpacing: '0.1em', textTransform: 'uppercase' as const }}>{label}</span>
-          </div>
+          <div className="h-section-label" style={{ color: accentColor }}>{label}</div>
         )}
-        <h2 style={{ fontFamily: "'Sora', sans-serif", fontSize: 'clamp(1.4rem, 2.5vw, 1.9rem)', fontWeight: 800, color: C.navy, margin: 0, letterSpacing: '-0.02em', lineHeight: 1.2 }}>
-          {title}
-        </h2>
-        {subtitle && <p style={{ fontSize: 14, color: C.muted, margin: '6px 0 0', lineHeight: 1.5 }}>{subtitle}</p>}
+        <h2 className="h-section-title">{title}</h2>
+        {subtitle && (
+          <p style={{ fontSize: 14, color: 'var(--h-muted)', margin: '6px 0 0', lineHeight: 1.55 }}>{subtitle}</p>
+        )}
       </div>
       {ctaLabel && ctaUrl && (
-        <button onClick={() => navigate(ctaUrl)} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: accent, border: `1.5px solid ${accent}`, backgroundColor: 'transparent', padding: '8px 20px', borderRadius: 30, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' as const, transition: 'all 0.15s' }} className="sh-cta">
+        <button
+          className={`h-cta-outline${accentColor === 'var(--h-teal)' ? ' teal' : ''}`}
+          onClick={() => navigate(ctaUrl)}
+        >
           {ctaLabel}
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6" /></svg>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6" /></svg>
         </button>
       )}
     </div>
   );
 };
 
-// ─── Section Wrapper ──────────────────────────────────────────────────────────
-const Sec: React.FC<{ bg?: string; pad?: string; children: React.ReactNode }> = ({ bg = C.white, pad = '60px 0', children }) => (
-  <section style={{ backgroundColor: bg, padding: pad }}>
-    <div style={{ maxWidth: 1400, margin: '0 auto', padding: '0 28px' }}>{children}</div>
-  </section>
+// ─── Property grid ────────────────────────────────────────────────────────────
+const PropGrid: React.FC<{ properties: Property[]; onLike: () => void }> = ({ properties, onLike }) => (
+  <div
+    className="h-grid-auto"
+    style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px,1fr))', gap: 20 }}
+  >
+    {properties.map((p, i) => (
+      <div key={p.id} style={{ animation: `h-fade-up 0.35s ease both`, animationDelay: `${Math.min(i * 50, 250)}ms` }}>
+        <PropertyCard property={p} onLike={onLike} variant="vertical" />
+      </div>
+    ))}
+  </div>
 );
 
 // ─── Stats Strip ──────────────────────────────────────────────────────────────
 const StatsStrip: React.FC<{ stats: { total: number; forSale: number; forRent: number; forShortlet: number } }> = ({ stats }) => {
   const navigate = useNavigate();
   const items = [
-    { label: 'Total Listings', value: stats.total,       path: '/properties',                         color: '#fff' },
-    { label: 'For Sale',       value: stats.forSale,     path: '/properties?transaction_type=sale',   color: C.red },
-    { label: 'For Rent',       value: stats.forRent,     path: '/properties?transaction_type=rent',   color: C.teal },
-    { label: 'Short Stay',     value: stats.forShortlet, path: '/properties?transaction_type=shortlet', color: '#f59e0b' },
+    { label: 'Total Listings', value: stats.total,       path: '/properties',                              color: '#fff',            sub: 'Active properties' },
+    { label: 'For Sale',       value: stats.forSale,     path: toPropertiesUrl({ transaction_type: 'sale' }), color: '#f87171',      sub: 'Ownership ready' },
+    { label: 'For Rent',       value: stats.forRent,     path: toPropertiesUrl({ transaction_type: 'rent' }), color: '#34d399',      sub: 'Move-in ready' },
+    { label: 'Short Stay',     value: stats.forShortlet, path: toPropertiesUrl({ transaction_type: 'shortlet' }), color: '#fbbf24', sub: 'Furnished & ready' },
   ];
   return (
-    <div style={{ backgroundColor: C.navy }}>
-      <div style={{ maxWidth: 1400, margin: '0 auto', padding: '0 28px', display: 'grid', gridTemplateColumns: 'repeat(4,1fr)' }}>
-        {items.map((item, i) => (
-          <button key={item.label} onClick={() => navigate(item.path)} style={{ padding: '22px 24px', border: 'none', borderRight: i < 3 ? '1px solid rgba(255,255,255,0.07)' : 'none', backgroundColor: 'transparent', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', transition: 'background-color 0.15s' }} className="stat-btn">
-            <div style={{ fontSize: 'clamp(1.4rem, 2vw, 2rem)', fontWeight: 800, color: item.color, fontFamily: "'Sora',sans-serif", lineHeight: 1 }}>{item.value.toLocaleString()}+</div>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 5, fontWeight: 500, letterSpacing: '0.03em' }}>{item.label}</div>
-          </button>
-        ))}
+    <div style={{ background: 'var(--h-navy)', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+      <div style={{ maxWidth: 1400, margin: '0 auto', padding: '0 28px' }}>
+        <div className="h-stat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)' }}>
+          {items.map(item => (
+            <button key={item.label} className="h-stat-btn" onClick={() => navigate(item.path)}>
+              <div style={{ fontFamily: 'var(--h-mono)', fontSize: 'clamp(1.5rem, 2.2vw, 2.2rem)', fontWeight: 500, color: item.color, lineHeight: 1 }}>
+                {item.value.toLocaleString()}+
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.7)', margin: '5px 0 2px' }}>{item.label}</div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>{item.sub}</div>
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
 };
 
-// ─── Property Type Tiles ──────────────────────────────────────────────────────
+// ─── Property type tiles ──────────────────────────────────────────────────────
 const PROP_TYPES = [
   { type: 'house',      img: 'https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg?w=600&h=400&fit=crop',   label: 'Houses',     icon: '🏠' },
   { type: 'apartment',  img: 'https://images.pexels.com/photos/2587054/pexels-photo-2587054.jpeg?w=600&h=400&fit=crop', label: 'Apartments', icon: '🏢' },
@@ -118,72 +453,78 @@ const PROP_TYPES = [
   { type: 'condo',      img: 'https://images.pexels.com/photos/1732414/pexels-photo-1732414.jpeg?w=600&h=400&fit=crop', label: 'Condos',     icon: '🏙️' },
 ];
 
-const PropTypeTile: React.FC<{ item: typeof PROP_TYPES[0]; tx: 'sale'|'rent'|'shortlet'; count?: number }> = ({ item, tx, count }) => {
+const TX_LABELS = { sale: 'For Sale', rent: 'For Rent', shortlet: 'Short Stay' };
+const TX_COLORS = { sale: 'var(--h-teal)', rent: 'var(--h-blue)', shortlet: 'var(--h-amber)' };
+
+const PropTypeTile: React.FC<{ item: typeof PROP_TYPES[0]; tx: 'sale' | 'rent' | 'shortlet'; count?: number }> = ({ item, tx, count }) => {
   const navigate = useNavigate();
-  const [hov, setHov] = useState(false);
+  const color = TX_COLORS[tx];
   return (
-    <button onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)} onClick={() => navigate(toPropertiesUrl({ property_type: item.type, transaction_type: tx }))} style={{ position: 'relative', borderRadius: 18, overflow: 'hidden', cursor: 'pointer', width: '100%', aspectRatio: '3/4', border: 'none', padding: 0, transform: hov ? 'translateY(-6px)' : 'none', boxShadow: hov ? '0 20px 48px rgba(0,0,0,0.2)' : '0 2px 8px rgba(0,0,0,0.06)', transition: 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s' }}>
-      <img src={item.img} alt={item.label} style={{ width: '100%', height: '100%', objectFit: 'cover', transform: hov ? 'scale(1.08)' : 'scale(1)', transition: 'transform 0.5s' }} />
-      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(13,27,46,0.92) 0%, rgba(13,27,46,0.25) 55%, transparent 100%)' }} />
+    <button
+      className="h-type-tile"
+      onClick={() => navigate(toPropertiesUrl({ property_type: item.type, transaction_type: tx }))}
+    >
+      <img src={item.img} alt={item.label} />
+      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(15,25,35,0.92) 0%, rgba(15,25,35,0.18) 60%, transparent 100%)' }} />
       {count !== undefined && count > 0 && (
-        <div style={{ position: 'absolute', top: 13, right: 13, backgroundColor: C.red, color: '#fff', fontSize: 11, fontWeight: 800, padding: '3px 9px', borderRadius: 20 }}>{count}</div>
+        <div style={{ position: 'absolute', top: 12, right: 12, background: 'var(--h-red)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20 }}>
+          {count}
+        </div>
       )}
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '18px 16px' }}>
-        <div style={{ fontSize: 24, marginBottom: 5 }}>{item.icon}</div>
-        <div style={{ fontSize: 16, fontWeight: 800, color: '#fff', fontFamily: "'Sora',sans-serif" }}>{item.label}</div>
-        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)', fontWeight: 700, marginTop: 3, letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>
-          {tx === 'sale' ? 'For Sale' : tx === 'rent' ? 'For Rent' : 'Short Stay'}
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '20px 18px' }}>
+        <div style={{ fontSize: 26, marginBottom: 6 }}>{item.icon}</div>
+        <div style={{ fontFamily: 'var(--h-display)', fontSize: 17, fontWeight: 700, color: '#fff', marginBottom: 4 }}>{item.label}</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+          {TX_LABELS[tx]}
         </div>
       </div>
     </button>
   );
 };
 
-// ─── Service Card with Cloudinary Support ─────────────────────────────────────
+// ─── Service Card ─────────────────────────────────────────────────────────────
 const ServiceCard: React.FC<{ service: Service; onPress: () => void }> = ({ service, onPress }) => {
-  const [hov, setHov] = useState(false);
   const [imgError, setImgError] = useState(false);
-  
   const emo: Record<string, string> = { cleaning: '🧹', moving: '🚚', renovation: '🔨', electrical: '⚡', plumbing: '🔧', painting: '🖌️', security: '🔒', landscaping: '🌿', general: '🏠' };
-  
+
   const imageUrl = useMemo(() => {
     if (imgError) return '';
-    const rawUrl = service.image_url || service.image;
-    return getCloudinaryUrl(rawUrl);
+    return getCloudinaryUrl(service.image_url || service.image);
   }, [service.image_url, service.image, imgError]);
 
   return (
-    <button onClick={onPress} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)} style={{ flexShrink: 0, width: 230, borderRadius: 18, overflow: 'hidden', border: `1.5px solid ${hov ? C.teal : C.border}`, backgroundColor: C.white, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', transform: hov ? 'translateY(-4px)' : 'none', boxShadow: hov ? '0 12px 32px rgba(37,168,130,0.12)' : '0 1px 6px rgba(0,0,0,0.04)', transition: 'all 0.25s' }}>
-      <div style={{ height: 148, position: 'relative', overflow: 'hidden', backgroundColor: '#f4f7fb' }}>
+    <button className="h-service-card" onClick={onPress}>
+      <div style={{ height: 148, position: 'relative', overflow: 'hidden', background: 'var(--h-bg)' }}>
         {imageUrl ? (
-          <img 
-            src={imageUrl} 
-            alt={service.name} 
-            style={{ width: '100%', height: '100%', objectFit: 'cover', transform: hov ? 'scale(1.06)' : 'scale(1)', transition: 'transform 0.4s' }}
-            onError={() => setImgError(true)}
-          />
+          <img className="h-svc-img" src={imageUrl} alt={service.name} onError={() => setImgError(true)} />
         ) : (
-          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 52 }}>{emo[service.category_name?.toLowerCase()] || '🔧'}</div>
+          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48 }}>
+            {emo[service.category_name?.toLowerCase()] || '🔧'}
+          </div>
         )}
-        {service.is_featured && <span style={{ position: 'absolute', top: 10, left: 10, backgroundColor: '#f59e0b', color: '#fff', fontSize: 10, fontWeight: 800, padding: '3px 9px', borderRadius: 20 }}>⭐ Featured</span>}
+        {service.is_featured && (
+          <span style={{ position: 'absolute', top: 10, left: 10, background: 'var(--h-amber)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 20 }}>⭐ Featured</span>
+        )}
       </div>
       <div style={{ padding: '14px 16px' }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: C.navy, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{service.name}</div>
-        <div style={{ fontSize: 11, color: C.muted, marginBottom: 10 }}>by {service.provider || 'Professional'}</div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-            <span style={{ color: '#f59e0b', fontSize: 13 }}>★</span>
-            <span style={{ fontSize: 12, fontWeight: 600, color: C.navy }}>{service.rating || 4.5}</span>
-            <span style={{ fontSize: 11, color: C.muted }}>({service.reviews_count || 0})</span>
+        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--h-navy)', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{service.name}</div>
+        <div style={{ fontSize: 11.5, color: 'var(--h-muted)', marginBottom: 10 }}>by {service.provider || 'Professional'}</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ color: '#fbbf24', fontSize: 13 }}>★</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--h-navy)' }}>{service.rating || 4.5}</span>
+            <span style={{ fontSize: 11, color: 'var(--h-muted)' }}>({service.reviews_count || 0})</span>
           </div>
-          <div style={{ fontSize: 14, fontWeight: 800, color: C.red }}>{fmtPrice(service.price || 0)}</div>
+          <div style={{ fontFamily: 'var(--h-mono)', fontSize: 13, fontWeight: 500, color: 'var(--h-red)' }}>
+            {fmtPrice(service.price || 0)}
+          </div>
         </div>
       </div>
     </button>
   );
 };
 
-// ─── Neighbourhood Card ───────────────────────────────────────────────────────
+// ─── Neighbourhood bento card ─────────────────────────────────────────────────
 const NB_IMGS = [
   'https://images.pexels.com/photos/1732414/pexels-photo-1732414.jpeg?w=800&h=600&fit=crop',
   'https://images.pexels.com/photos/2587054/pexels-photo-2587054.jpeg?w=800&h=600&fit=crop',
@@ -195,19 +536,20 @@ const NB_IMGS = [
 
 const NbCard: React.FC<{ district: string; count: number; tall?: boolean }> = ({ district, count, tall }) => {
   const navigate = useNavigate();
-  const [hov, setHov] = useState(false);
   const img = NB_IMGS[Math.abs(district.charCodeAt(0) + district.length) % NB_IMGS.length];
   return (
-    <div onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)} onClick={() => navigate(toPropertiesUrl({ location: district }))} style={{ position: 'relative', borderRadius: 18, overflow: 'hidden', height: tall ? 360 : 220, cursor: 'pointer', boxShadow: hov ? '0 20px 48px rgba(0,0,0,0.18)' : '0 2px 12px rgba(0,0,0,0.06)', transform: hov ? 'translateY(-4px)' : 'none', transition: 'transform 0.3s, box-shadow 0.3s' }}>
-      <img src={img} alt={district} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', transform: hov ? 'scale(1.06)' : 'scale(1)', transition: 'transform 0.5s' }} />
-      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(13,27,46,0.9) 0%, transparent 60%)' }} />
-      <div style={{ position: 'absolute', top: 14, right: 14, backgroundColor: 'rgba(255,255,255,0.14)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.22)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 20 }}>
-        {count} {count === 1 ? 'property' : 'properties'}
+    <div className="h-nb-card" style={{ height: tall ? 360 : 220 }} onClick={() => navigate(toPropertiesUrl({ location: district }))}>
+      <img src={img} alt={district} />
+      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(15,25,35,0.88) 0%, transparent 60%)' }} />
+      <div style={{ position: 'absolute', top: 14, right: 14 }}>
+        <span style={{ background: 'rgba(255,255,255,0.14)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', fontSize: 11, fontWeight: 600, padding: '4px 12px', borderRadius: 20, display: 'inline-block' }}>
+          {count} {count === 1 ? 'property' : 'properties'}
+        </span>
       </div>
       <div style={{ position: 'absolute', bottom: 18, left: 18, right: 18 }}>
-        <h3 style={{ fontFamily: "'Sora',sans-serif", fontSize: tall ? 22 : 17, fontWeight: 800, color: '#fff', margin: '0 0 4px', letterSpacing: '-0.01em' }}>{district}</h3>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'rgba(255,255,255,0.65)', fontSize: 11 }}>
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        <h3 style={{ fontFamily: 'var(--h-display)', fontSize: tall ? 22 : 17, fontWeight: 700, color: '#fff', margin: '0 0 4px' }}>{district}</h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'rgba(255,255,255,0.6)', fontSize: 11.5 }}>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
           Uganda
         </div>
       </div>
@@ -215,88 +557,164 @@ const NbCard: React.FC<{ district: string; count: number; tall?: boolean }> = ({
   );
 };
 
-// ─── Trust Cards ──────────────────────────────────────────────────────────────
+// ─── Trust cards ──────────────────────────────────────────────────────────────
 const TRUST = [
-  { icon: '✓', color: C.teal,    bg: C.tealBg,                   title: 'Verified Listings',   desc: 'Every listing is reviewed by our team. Zero fakes, zero duplicates.',        stat: '100%', sl: 'Verified'    },
-  { icon: '🇺🇬', color: C.navy, bg: 'rgba(13,27,46,0.06)',       title: 'Nationwide Coverage', desc: 'Kampala to Gulu, Jinja to Mbarara — every district covered.',               stat: '40+',  sl: 'Districts'   },
-  { icon: '🔒', color: '#f59e0b', bg: 'rgba(245,158,11,0.08)',   title: 'Safe Transactions',   desc: 'Verified agents and secure payments for total peace of mind.',              stat: '5K+',  sl: 'Safe Deals'  },
-  { icon: '💬', color: C.red,    bg: C.redBg,                    title: 'Expert Support',      desc: 'Local property experts ready 7 days a week to help you find your home.',   stat: '7/7',  sl: 'Days Open'   },
+  {
+    icon: '✓', color: 'var(--h-teal)', borderHover: 'var(--h-teal)',
+    title: 'Verified Listings',
+    desc: 'Every listing is reviewed by our team. Zero fakes, zero duplicates.',
+    stat: '100%', sl: 'Verified',
+  },
+  {
+    icon: '🇺🇬', color: 'var(--h-navy2)', borderHover: 'var(--h-navy2)',
+    title: 'Nationwide Coverage',
+    desc: 'Kampala to Gulu, Jinja to Mbarara — every district covered.',
+    stat: '40+', sl: 'Districts',
+  },
+  {
+    icon: '🔒', color: 'var(--h-amber)', borderHover: 'var(--h-amber)',
+    title: 'Safe Transactions',
+    desc: 'Verified agents and secure payments for total peace of mind.',
+    stat: '5K+', sl: 'Safe Deals',
+  },
+  {
+    icon: '💬', color: 'var(--h-red)', borderHover: 'var(--h-red)',
+    title: 'Expert Support',
+    desc: 'Local property experts ready 7 days a week to help you find your home.',
+    stat: '7/7', sl: 'Days Open',
+  },
 ];
 
-const TrustCard: React.FC<typeof TRUST[0]> = ({ icon, color, bg, title, desc, stat, sl }) => {
+const TrustCard: React.FC<typeof TRUST[0]> = ({ icon, color, borderHover, title, desc, stat, sl }) => {
   const [hov, setHov] = useState(false);
   return (
-    <div onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)} style={{ flex: '1 1 220px', backgroundColor: C.white, borderRadius: 20, padding: '28px 24px', border: `1.5px solid ${hov ? color : C.border}`, transform: hov ? 'translateY(-4px)' : 'none', boxShadow: hov ? `0 12px 32px ${bg}` : '0 1px 4px rgba(0,0,0,0.04)', transition: 'all 0.25s', cursor: 'default' }}>
-      <div style={{ width: 50, height: 50, borderRadius: 14, backgroundColor: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, marginBottom: 20 }}>{icon}</div>
-      <div style={{ fontSize: 17, fontWeight: 800, color: C.navy, marginBottom: 8, fontFamily: "'Sora',sans-serif" }}>{title}</div>
-      <div style={{ fontSize: 13, color: C.slate, lineHeight: 1.6, marginBottom: 20 }}>{desc}</div>
-      <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 16, display: 'flex', alignItems: 'baseline', gap: 6 }}>
-        <span style={{ fontSize: 22, fontWeight: 800, color, fontFamily: "'Sora',sans-serif" }}>{stat}</span>
-        <span style={{ fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>{sl}</span>
+    <div
+      className="h-trust-card"
+      style={{ borderColor: hov ? borderHover : 'var(--h-border)', boxShadow: hov ? 'var(--h-shadow-md)' : 'none' }}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+    >
+      <div style={{ width: 48, height: 48, borderRadius: 13, background: hov ? color : 'var(--h-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, marginBottom: 20, transition: 'background 0.22s', color: hov ? '#fff' : undefined }}>
+        {icon}
+      </div>
+      <div style={{ fontFamily: 'var(--h-display)', fontSize: 17, fontWeight: 700, color: 'var(--h-navy)', marginBottom: 8 }}>{title}</div>
+      <div style={{ fontSize: 13, color: 'var(--h-slate)', lineHeight: 1.65, marginBottom: 20 }}>{desc}</div>
+      <div style={{ borderTop: '1px solid var(--h-border)', paddingTop: 16, display: 'flex', alignItems: 'baseline', gap: 6 }}>
+        <span style={{ fontFamily: 'var(--h-mono)', fontSize: 22, fontWeight: 500, color }}>{stat}</span>
+        <span style={{ fontSize: 11, color: 'var(--h-muted)', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{sl}</span>
       </div>
     </div>
   );
 };
 
+// ─── Featured badge strip ─────────────────────────────────────────────────────
+const FeatureBadge: React.FC<{ icon: string; text: string; sub: string }> = ({ icon, text, sub }) => (
+  <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 20px', background: 'var(--h-white)', borderRadius: 'var(--h-radius-sm)', border: '1.5px solid var(--h-border)', flex: '1 1 180px' }}>
+    <span style={{ fontSize: 24 }}>{icon}</span>
+    <div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--h-navy)' }}>{text}</div>
+      <div style={{ fontSize: 11, color: 'var(--h-muted)' }}>{sub}</div>
+    </div>
+  </div>
+);
+
 // ─── Footer ───────────────────────────────────────────────────────────────────
 const Footer: React.FC = () => {
   const navigate = useNavigate();
   const year = new Date().getFullYear();
-  const cols = [
-    { h: 'Buy',     links: [{ l: 'Houses for Sale', p: toPropertiesUrl({ property_type: 'house', transaction_type: 'sale' }) }, { l: 'Apartments', p: toPropertiesUrl({ property_type: 'apartment', transaction_type: 'sale' }) }, { l: 'Land for Sale', p: toPropertiesUrl({ property_type: 'land', transaction_type: 'sale' }) }, { l: 'Commercial', p: toPropertiesUrl({ property_type: 'commercial', transaction_type: 'sale' }) }] },
-    { h: 'Rent',    links: [{ l: 'Houses for Rent', p: toPropertiesUrl({ property_type: 'house', transaction_type: 'rent' }) }, { l: 'Apartments for Rent', p: toPropertiesUrl({ property_type: 'apartment', transaction_type: 'rent' }) }, { l: 'Short Stay', p: toPropertiesUrl({ transaction_type: 'shortlet' }) }] },
-    { h: 'Explore', links: [{ l: 'All Properties', p: '/properties' }, { l: 'Newest Listings', p: toPropertiesUrl({ sort: '-created_at' }) }, { l: 'Most Viewed', p: toPropertiesUrl({ sort: '-views_count' }) }, { l: 'Services', p: '/services' }] },
+
+  const legalLinks = [
+    { name: 'Privacy Policy',   path: '/legal/privacy-policy' },
+    { name: 'Terms of Service', path: '/legal/terms-of-service' },
+    { name: 'Data Protection',  path: '/legal/data-protection' },
+    { name: 'Cookie Policy',    path: '/legal/cookie-policy' },
+    { name: 'Disclaimer',       path: '/legal/disclaimer' },
+    { name: 'User Agreement',   path: '/legal/user-agreement' },
+    { name: 'Safety Center',    path: '/safety' },
   ];
+
+  const cols = [
+    { h: 'Buy', links: [
+      { name: 'Houses for Sale',    path: toPropertiesUrl({ property_type: 'house',     transaction_type: 'sale' }) },
+      { name: 'Apartments',         path: toPropertiesUrl({ property_type: 'apartment', transaction_type: 'sale' }) },
+      { name: 'Land for Sale',      path: toPropertiesUrl({ property_type: 'land',      transaction_type: 'sale' }) },
+      { name: 'Commercial',         path: toPropertiesUrl({ property_type: 'commercial',transaction_type: 'sale' }) },
+    ]},
+    { h: 'Rent', links: [
+      { name: 'Houses for Rent',    path: toPropertiesUrl({ property_type: 'house',     transaction_type: 'rent' }) },
+      { name: 'Apartments for Rent',path: toPropertiesUrl({ property_type: 'apartment', transaction_type: 'rent' }) },
+      { name: 'Short Stay',         path: toPropertiesUrl({ transaction_type: 'shortlet' }) },
+    ]},
+    { h: 'Explore', links: [
+      { name: 'All Properties',     path: '/properties' },
+      { name: 'Newest Listings',    path: toPropertiesUrl({ sort: '-created_at' }) },
+      { name: 'Most Viewed',        path: toPropertiesUrl({ sort: '-views_count' }) },
+      { name: 'Services',           path: '/services' },
+    ]},
+    { h: 'Legal', links: legalLinks },
+  ];
+
   return (
-    <footer style={{ backgroundColor: '#07111e' }}>
-      <div style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '36px 0' }}>
-        <div style={{ maxWidth: 1400, margin: '0 auto', padding: '0 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 24 }}>
-          <div>
-            <div style={{ fontSize: 10, fontWeight: 800, color: C.teal, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 8 }}>Download the App</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: '#fff', fontFamily: "'Sora',sans-serif" }}>Property search, on the go</div>
+    <footer style={{ background: '#07111e' }}>
+      {/* App download banner */}
+      <div style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '32px 0' }}>
+        <Inner>
+          <div className="h-footer-top" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 20 }}>
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--h-teal)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>Download the App</div>
+              <div style={{ fontFamily: 'var(--h-display)', fontSize: 20, fontWeight: 700, color: '#fff' }}>Property search, on the go</div>
+            </div>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              {[
+                { href: 'https://play.google.com/store', label: 'Google Play', sub: 'GET IT ON' },
+                { href: 'https://apps.apple.com',        label: 'App Store',   sub: 'DOWNLOAD ON THE' },
+              ].map(b => (
+                <a key={b.href} href={b.href} target="_blank" rel="noopener noreferrer" className="h-app-badge">
+                  <div>
+                    <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.06em' }}>{b.sub}</div>
+                    <div style={{ fontSize: 15, fontWeight: 700 }}>{b.label}</div>
+                  </div>
+                </a>
+              ))}
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            {[
-              { href: 'https://play.google.com/store', icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M3.18 23.82A2 2 0 0 1 2 22.09V1.91A2 2 0 0 1 3.18.18L13.94 12 3.18 23.82Z" fill="#34A853"/><path d="M17.8 15.7l-3.33-3.7 3.33-3.7 3.7 2.13a1.6 1.6 0 0 1 0 3.14L17.8 15.7Z" fill="#FBBC04"/><path d="M3.18.18l10.76 11.82L8.55 17 3.18.18Z" fill="#4285F4"/><path d="M8.55 7L3.18 23.82 13.94 12 8.55 7Z" fill="#EA4335"/></svg>, top: 'GET IT ON', big: 'Google Play' },
-              { href: 'https://apps.apple.com', icon: <svg width="20" height="24" viewBox="0 0 22 26" fill="white"><path d="M18.05 13.75c-.03-3.07 2.5-4.56 2.62-4.63-1.43-2.09-3.65-2.37-4.44-2.4-1.89-.19-3.7 1.12-4.66 1.12-.96 0-2.44-1.09-4.01-1.06-2.06.03-3.97 1.2-5.03 3.04-2.15 3.73-.55 9.24 1.54 12.26 1.03 1.48 2.24 3.14 3.84 3.08 1.54-.06 2.12-.99 3.98-.99 1.86 0 2.39.99 4.01.96 1.66-.03 2.71-1.5 3.72-2.99a14.1 14.1 0 0 0 1.7-3.46c-3.04-1.17-3.27-5.93-.27-6.93ZM14.96 4.3C15.82 3.27 16.4 1.84 16.24.4c-1.23.05-2.72.82-3.6 1.83-.79.89-1.49 2.35-1.3 3.73 1.38.11 2.78-.68 3.62-1.66Z"/></svg>, top: 'DOWNLOAD ON THE', big: 'App Store' },
-            ].map(b => (
-              <a key={b.href} href={b.href} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 10, backgroundColor: '#111', border: '1.5px solid rgba(255,255,255,0.12)', borderRadius: 12, padding: '10px 18px', textDecoration: 'none', color: '#fff', transition: 'border-color 0.2s' }} className="app-badge">
-                {b.icon}
-                <div>
-                  <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.06em' }}>{b.top}</div>
-                  <div style={{ fontSize: 15, fontWeight: 700 }}>{b.big}</div>
-                </div>
-              </a>
+        </Inner>
+      </div>
+
+      {/* Links grid */}
+      <Inner>
+        <div style={{ padding: '44px 0 32px', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 40 }}>
+          {/* Brand */}
+          <div style={{ maxWidth: 280 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="var(--h-teal)" /><polyline points="9 22 9 12 15 12 15 22" stroke="#fff" strokeWidth="2" strokeLinecap="round" /></svg>
+              </div>
+              <div>
+                <div style={{ fontFamily: 'var(--h-display)', fontSize: 15, fontWeight: 700, color: '#fff' }}>Metro Care Properties</div>
+                <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--h-teal)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Uganda's #1 Real Estate</div>
+              </div>
+            </div>
+            <p style={{ fontSize: 13, color: '#3d5566', lineHeight: 1.7, margin: 0 }}>
+              The most trusted property marketplace in Uganda. Find your perfect home, office, or land investment.
+            </p>
+          </div>
+
+          {/* Nav cols */}
+          <div className="h-footer-cols" style={{ display: 'flex', gap: 48, flexWrap: 'wrap' }}>
+            {cols.map(col => (
+              <div key={col.h}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--h-teal)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 14 }}>{col.h}</div>
+                {col.links.map(link => (
+                  <button key={link.name} className="h-ft-link" onClick={() => navigate(link.path)}>{link.name}</button>
+                ))}
+              </div>
             ))}
           </div>
         </div>
-      </div>
+      </Inner>
 
-      <div style={{ maxWidth: 1400, margin: '0 auto', padding: '44px 28px 32px', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 40 }}>
-        <div style={{ maxWidth: 300 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-            <div style={{ width: 38, height: 38, borderRadius: 11, backgroundColor: C.navy, border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill={C.teal}/><polyline points="9 22 9 12 15 12 15 22" stroke="#fff" strokeWidth="2" strokeLinecap="round"/></svg>
-            </div>
-            <div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: '#fff', fontFamily: "'Sora',sans-serif", letterSpacing: '-0.02em' }}>Metro Care Properties</div>
-              <div style={{ fontSize: 10, fontWeight: 700, color: C.teal, letterSpacing: '0.08em', textTransform: 'uppercase' as const }}>Uganda's #1 Real Estate</div>
-            </div>
-          </div>
-          <p style={{ fontSize: 13, color: '#3d5566', lineHeight: 1.7, margin: 0 }}>The most trusted property marketplace in Uganda. Find your perfect home, office, or land investment.</p>
-        </div>
-        <div style={{ display: 'flex', gap: 48, flexWrap: 'wrap' }}>
-          {cols.map(col => (
-            <div key={col.h}>
-              <div style={{ fontSize: 10, fontWeight: 800, color: C.teal, textTransform: 'uppercase' as const, letterSpacing: '0.1em', marginBottom: 16 }}>{col.h}</div>
-              {col.links.map(lk => (
-                <button key={lk.l} onClick={() => navigate(lk.p)} style={{ display: 'block', background: 'none', border: 'none', color: '#3d5566', fontSize: 13, marginBottom: 11, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', padding: 0, transition: 'color 0.15s' }} className="ft-link">{lk.l}</button>
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
-      <div style={{ borderTop: '1px solid rgba(255,255,255,0.04)', padding: '16px 28px', maxWidth: 1400, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+      <div style={{ borderTop: '1px solid rgba(255,255,255,0.04)', padding: '14px 28px', maxWidth: 1400, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
         <span style={{ fontSize: 12, color: '#243545' }}>© {year} Metro Properties. All rights reserved.</span>
         <span style={{ fontSize: 12, color: '#243545' }}>🇺🇬 Kampala, Uganda</span>
       </div>
@@ -304,24 +722,39 @@ const Footer: React.FC = () => {
   );
 };
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
+// ─── Loading skeleton ─────────────────────────────────────────────────────────
+const LoadingScreen: React.FC = () => (
+  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '80vh', gap: 14, background: 'var(--h-bg)' }}>
+    <div style={{ width: 40, height: 40, border: '3px solid var(--h-border)', borderTop: '3px solid var(--h-red)', borderRadius: '50%', animation: 'h-spin 0.7s linear infinite' }} />
+    <p style={{ color: 'var(--h-muted)', fontSize: 14, margin: 0 }}>Loading properties…</p>
+  </div>
+);
+
+// ─── Main Home component ──────────────────────────────────────────────────────
 const Home: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [services, setServices] = useState<Service[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({ total: 0, forSale: 0, forRent: 0, forShortlet: 0 });
-  const [heroTxType, setHeroTxType] = useState<'sale'|'rent'|'shortlet'>('sale');
-  const [propTxType, setPropTxType] = useState<'sale'|'rent'|'shortlet'>('sale');
 
+  const [properties, setProperties]   = useState<Property[]>([]);
+  const [services, setServices]       = useState<Service[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [stats, setStats]             = useState({ total: 0, forSale: 0, forRent: 0, forShortlet: 0 });
+  const [heroTxType, setHeroTxType]   = useState<'sale' | 'rent' | 'shortlet'>('sale');
+  const [propTxType, setPropTxType]   = useState<'sale' | 'rent' | 'shortlet'>('sale');
+
+  // ─── Data fetching (unchanged logic) ───────────────────────────────────
   const fetchProperties = useCallback(async () => {
     try {
       setLoading(true);
       const res = await api.get('/properties/', { params: { page_size: 200 } });
-      const data = res.data.results ?? res.data;
+      const data: Property[] = res.data.results ?? res.data;
       setProperties(data);
-      setStats({ total: data.length, forSale: data.filter((p: Property) => p.transaction_type === 'sale').length, forRent: data.filter((p: Property) => p.transaction_type === 'rent').length, forShortlet: data.filter((p: Property) => p.transaction_type === 'shortlet').length });
+      setStats({
+        total:       data.length,
+        forSale:     data.filter(p => p.transaction_type === 'sale').length,
+        forRent:     data.filter(p => p.transaction_type === 'rent').length,
+        forShortlet: data.filter(p => p.transaction_type === 'shortlet').length,
+      });
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   }, []);
@@ -329,29 +762,31 @@ const Home: React.FC = () => {
   const fetchServices = useCallback(async () => {
     try {
       const res = await api.get('/services/', { params: { page_size: 8, is_featured: true } });
-      let servicesData = res.data.results ?? res.data;
-      // ONLY add this line to process image URLs
-      servicesData = servicesData.map((s: Service) => ({
-        ...s,
-        image_url: getCloudinaryUrl(s.image || s.image_url)
-      }));
-      setServices(servicesData.slice(0, 8));
+      let data: Service[] = res.data.results ?? res.data;
+      data = data.map(s => ({ ...s, image_url: getCloudinaryUrl(s.image || s.image_url) }));
+      setServices(data.slice(0, 8));
     } catch (e) { console.error(e); }
   }, []);
 
   useEffect(() => { fetchProperties(); fetchServices(); }, [fetchProperties, fetchServices]);
 
-  const bf = useCallback((items: Property[]) => [...items.filter(p => p.is_boosted), ...items.filter(p => !p.is_boosted)], []);
+  // ─── Derived lists (unchanged logic) ───────────────────────────────────
+  const bf = useCallback((items: Property[]) =>
+    [...items.filter(p => p.is_boosted), ...items.filter(p => !p.is_boosted)], []);
+
   const premium  = useMemo(() => bf(properties.filter(p => p.is_boosted)).slice(0, 8), [properties, bf]);
-  const featured = useMemo(() => bf([...properties.filter(p => p.is_boosted), ...properties.filter(p => p.is_verified && !p.is_boosted)]).slice(0, 12), [properties, bf]);
+  const featured = useMemo(() => bf([
+    ...properties.filter(p => p.is_boosted),
+    ...properties.filter(p => p.is_verified && !p.is_boosted),
+  ]).slice(0, 12), [properties, bf]);
   const forSale  = useMemo(() => bf(properties.filter(p => p.transaction_type === 'sale')).slice(0, 6), [properties, bf]);
   const forRent  = useMemo(() => bf(properties.filter(p => p.transaction_type === 'rent')).slice(0, 6), [properties, bf]);
   const forShort = useMemo(() => bf(properties.filter(p => p.transaction_type === 'shortlet')).slice(0, 6), [properties, bf]);
 
   const neighbourhoods = useMemo(() => {
-    const map: Record<string, number> = {};
-    properties.forEach(p => { if (p.district) map[p.district] = (map[p.district] || 0) + 1; });
-    return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([d, c]) => ({ district: d, count: c }));
+    const m: Record<string, number> = {};
+    properties.forEach(p => { if (p.district) m[p.district] = (m[p.district] || 0) + 1; });
+    return Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([d, c]) => ({ district: d, count: c }));
   }, [properties]);
 
   const typeCounts = useMemo(() => {
@@ -360,68 +795,99 @@ const Home: React.FC = () => {
     return m;
   }, [properties, propTxType]);
 
-  if (loading) return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-      <div style={{ width: 40, height: 40, border: `3px solid ${C.border}`, borderTop: `3px solid ${C.red}`, borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-      <p style={{ color: C.muted, marginTop: 12, fontSize: 13 }}>Loading properties...</p>
-    </div>
-  );
+  if (loading) return <LoadingScreen />;
 
+  // ─── Render ─────────────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: C.pageBg, fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+    <div className="home-root">
 
-      <HeroSection onSearch={(f) => navigate(toPropertiesUrl(f))} stats={stats} heroTxType={heroTxType} setHeroTxType={setHeroTxType} />
+      {/* Hero */}
+      <HeroSection
+        onSearch={(f) => navigate(toPropertiesUrl(f))}
+        stats={stats}
+        heroTxType={heroTxType}
+        setHeroTxType={setHeroTxType}
+      />
 
+      {/* Stats strip */}
       {stats.total > 0 && <StatsStrip stats={stats} />}
 
-      {/* Services Section with Inspection Card */}
-      {(services.length > 0) && (
-        <Sec bg={C.white}>
-          <SectionHeader label="Services" title="Home Services" subtitle="Trusted professionals for every need" ctaLabel="Browse all" ctaUrl="/services" accent={C.teal} />
-          <div style={{ display: 'flex', gap: 18, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' as any }}>
-            {services.map(s => <ServiceCard key={s.id} service={s} onPress={() => navigate(`/services/${s.id}`)} />)}
+      {/* Feature badges row */}
+      <Sec bg="var(--h-bg)" style={{ padding: '28px 0' }}>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <FeatureBadge icon="✅" text="Verified listings only"   sub="No fake or duplicate properties" />
+          <FeatureBadge icon="🤝" text="Trusted deal rooms"       sub="Safe negotiation platform" />
+          <FeatureBadge icon="🗺️" text="All Uganda covered"       sub="Every district, every city" />
+          <FeatureBadge icon="⚡" text="Updated daily"            sub="Fresh listings every morning" />
+        </div>
+      </Sec>
+
+      {/* Services */}
+      {services.length > 0 && (
+        <Sec bg="var(--h-white)">
+          <SectionHeader label="Home Services" title="Trusted Professionals" subtitle="From cleaning to renovation — all in one place" ctaLabel="Browse all services" ctaUrl="/services" accentColor="var(--h-teal)" />
+          <div className="h-scroll-x">
+            {services.map(s => (
+              <ServiceCard key={s.id} service={s} onPress={() => navigate(`/services/${s.id}`)} />
+            ))}
           </div>
         </Sec>
       )}
 
+      {/* Premium / boosted */}
       {premium.length > 0 && (
-        <Sec bg={C.pageBg}>
-          <SectionHeader label="Premium" title="Top Premium Properties 💎" subtitle="The most prominent listings right now" ctaLabel="View all" ctaUrl="/properties?is_boosted=true" />
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px,1fr))', gap: 20 }}>
-            {premium.map(p => <PropertyCard key={p.id} property={p} onLike={fetchProperties} variant="vertical" />)}
-          </div>
+        <Sec bg="var(--h-bg)">
+          <SectionHeader
+            label="Premium"
+            title="Top Featured Properties"
+            subtitle="The most prominent listings — handpicked and boosted"
+            ctaLabel="View all featured"
+            ctaUrl="/properties?is_boosted=true"
+          />
+          <PropGrid properties={premium} onLike={fetchProperties} />
         </Sec>
       )}
 
+      {/* Handpicked / verified */}
       {featured.length > 0 && (
-        <Sec bg={C.white}>
-          <SectionHeader label="Featured" title="Handpicked Properties" subtitle="Verified, trusted, and ready to view" ctaLabel="See all" ctaUrl="/properties" />
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px,1fr))', gap: 20 }}>
-            {featured.map(p => <PropertyCard key={p.id} property={p} onLike={fetchProperties} variant="vertical" />)}
-          </div>
+        <Sec bg="var(--h-white)">
+          <SectionHeader
+            label="Featured"
+            title="Handpicked Properties"
+            subtitle="Verified, trusted, and ready to view"
+            ctaLabel="See all properties"
+            ctaUrl="/properties"
+          />
+          <PropGrid properties={featured} onLike={fetchProperties} />
         </Sec>
       )}
 
-      {/* ── Property Types ── */}
-      <Sec bg={C.pageBg}>
+      {/* Property types */}
+      <Sec bg="var(--h-bg)">
         <SectionHeader label="Browse" title="Explore by Property Type" subtitle="Filter by what you're looking for" />
-        <div style={{ display: 'flex', gap: 6, marginBottom: 28, padding: 4, backgroundColor: C.white, borderRadius: 14, border: `1px solid ${C.border}`, width: 'fit-content' }}>
+        {/* Tab toggle */}
+        <div
+          className="h-tab-row"
+          style={{ display: 'flex', gap: 4, marginBottom: 28, padding: 4, background: 'var(--h-white)', borderRadius: 12, border: '1px solid var(--h-border)', width: 'fit-content' }}
+        >
           {(['sale', 'rent', 'shortlet'] as const).map(t => (
-            <button key={t} onClick={() => setPropTxType(t)} style={{ padding: '8px 22px', borderRadius: 10, border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.18s', backgroundColor: propTxType === t ? C.navy : 'transparent', color: propTxType === t ? '#fff' : C.slate, boxShadow: propTxType === t ? '0 2px 8px rgba(13,27,46,0.2)' : 'none' }}>
+            <button key={t} className={`h-tab${propTxType === t ? ' active' : ''}`} onClick={() => setPropTxType(t)}>
               {t === 'sale' ? '🏠 For Sale' : t === 'rent' ? '🔑 For Rent' : '⏱️ Short Stay'}
             </button>
           ))}
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(175px,1fr))', gap: 16 }}>
-          {PROP_TYPES.map(item => <PropTypeTile key={item.type} item={item} tx={propTxType} count={typeCounts[item.type]} />)}
+        <div className="h-type-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(175px,1fr))', gap: 16 }}>
+          {PROP_TYPES.map(item => (
+            <PropTypeTile key={item.type} item={item} tx={propTxType} count={typeCounts[item.type]} />
+          ))}
         </div>
       </Sec>
 
-      {/* ── Neighbourhoods — bento grid ── */}
+      {/* Neighbourhoods bento */}
       {neighbourhoods.length > 0 && (
-        <Sec bg={C.white}>
-          <SectionHeader label="Locations" title="Popular Neighbourhoods" subtitle="Browse by area across Uganda" ctaLabel="All areas" ctaUrl="/properties" accent={C.teal} />
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
+        <Sec bg="var(--h-white)">
+          <SectionHeader label="Locations" title="Popular Neighbourhoods" subtitle="Browse by area across Uganda" ctaLabel="All locations" ctaUrl="/properties" accentColor="var(--h-teal)" />
+          <div className="h-nb-bento" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
             {neighbourhoods.map((n, i) => (
               <div key={n.district} style={{ gridRow: i === 0 ? 'span 2' : 'span 1' }}>
                 <NbCard district={n.district} count={n.count} tall={i === 0} />
@@ -431,72 +897,85 @@ const Home: React.FC = () => {
         </Sec>
       )}
 
+      {/* For Sale */}
       {forSale.length > 0 && (
-        <Sec bg={C.pageBg}>
+        <Sec bg="var(--h-bg)">
           <SectionHeader label="For Sale" title="Latest Properties for Sale" subtitle="Fresh listings — updated daily" ctaLabel="All for sale" ctaUrl="/properties?transaction_type=sale" />
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px,1fr))', gap: 20 }}>
-            {forSale.map(p => <PropertyCard key={p.id} property={p} onLike={fetchProperties} variant="vertical" />)}
-          </div>
+          <PropGrid properties={forSale} onLike={fetchProperties} />
         </Sec>
       )}
 
+      {/* For Rent */}
       {forRent.length > 0 && (
-        <Sec bg={C.white}>
-          <SectionHeader label="For Rent" title="Latest Properties for Rent" subtitle="Available now across Uganda" ctaLabel="All for rent" ctaUrl="/properties?transaction_type=rent" accent={C.teal} />
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px,1fr))', gap: 20 }}>
-            {forRent.map(p => <PropertyCard key={p.id} property={p} onLike={fetchProperties} variant="vertical" />)}
-          </div>
+        <Sec bg="var(--h-white)">
+          <SectionHeader label="For Rent" title="Latest Properties for Rent" subtitle="Available now across Uganda" ctaLabel="All for rent" ctaUrl="/properties?transaction_type=rent" accentColor="var(--h-teal)" />
+          <PropGrid properties={forRent} onLike={fetchProperties} />
         </Sec>
       )}
 
+      {/* Short stay */}
       {forShort.length > 0 && (
-        <Sec bg={C.pageBg}>
-          <SectionHeader label="Short Stay" title="Short-Term Stays" subtitle="Furnished and ready to move in" ctaLabel="All short stay" ctaUrl="/properties?transaction_type=shortlet" accent="#f59e0b" />
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px,1fr))', gap: 20 }}>
-            {forShort.map(p => <PropertyCard key={p.id} property={p} onLike={fetchProperties} variant="vertical" />)}
-          </div>
+        <Sec bg="var(--h-bg)">
+          <SectionHeader label="Short Stay" title="Furnished Short-Term Stays" subtitle="Ready to move in — flexible durations" ctaLabel="All short stay" ctaUrl="/properties?transaction_type=shortlet" accentColor="var(--h-amber)" />
+          <PropGrid properties={forShort} onLike={fetchProperties} />
         </Sec>
       )}
 
-      {/* ── Why Choose Us ── */}
-      <Sec bg={C.white}>
+      {/* Why us — trust cards */}
+      <Sec bg="var(--h-white)">
         <SectionHeader label="Why Us" title="The Metro Difference" subtitle="Built specifically for Uganda's property market" />
         <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
           {TRUST.map(item => <TrustCard key={item.title} {...item} />)}
         </div>
       </Sec>
 
-      {/* ── Agent CTA ── */}
-      <div style={{ position: 'relative', overflow: 'hidden', backgroundColor: C.navy, padding: '60px 0' }}>
-        <div style={{ position: 'absolute', top: -80, right: -80, width: 360, height: 360, borderRadius: '50%', backgroundColor: 'rgba(230,57,70,0.07)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', bottom: -50, left: '35%', width: 240, height: 240, borderRadius: '50%', backgroundColor: 'rgba(37,168,130,0.06)', pointerEvents: 'none' }} />
-        <div style={{ maxWidth: 1400, margin: '0 auto', padding: '0 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 32, position: 'relative', zIndex: 1 }}>
-          <div>
-            <div style={{ fontSize: 10, fontWeight: 800, color: C.teal, letterSpacing: '0.12em', textTransform: 'uppercase' as const, marginBottom: 12 }}>For Agents & Developers</div>
-            <h2 style={{ fontFamily: "'Sora',sans-serif", fontSize: 'clamp(1.5rem, 3vw, 2.2rem)', fontWeight: 800, color: '#fff', margin: '0 0 12px', letterSpacing: '-0.025em', lineHeight: 1.15 }}>Grow Your Business<br />with Metro Care Properties</h2>
-            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.55)', margin: 0, maxWidth: 460, lineHeight: 1.7 }}>List your properties and connect with thousands of serious buyers and renters across Uganda every day.</p>
+      {/* Agent / developer CTA banner */}
+      <div style={{ position: 'relative', overflow: 'hidden', background: 'var(--h-navy)', padding: '64px 0' }}>
+        {/* Decorative circles */}
+        <div style={{ position: 'absolute', top: -80, right: -60, width: 380, height: 380, borderRadius: '50%', background: 'rgba(232,64,53,0.06)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: -60, left: '30%', width: 260, height: 260, borderRadius: '50%', background: 'rgba(13,153,72,0.05)', pointerEvents: 'none' }} />
+        {/* Accent line */}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, var(--h-red), var(--h-teal), var(--h-red))', opacity: 0.7 }} />
+
+        <Inner>
+          <div className="h-agent-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 32, position: 'relative', zIndex: 1 }}>
+            <div style={{ maxWidth: 520 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--h-teal)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 14 }}>
+                For Agents &amp; Developers
+              </div>
+              <h2 style={{ fontFamily: 'var(--h-display)', fontSize: 'clamp(1.5rem, 3vw, 2.4rem)', fontWeight: 700, color: '#fff', margin: '0 0 14px', letterSpacing: '-0.02em', lineHeight: 1.15 }}>
+                Grow Your Business<br />with Metro Care Properties
+              </h2>
+              <p style={{ fontSize: 14.5, color: 'rgba(255,255,255,0.5)', margin: 0, lineHeight: 1.7 }}>
+                List your properties and connect with thousands of serious buyers and renters across Uganda every day.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', flexShrink: 0 }}>
+              <button
+                onClick={() => navigate('/register')}
+                style={{ padding: '14px 32px', borderRadius: 12, border: 'none', background: 'var(--h-red)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 20px rgba(232,64,53,0.4)', transition: 'all 0.18s' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--h-red-dark)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'var(--h-red)'; e.currentTarget.style.transform = 'none'; }}
+              >
+                List a Property
+              </button>
+              <button
+                onClick={() => navigate('/login')}
+                style={{ padding: '14px 32px', borderRadius: 12, border: '1.5px solid rgba(255,255,255,0.18)', background: 'transparent', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.18s' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.4)'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.18)'; e.currentTarget.style.background = 'transparent'; }}
+              >
+                Agent Login
+              </button>
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <button onClick={() => navigate('/register')} style={{ padding: '14px 32px', borderRadius: 12, border: 'none', backgroundColor: C.red, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 20px rgba(230,57,70,0.4)', transition: 'all 0.15s' }} className="ag-cta">List a Property</button>
-            <button onClick={() => navigate('/login')} style={{ padding: '14px 32px', borderRadius: 12, border: '1.5px solid rgba(255,255,255,0.18)', backgroundColor: 'transparent', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }} className="ag-login">Agent Login</button>
-          </div>
-        </div>
+        </Inner>
       </div>
 
       <Footer />
-      <Chatbot />
 
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        div::-webkit-scrollbar { display: none; }
-        .sh-cta:hover { opacity: 0.82; transform: translateY(-1px); }
-        .stat-btn:hover { background-color: rgba(255,255,255,0.04) !important; }
-        .ft-link:hover { color: #fff !important; }
-        .app-badge:hover { border-color: rgba(255,255,255,0.3) !important; }
-        .ag-cta:hover { background-color: ${C.redDark} !important; transform: translateY(-2px); box-shadow: 0 8px 28px rgba(230,57,70,0.5) !important; }
-        .ag-login:hover { background-color: rgba(255,255,255,0.06) !important; border-color: rgba(255,255,255,0.35) !important; }
-        button { font-family: inherit; }
-      `}</style>
+      {/* ─── Chatbot DISABLED ─── */}
+      {/* <Chatbot /> */}
     </div>
   );
 };
